@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -18,12 +19,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/joho/godotenv"
 )
 
 // --- КОНФІГУРАЦІЯ ---
 
-var wallets []string
+var (
+	wallets      []string
+	walletsMutex sync.RWMutex
+)
 
 const (
 	baseURL    = "https://s-hryvnia-1.onrender.com"
@@ -75,25 +80,17 @@ var (
 )
 
 func main() {
-
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️ .env не знайдено, використовую system env")
 	}
 
 	startTime = time.Now()
-
-	wallets = loadWalletsFromEnv()
-
 	walletDataMap = make(map[string]*WalletStats)
 
-	for _, w := range wallets {
-		walletDataMap[w] = &WalletStats{
-			Address:       w,
-			Short:         "..." + w[len(w)-8:],
-			SessionMined:  0,
-			ServerBalance: 0,
-		}
-	}
+	wallets = loadWalletsFromEnv()
+	reloadWallets()
+
+	go watchEnvFile()
 
 	go startWebServer()
 
@@ -116,14 +113,22 @@ func main() {
 			continue
 		}
 
-		currentWallet := wallets[rand.Intn(len(wallets))]
+		ws := getWallets()
+		if len(ws) == 0 {
+			pushLog("⚠️ Немає гаманців, очікую .env", "error")
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		currentWallet := ws[rand.Intn(len(ws))]
 
 		success := mineBlock(prevHash, currentWallet)
 
 		if success {
 			dataMutex.Lock()
 			sessionMined++
-			walletDataMap[currentWallet].SessionMined++
+			if ws, ok := walletDataMap[currentWallet]; ok {
+				ws.SessionMined++
+			}
 			dataMutex.Unlock()
 
 			go updateSingleBalance(currentWallet)
@@ -156,6 +161,81 @@ func loadWalletsFromEnv() []string {
 	return res
 }
 
+func reloadWallets() {
+	newWallets := loadWalletsFromEnv()
+
+	walletsMutex.Lock()
+	defer walletsMutex.Unlock()
+
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	// додати нові
+	for _, w := range newWallets {
+		if _, ok := walletDataMap[w]; !ok {
+			walletDataMap[w] = &WalletStats{
+				Address: w,
+				Short:   "..." + w[len(w)-8:],
+			}
+			pushLog("➕ Додано гаманець "+w[len(w)-6:], "info")
+		}
+	}
+
+	// видалити відсутні
+	for w := range walletDataMap {
+		if !contains(newWallets, w) {
+			delete(walletDataMap, w)
+			pushLog("➖ Видалено гаманець "+w[len(w)-6:], "info")
+		}
+	}
+
+	wallets = newWallets
+}
+
+func contains(arr []string, v string) bool {
+	for _, x := range arr {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
+func watchEnvFile() {
+	envPath, _ := filepath.Abs(".env")
+
+	watcher, _ := fsnotify.NewWatcher()
+	defer watcher.Close()
+
+	watcher.Add(envPath)
+	pushLog("👀 Watching "+envPath, "info")
+
+	for {
+		select {
+		case e := <-watcher.Events:
+			if e.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Chmod) != 0 {
+				time.Sleep(150 * time.Millisecond)
+				os.Unsetenv("WALLETS")
+				if err := godotenv.Load(envPath); err != nil {
+					pushLog("❌ env reload error", "error")
+					continue
+				}
+				reloadWallets()
+			}
+		case err := <-watcher.Errors:
+			pushLog("⚠️ watcher error: "+err.Error(), "error")
+		}
+	}
+}
+
+func getWallets() []string {
+	walletsMutex.RLock()
+	defer walletsMutex.RUnlock()
+	cp := make([]string, len(wallets))
+	copy(cp, wallets)
+	return cp
+}
+
 // --- МАЙНИНГ ---
 
 func mineBlock(prevHash string, wallet string) bool {
@@ -169,7 +249,7 @@ func mineBlock(prevHash string, wallet string) bool {
 
 	cores := runtime.NumCPU()
 	doneChan := make(chan bool)
-	isSuccess := false
+	var successFlag int32
 
 	for i := 0; i < cores; i++ {
 		go func(workerID int) {
@@ -194,7 +274,7 @@ func mineBlock(prevHash string, wallet string) bool {
 						pushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
 
 						if submitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
-							isSuccess = true
+							atomic.StoreInt32(&successFlag, 1)
 							pushLog(fmt.Sprintln("💰 Блок зараховано! (+2 S-UAH)"), "success")
 						} else {
 							pushLog("❌ Сервер відхилив блок", "error")
@@ -209,7 +289,7 @@ func mineBlock(prevHash string, wallet string) bool {
 	}
 
 	<-doneChan
-	return isSuccess
+	return atomic.LoadInt32(&successFlag) == 1
 }
 
 // --- ВЕБ СЕРВЕР ---
@@ -232,7 +312,7 @@ func startWebServer() {
 
 			var walletsExport []WalletStats
 			totalBal := 0
-			for _, wAddr := range wallets {
+			for _, wAddr := range getWallets() {
 				stats := walletDataMap[wAddr]
 				totalBal += stats.ServerBalance
 				walletsExport = append(walletsExport, *stats)
@@ -303,7 +383,7 @@ func pushLog(msg string, lType string) {
 
 func balanceUpdater() {
 	for {
-		for _, w := range wallets {
+		for _, w := range getWallets() {
 			updateSingleBalance(w)
 			time.Sleep(1 * time.Second) // Пауза між запитами, щоб не банили
 		}
