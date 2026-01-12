@@ -29,7 +29,7 @@ var wallets = []string{
 const (
 	baseURL    = "https://s-hryvnia-1.onrender.com"
 	difficulty = "00000"
-	serverPort = ":8080"
+	serverPort = ":8090"
 )
 
 // --- СТРУКТУРИ ---
@@ -40,7 +40,7 @@ type DashboardData struct {
 	Uptime       string        `json:"uptime"`
 	TotalBalance int           `json:"total_balance"`
 	Wallets      []WalletStats `json:"wallets"`
-	NewLogs      []LogEntry    `json:"new_logs"` // Тільки нові логи
+	NewLogs      []LogEntry    `json:"new_logs"`
 }
 
 type WalletStats struct {
@@ -79,7 +79,6 @@ func main() {
 	startTime = time.Now()
 	walletDataMap = make(map[string]*WalletStats)
 
-	// Ініціалізація гаманців
 	for _, w := range wallets {
 		walletDataMap[w] = &WalletStats{
 			Address:       w,
@@ -89,21 +88,17 @@ func main() {
 		}
 	}
 
-	// 1. Запускаємо HTTP сервер
 	go startWebServer()
 
-	// 2. Запускаємо монітор швидкості
 	go speedMonitor()
 
-	// 3. Запускаємо повільне оновлення балансів (раз на 10 сек)
 	go balanceUpdater()
 
 	fmt.Println("==================================================")
-	fmt.Printf("🌐 DASHBOARD: http://localhost%s\n", serverPort)
-	fmt.Println("🔨 MINER STARTED (Smooth Edition)")
+	fmt.Printf("🌐 ВЕБІНТФЕЙС: http://localhost%s\n", serverPort)
+	fmt.Println("🔨 МАЙНЕР ЗАПУЩЕНО...")
 	fmt.Println("==================================================")
 
-	// 4. Основний цикл майнінгу
 	rand.Seed(time.Now().UnixNano())
 
 	for {
@@ -124,7 +119,6 @@ func main() {
 			walletDataMap[currentWallet].SessionMined++
 			dataMutex.Unlock()
 
-			// Одразу оновлюємо баланс цього гаманця
 			go updateSingleBalance(currentWallet)
 		}
 
@@ -132,7 +126,7 @@ func main() {
 	}
 }
 
-// --- MINING ENGINE (Optimized) ---
+// --- МАЙНИНГ ---
 
 func mineBlock(prevHash string, wallet string) bool {
 	atomic.StoreInt32(&found, 0)
@@ -171,7 +165,7 @@ func mineBlock(prevHash string, wallet string) bool {
 
 						if submitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							isSuccess = true
-							pushLog(fmt.Sprintf("💰 Блок зараховано! (+1 S-UAH)"), "success")
+							pushLog(fmt.Sprintln("💰 Блок зараховано! (+2 S-UAH)"), "success")
 						} else {
 							pushLog("❌ Сервер відхилив блок", "error")
 						}
@@ -188,7 +182,7 @@ func mineBlock(prevHash string, wallet string) bool {
 	return isSuccess
 }
 
-// --- WEB SERVER ---
+// --- ВЕБ СЕРВЕР ---
 
 func startWebServer() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -201,12 +195,11 @@ func startWebServer() {
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
-		clientLogCursor := int64(0) // Клієнт знає тільки про логи до цього ID
+		clientLogCursor := int64(0)
 
 		for {
 			dataMutex.RLock()
 
-			// Формуємо список гаманців (стабільний порядок)
 			var walletsExport []WalletStats
 			totalBal := 0
 			for _, wAddr := range wallets {
@@ -215,7 +208,6 @@ func startWebServer() {
 				walletsExport = append(walletsExport, *stats)
 			}
 
-			// Отримуємо тільки нові логи
 			var newLogs []LogEntry
 			logsMutex.Lock()
 			for _, log := range logsBuffer {
@@ -224,16 +216,11 @@ func startWebServer() {
 					clientLogCursor = log.ID
 				}
 			}
-			// Чистимо старі логи в пам'яті, щоб не роздувати буфер
+
 			if len(logsBuffer) > 50 {
 				logsBuffer = logsBuffer[len(logsBuffer)-20:]
 			}
 			logsMutex.Unlock()
-
-			// Хешрейт розраховується в speedMonitor
-			// Це сирі хеші за секунду, треба ділити на фронті або тут
-			// Але hashCount скидається в speedMonitor.
-			// Використаємо глобальну змінну hashrate з speedMonitor
 
 			response := DashboardData{
 				Hashrate:     globalHashrate,
@@ -249,7 +236,6 @@ func startWebServer() {
 			fmt.Fprintf(w, "data: %s\n\n", jsonData)
 			w.(http.Flusher).Flush()
 
-			// Оновлення кожні 200мс для плавності
 			time.Sleep(200 * time.Millisecond)
 		}
 	})
@@ -257,7 +243,7 @@ func startWebServer() {
 	http.ListenAndServe(serverPort, nil)
 }
 
-// --- HELPERS ---
+// --- АПДЕЙТЕРИ ---
 
 var globalHashrate float64
 
@@ -304,7 +290,7 @@ func updateSingleBalance(wallet string) {
 	dataMutex.Unlock()
 }
 
-// --- NETWORKING (Same as before) ---
+// --- АПІШКА ---
 
 func submitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
 	payload := map[string]interface{}{
@@ -356,8 +342,7 @@ func getBalance(addr string) int {
 	return data.Balance
 }
 
-// --- FRONTEND (Smart Updates) ---
-// --- FRONTEND (FIXED) ---
+// --- FRONTEND ---
 
 const htmlPage = `
 <!DOCTYPE html>
@@ -369,22 +354,17 @@ const htmlPage = `
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --accent: #58a6ff; --green: #2ea043; --gold: #e3b341; }
-        body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; margin: 0; padding: 20px; overflow-x: hidden; }
-        .container { max-width: 900px; margin: 0 auto; }
-        
-        /* Header */
+        html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; }
+        body { display: flex; justify-content: center; padding: 20px; box-sizing: border-box; }
+        .container { max-width: 900px; width: 100%; }
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 20px; }
         h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
         .badge { background: var(--border); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: var(--accent); }
-        
-        /* Stats Grid */
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
         .card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 8px; position: relative; overflow: hidden; }
         .card h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: #8b949e; text-transform: uppercase; }
         .card .value { font-size: 1.8rem; font-weight: bold; }
         .card.glow { box-shadow: 0 0 15px rgba(88, 166, 255, 0.1); border-color: var(--accent); }
-        
-        /* Wallet Table */
         .table-container { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 30px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
@@ -393,8 +373,6 @@ const htmlPage = `
         .w-addr { color: var(--accent); }
         .w-bal { color: var(--gold); font-weight: bold; }
         .w-new { animation: flash 1s ease; }
-
-        /* Terminal Logs */
         .terminal { background: #090c10; border: 1px solid var(--border); border-radius: 8px; padding: 15px; height: 300px; overflow-y: auto; font-size: 0.85rem; }
         .log-row { margin-bottom: 4px; display: flex; gap: 10px; opacity: 0; animation: fadeIn 0.3s forwards; }
         .log-time { color: #8b949e; min-width: 70px; }
@@ -402,7 +380,6 @@ const htmlPage = `
         .type-info { color: var(--text); }
         .type-success { color: var(--green); }
         .type-error { color: #da3633; }
-
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes flash { 0% { background-color: rgba(46, 160, 67, 0.2); } 100% { background-color: transparent; } }
     </style>
@@ -410,108 +387,51 @@ const htmlPage = `
 <body>
     <div class="container">
         <header>
-            <h1>⚡ S-UAH Miner <span class="badge">PRO v4.1</span></h1>
+            <h1>⚡ S-UAH Miner PRO<span class="badge">by iShawyha</span></h1>
             <div id="uptime">0s</div>
         </header>
-
         <div class="grid">
-            <div class="card glow">
-                <h3>Hashrate</h3>
-                <div class="value" id="hashrate">0.00 MH/s</div>
-            </div>
-            <div class="card">
-                <h3>Session Blocks</h3>
-                <div class="value" id="blocks" style="color: var(--green)">0</div>
-            </div>
-            <div class="card">
-                <h3>Net Worth</h3>
-                <div class="value w-bal" id="balance">0 S-UAH</div>
-            </div>
+            <div class="card glow"><h3>ШВИДКІСТЬ МАЙНУ:</h3><div class="value" id="hashrate">0.00 MH/s</div></div>
+            <div class="card"><h3>БЛОКІВ ЗА СЕСІЮ:</h3><div class="value" id="blocks" style="color: var(--green)">0</div></div>
+            <div class="card"><h3>ЗАГАЛЬНИЙ БАЛАНС:</h3><div class="value w-bal" id="balance">0 S-UAH</div></div>
         </div>
-
         <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Wallet</th>
-                        <th>Session</th>
-                        <th>Balance</th>
-                    </tr>
-                </thead>
-                <tbody id="wallet-list">
-                    </tbody>
-            </table>
+            <table><thead><tr><th>Гаманці</th><th>Блоків за сесію</th><th>Баланс</th></tr></thead><tbody id="wallet-list"></tbody></table>
         </div>
-
-        <div class="terminal" id="terminal">
-            <div class="log-row"><span class="log-time">System</span><span class="log-msg">Waiting for connection...</span></div>
-        </div>
+        <div class="terminal" id="terminal"><div class="log-row"><span class="log-time">System</span><span class="log-msg">Waiting for connection...</span></div></div>
     </div>
-
     <script>
         const es = new EventSource("/events");
         const walletList = document.getElementById('wallet-list');
         const terminal = document.getElementById('terminal');
-
         es.onmessage = (e) => {
             const data = JSON.parse(e.data);
-
-            // Update Stats
             document.getElementById('hashrate').innerText = data.hashrate.toFixed(2) + " MH/s";
             document.getElementById('blocks').innerText = data.total_blocks;
             document.getElementById('balance').innerText = data.total_balance + " S-UAH";
             document.getElementById('uptime').innerText = data.uptime;
-
-            // Smart Table Update (Concatenation fixes the Go string issue)
             data.wallets.forEach(w => {
                 let row = document.getElementById('w-' + w.address);
-                
-                // If row doesn't exist, create it
                 if (!row) {
-                    row = document.createElement('tr');
-                    row.id = 'w-' + w.address;
-                    // Using string concatenation instead of backticks inside JS to avoid Go conflicts
-                    row.innerHTML = '<td class="w-addr">' + w.short + '</td>' +
-                                    '<td id="sess-' + w.address + '">0</td>' +
-                                    '<td id="bal-' + w.address + '" class="w-bal">0</td>';
+                    row = document.createElement('tr'); row.id = 'w-' + w.address;
+                    row.innerHTML = '<td class="w-addr">' + w.short + '</td><td id="sess-' + w.address + '">0</td><td id="bal-' + w.address + '" class="w-bal">0</td>';
                     walletList.appendChild(row);
                 }
-
-                // Update only if data changed
                 const sessCell = document.getElementById('sess-' + w.address);
                 const balCell = document.getElementById('bal-' + w.address);
-
                 if (sessCell.innerText != w.session_mined) {
-                    sessCell.innerText = w.session_mined;
-                    sessCell.classList.remove('w-new');
-                    void sessCell.offsetWidth; // trigger reflow
-                    sessCell.classList.add('w-new');
+                    sessCell.innerText = w.session_mined; sessCell.classList.remove('w-new'); void sessCell.offsetWidth; sessCell.classList.add('w-new');
                 }
-                
-                if (balCell.innerText != w.server_balance) {
-                    balCell.innerText = w.server_balance + " S-UAH";
-                }
+                if (balCell.innerText != w.server_balance + " S-UAH") { balCell.innerText = w.server_balance + " S-UAH"; }
             });
-
-            // Append new logs
             if (data.new_logs && data.new_logs.length > 0) {
                 data.new_logs.forEach(log => {
-                    const div = document.createElement('div');
-                    div.className = 'log-row';
-                    div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
-                                    '<span class="log-msg type-' + log.type + '">' + log.message + '</span>';
+                    const div = document.createElement('div'); div.className = 'log-row';
+                    div.innerHTML = '<span class="log-time">' + log.time + '</span><span class="log-msg type-' + log.type + '">' + log.message + '</span>';
                     terminal.prepend(div); 
                 });
-                
-                // Keep terminal clean
-                while(terminal.children.length > 50) {
-                    terminal.removeChild(terminal.lastChild);
-                }
+                while(terminal.children.length > 50) terminal.removeChild(terminal.lastChild);
             }
-        };
-
-        es.onerror = (err) => {
-           console.error("EventSource failed:", err);
         };
     </script>
 </body>
