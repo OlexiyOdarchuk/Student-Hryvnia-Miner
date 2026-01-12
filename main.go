@@ -9,13 +9,14 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"os"
-	"os/exec"
 	"runtime"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// --- КОНФІГУРАЦІЯ ---
 
 var wallets = []string{
 	"044cdf0c77956a8672e1e993a19d3c894252ebabb31a51fc6a898492c03d9d66201c7735759111eb2dd25377ac4f89460e9ed01dedb455372b64b7543316fb23a1",
@@ -28,59 +29,87 @@ var wallets = []string{
 const (
 	baseURL    = "https://s-hryvnia-1.onrender.com"
 	difficulty = "00000"
+	serverPort = ":8080"
 )
 
 // --- СТРУКТУРИ ---
 
-type Transaction struct {
-	From   *string `json:"from"`
-	To     string  `json:"to"`
-	Amount int     `json:"amount"`
+type DashboardData struct {
+	Hashrate     float64       `json:"hashrate"`
+	TotalBlocks  int           `json:"total_blocks"`
+	Uptime       string        `json:"uptime"`
+	TotalBalance int           `json:"total_balance"`
+	Wallets      []WalletStats `json:"wallets"`
+	NewLogs      []LogEntry    `json:"new_logs"` // Тільки нові логи
 }
 
-type BlockPayload struct {
-	PrevHash     string        `json:"prevHash"`
-	Transactions []Transaction `json:"transactions"`
-	Nonce        int           `json:"nonce"`
-	Miner        string        `json:"miner"`
-	Reward       int           `json:"reward"`
-	Timestamp    int64         `json:"timestamp"`
-	Hash         string        `json:"hash"`
+type WalletStats struct {
+	Address       string `json:"address"`
+	Short         string `json:"short"`
+	SessionMined  int    `json:"session_mined"`
+	ServerBalance int    `json:"server_balance"`
 }
 
-type BalanceResponse struct {
-	Address string `json:"address"`
-	Balance int    `json:"balance"`
+type LogEntry struct {
+	ID      int64  `json:"id"`
+	Time    string `json:"time"`
+	Message string `json:"message"`
+	Type    string `json:"type"` // "info", "success", "error"
 }
 
-// --- ГЛОБАЛЬНІ ЗМІННІ ---
+// --- ГЛОБАЛЬНИЙ СТАН ---
 
 var (
-	hashCount         uint64
-	found             int32
-	startTime         time.Time
-	sessionRewards    map[string]int // Скільки заробив кожен гаманець за сесію
-	totalMinedSession int            // Всього блоків за сесію
+	hashCount uint64
+	found     int32
+	startTime time.Time
+
+	// Статистика
+	sessionMined  int
+	walletDataMap map[string]*WalletStats
+	dataMutex     sync.RWMutex
+
+	// Логи
+	logsBuffer []LogEntry
+	logsMutex  sync.Mutex
+	lastLogID  int64
 )
 
 func main() {
 	startTime = time.Now()
-	sessionRewards = make(map[string]int)
-	rand.Seed(time.Now().UnixNano())
+	walletDataMap = make(map[string]*WalletStats)
 
+	// Ініціалізація гаманців
 	for _, w := range wallets {
-		sessionRewards[w] = 0
+		walletDataMap[w] = &WalletStats{
+			Address:       w,
+			Short:         "..." + w[len(w)-8:],
+			SessionMined:  0,
+			ServerBalance: 0,
+		}
 	}
 
-	printDashboard()
+	// 1. Запускаємо HTTP сервер
+	go startWebServer()
 
-	// Запуск монітора швидкості (ломає табличку)
-	//go speedMonitor()
+	// 2. Запускаємо монітор швидкості
+	go speedMonitor()
+
+	// 3. Запускаємо повільне оновлення балансів (раз на 10 сек)
+	go balanceUpdater()
+
+	fmt.Println("==================================================")
+	fmt.Printf("🌐 DASHBOARD: http://localhost%s\n", serverPort)
+	fmt.Println("🔨 MINER STARTED (Smooth Edition)")
+	fmt.Println("==================================================")
+
+	// 4. Основний цикл майнінгу
+	rand.Seed(time.Now().UnixNano())
 
 	for {
 		prevHash := getChainLastHash()
 		if prevHash == "" {
-			fmt.Println("⚠️ Не вийшло отримати блокчейн. Чекаємо...")
+			pushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -90,83 +119,41 @@ func main() {
 		success := mineBlock(prevHash, currentWallet)
 
 		if success {
-			totalMinedSession++
-			sessionRewards[currentWallet]++
+			dataMutex.Lock()
+			sessionMined++
+			walletDataMap[currentWallet].SessionMined++
+			dataMutex.Unlock()
 
-			printDashboard()
+			// Одразу оновлюємо баланс цього гаманця
+			go updateSingleBalance(currentWallet)
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
-func clearScreen() {
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.Command("cmd", "/c", "cls")
-	} else {
-		cmd = exec.Command("clear")
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Run()
-}
 
-// --- ТАБЛИЧКА ---
-func printDashboard() {
-	clearScreen()
-	uptime := time.Since(startTime).Truncate(time.Second)
-
-	fmt.Println("================================================================")
-	fmt.Println("🚀 Майнер студентської гривні | v2.0")
-	fmt.Println("================================================================")
-	fmt.Printf("⚡️ CPU Ядра: %d | ⏱ Час роботи: %s\n", runtime.NumCPU(), uptime)
-	fmt.Printf("⛏  Добуто блоків за сесію: \033[32m%d\033[0m (Total Earned: %d S-UAH)\n", totalMinedSession, totalMinedSession*2)
-	fmt.Println("----------------------------------------------------------------")
-	fmt.Printf("%-10s | %-15s | %-12s | %-10s\n", "ГАМАНЕЦЬ", "АДРЕСА (Кінець)", "СЕСІЯ", "БАЛАНС")
-	fmt.Println("----------------------------------------------------------------")
-
-	totalServerBalance := 0
-
-	for i, w := range wallets {
-		shortAddr := "..." + w[len(w)-10:]
-		minedNow := sessionRewards[w]
-
-		serverBal := getBalance(w)
-		totalServerBalance += serverBal
-
-		fmt.Printf("Wallet #%d  | %s | +%-11d | %d S-UAH\n", i+1, shortAddr, minedNow, serverBal)
-	}
-	fmt.Println("----------------------------------------------------------------")
-	fmt.Printf("💰 В ЗАГАЛЬНОМУ НА БАЛАНСІ: \033[33m%d S-UAH\033[0m\n", totalServerBalance)
-	fmt.Println("================================================================")
-	fmt.Println("\n🔨 Майниться...")
-}
+// --- MINING ENGINE (Optimized) ---
 
 func mineBlock(prevHash string, wallet string) bool {
 	atomic.StoreInt32(&found, 0)
 	timestamp := time.Now().UnixNano() / 1e6
 
 	txPart := []byte(`[{"from":null,"to":"` + wallet + `","amount":1}]`)
-
 	minerPart := []byte(wallet)
-
 	rewardPart := []byte("1")
-
 	tsPart := []byte(strconv.FormatInt(timestamp, 10))
-
-	baseLen := len(prevHash) + len(txPart) + len(minerPart) + len(rewardPart) + len(tsPart)
 
 	cores := runtime.NumCPU()
 	doneChan := make(chan bool)
-	var isSuccess bool = false
+	isSuccess := false
 
 	for i := 0; i < cores; i++ {
 		go func(workerID int) {
-			buffer := make([]byte, 0, baseLen+20)
+			buffer := make([]byte, 0, 512)
 			nonce := workerID
 
 			for atomic.LoadInt32(&found) == 0 {
 				buffer = buffer[:0]
-
 				buffer = append(buffer, prevHash...)
 				buffer = append(buffer, txPart...)
 				buffer = strconv.AppendInt(buffer, int64(nonce), 10)
@@ -175,20 +162,23 @@ func mineBlock(prevHash string, wallet string) bool {
 				buffer = append(buffer, tsPart...)
 
 				hashArr := sha256.Sum256(buffer)
+				atomic.AddUint64(&hashCount, 1)
 
 				if hashArr[0] == 0 && hashArr[1] == 0 && hashArr[2] < 16 {
 					if atomic.CompareAndSwapInt32(&found, 0, 1) {
-						fullHash := hex.EncodeToString(hashArr[:])
+						hashStr := hex.EncodeToString(hashArr[:])
+						pushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
 
-						txs := []Transaction{{From: nil, To: wallet, Amount: 1}}
-						if submitBlock(prevHash, txs, nonce, wallet, timestamp, fullHash) {
+						if submitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							isSuccess = true
+							pushLog(fmt.Sprintf("💰 Блок зараховано! (+1 S-UAH)"), "success")
+						} else {
+							pushLog("❌ Сервер відхилив блок", "error")
 						}
 						doneChan <- true
 					}
 					return
 				}
-
 				nonce += cores
 			}
 		}(i)
@@ -198,78 +188,332 @@ func mineBlock(prevHash string, wallet string) bool {
 	return isSuccess
 }
 
-// --- API ЗАПИТИ ---
+// --- WEB SERVER ---
 
-func getBalance(address string) int {
+func startWebServer() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(htmlPage))
+	})
+
+	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		clientLogCursor := int64(0) // Клієнт знає тільки про логи до цього ID
+
+		for {
+			dataMutex.RLock()
+
+			// Формуємо список гаманців (стабільний порядок)
+			var walletsExport []WalletStats
+			totalBal := 0
+			for _, wAddr := range wallets {
+				stats := walletDataMap[wAddr]
+				totalBal += stats.ServerBalance
+				walletsExport = append(walletsExport, *stats)
+			}
+
+			// Отримуємо тільки нові логи
+			var newLogs []LogEntry
+			logsMutex.Lock()
+			for _, log := range logsBuffer {
+				if log.ID > clientLogCursor {
+					newLogs = append(newLogs, log)
+					clientLogCursor = log.ID
+				}
+			}
+			// Чистимо старі логи в пам'яті, щоб не роздувати буфер
+			if len(logsBuffer) > 50 {
+				logsBuffer = logsBuffer[len(logsBuffer)-20:]
+			}
+			logsMutex.Unlock()
+
+			// Хешрейт розраховується в speedMonitor
+			// Це сирі хеші за секунду, треба ділити на фронті або тут
+			// Але hashCount скидається в speedMonitor.
+			// Використаємо глобальну змінну hashrate з speedMonitor
+
+			response := DashboardData{
+				Hashrate:     globalHashrate,
+				TotalBlocks:  sessionMined,
+				Uptime:       time.Since(startTime).Round(time.Second).String(),
+				TotalBalance: totalBal,
+				Wallets:      walletsExport,
+				NewLogs:      newLogs,
+			}
+			dataMutex.RUnlock()
+
+			jsonData, _ := json.Marshal(response)
+			fmt.Fprintf(w, "data: %s\n\n", jsonData)
+			w.(http.Flusher).Flush()
+
+			// Оновлення кожні 200мс для плавності
+			time.Sleep(200 * time.Millisecond)
+		}
+	})
+
+	http.ListenAndServe(serverPort, nil)
+}
+
+// --- HELPERS ---
+
+var globalHashrate float64
+
+func speedMonitor() {
+	ticker := time.NewTicker(1 * time.Second)
+	for range ticker.C {
+		c := atomic.SwapUint64(&hashCount, 0)
+		dataMutex.Lock()
+		globalHashrate = float64(c) / 1000000.0
+		dataMutex.Unlock()
+	}
+}
+
+func pushLog(msg string, lType string) {
+	logsMutex.Lock()
+	defer logsMutex.Unlock()
+
+	lastLogID++
+	entry := LogEntry{
+		ID:      lastLogID,
+		Time:    time.Now().Format("15:04:05"),
+		Message: msg,
+		Type:    lType,
+	}
+	logsBuffer = append(logsBuffer, entry)
+}
+
+func balanceUpdater() {
+	for {
+		for _, w := range wallets {
+			updateSingleBalance(w)
+			time.Sleep(1 * time.Second) // Пауза між запитами, щоб не банили
+		}
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func updateSingleBalance(wallet string) {
+	bal := getBalance(wallet)
+	dataMutex.Lock()
+	if val, ok := walletDataMap[wallet]; ok {
+		val.ServerBalance = bal
+	}
+	dataMutex.Unlock()
+}
+
+// --- NETWORKING (Same as before) ---
+
+func submitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
+	payload := map[string]interface{}{
+		"block": map[string]interface{}{
+			"prevHash": prev, "transactions": []map[string]interface{}{{"from": nil, "to": wallet, "amount": 1}},
+			"nonce": nonce, "miner": wallet, "reward": 1, "timestamp": ts, "hash": hash,
+		},
+	}
+	body, _ := json.Marshal(payload)
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(baseURL + "/balance/" + address)
+	req, _ := http.NewRequest("POST", baseURL+"/submit-block", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
-		return 0
+		return false
 	}
 	defer resp.Body.Close()
-
-	var data BalanceResponse
-	body, _ := ioutil.ReadAll(resp.Body)
-	json.Unmarshal(body, &data)
-
-	return data.Balance
+	return resp.StatusCode == 200 || resp.StatusCode == 201
 }
 
 func getChainLastHash() string {
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, _ := http.NewRequest("GET", baseURL+"/chain", nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-
-	resp, err := client.Do(req)
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(baseURL + "/chain")
 	if err != nil {
 		return ""
 	}
 	defer resp.Body.Close()
-
 	body, _ := ioutil.ReadAll(resp.Body)
 	var chain []map[string]interface{}
-	if err := json.Unmarshal(body, &chain); err != nil {
-		return ""
-	}
+	json.Unmarshal(body, &chain)
 	if len(chain) > 0 {
 		return chain[len(chain)-1]["hash"].(string)
 	}
 	return ""
 }
 
-func submitBlock(prev string, txs []Transaction, nonce int, miner string, ts int64, hash string) bool {
-	payload := map[string]interface{}{
-		"block": BlockPayload{
-			PrevHash:     prev,
-			Transactions: txs,
-			Nonce:        nonce,
-			Miner:        miner,
-			Reward:       1,
-			Timestamp:    ts,
-			Hash:         hash,
-		},
-	}
-
-	jsonData, _ := json.Marshal(payload)
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, _ := http.NewRequest("POST", baseURL+"/submit-block", bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
+func getBalance(addr string) int {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(baseURL + "/balance/" + addr)
 	if err != nil {
-		return false
+		return 0
 	}
 	defer resp.Body.Close()
-
-	return resp.StatusCode == 200 || resp.StatusCode == 201
+	body, _ := ioutil.ReadAll(resp.Body)
+	var data struct {
+		Balance int `json:"balance"`
+	}
+	json.Unmarshal(body, &data)
+	return data.Balance
 }
 
-// func speedMonitor() {
-// 	ticker := time.NewTicker(1 * time.Second)
-// 	for range ticker.C {
-// 		count := atomic.SwapUint64(&hashCount, 0)
-// 		if count > 0 {
-// 			fmt.Printf("\rSpeed: %.2f MH/s", float64(count)/1000000.0)
-// 		}
-// 	}
-// }
+// --- FRONTEND (Smart Updates) ---
+// --- FRONTEND (FIXED) ---
+
+const htmlPage = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-UAH Miner Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --accent: #58a6ff; --green: #2ea043; --gold: #e3b341; }
+        body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; margin: 0; padding: 20px; overflow-x: hidden; }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        /* Header */
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
+        .badge { background: var(--border); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: var(--accent); }
+        
+        /* Stats Grid */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 8px; position: relative; overflow: hidden; }
+        .card h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: #8b949e; text-transform: uppercase; }
+        .card .value { font-size: 1.8rem; font-weight: bold; }
+        .card.glow { box-shadow: 0 0 15px rgba(88, 166, 255, 0.1); border-color: var(--accent); }
+        
+        /* Wallet Table */
+        .table-container { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: #21262d; font-size: 0.85rem; color: #8b949e; }
+        tr:last-child td { border-bottom: none; }
+        .w-addr { color: var(--accent); }
+        .w-bal { color: var(--gold); font-weight: bold; }
+        .w-new { animation: flash 1s ease; }
+
+        /* Terminal Logs */
+        .terminal { background: #090c10; border: 1px solid var(--border); border-radius: 8px; padding: 15px; height: 300px; overflow-y: auto; font-size: 0.85rem; }
+        .log-row { margin-bottom: 4px; display: flex; gap: 10px; opacity: 0; animation: fadeIn 0.3s forwards; }
+        .log-time { color: #8b949e; min-width: 70px; }
+        .log-msg { flex-grow: 1; }
+        .type-info { color: var(--text); }
+        .type-success { color: var(--green); }
+        .type-error { color: #da3633; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes flash { 0% { background-color: rgba(46, 160, 67, 0.2); } 100% { background-color: transparent; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ S-UAH Miner <span class="badge">PRO v4.1</span></h1>
+            <div id="uptime">0s</div>
+        </header>
+
+        <div class="grid">
+            <div class="card glow">
+                <h3>Hashrate</h3>
+                <div class="value" id="hashrate">0.00 MH/s</div>
+            </div>
+            <div class="card">
+                <h3>Session Blocks</h3>
+                <div class="value" id="blocks" style="color: var(--green)">0</div>
+            </div>
+            <div class="card">
+                <h3>Net Worth</h3>
+                <div class="value w-bal" id="balance">0 S-UAH</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Wallet</th>
+                        <th>Session</th>
+                        <th>Balance</th>
+                    </tr>
+                </thead>
+                <tbody id="wallet-list">
+                    </tbody>
+            </table>
+        </div>
+
+        <div class="terminal" id="terminal">
+            <div class="log-row"><span class="log-time">System</span><span class="log-msg">Waiting for connection...</span></div>
+        </div>
+    </div>
+
+    <script>
+        const es = new EventSource("/events");
+        const walletList = document.getElementById('wallet-list');
+        const terminal = document.getElementById('terminal');
+
+        es.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+
+            // Update Stats
+            document.getElementById('hashrate').innerText = data.hashrate.toFixed(2) + " MH/s";
+            document.getElementById('blocks').innerText = data.total_blocks;
+            document.getElementById('balance').innerText = data.total_balance + " S-UAH";
+            document.getElementById('uptime').innerText = data.uptime;
+
+            // Smart Table Update (Concatenation fixes the Go string issue)
+            data.wallets.forEach(w => {
+                let row = document.getElementById('w-' + w.address);
+                
+                // If row doesn't exist, create it
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = 'w-' + w.address;
+                    // Using string concatenation instead of backticks inside JS to avoid Go conflicts
+                    row.innerHTML = '<td class="w-addr">' + w.short + '</td>' +
+                                    '<td id="sess-' + w.address + '">0</td>' +
+                                    '<td id="bal-' + w.address + '" class="w-bal">0</td>';
+                    walletList.appendChild(row);
+                }
+
+                // Update only if data changed
+                const sessCell = document.getElementById('sess-' + w.address);
+                const balCell = document.getElementById('bal-' + w.address);
+
+                if (sessCell.innerText != w.session_mined) {
+                    sessCell.innerText = w.session_mined;
+                    sessCell.classList.remove('w-new');
+                    void sessCell.offsetWidth; // trigger reflow
+                    sessCell.classList.add('w-new');
+                }
+                
+                if (balCell.innerText != w.server_balance) {
+                    balCell.innerText = w.server_balance + " S-UAH";
+                }
+            });
+
+            // Append new logs
+            if (data.new_logs && data.new_logs.length > 0) {
+                data.new_logs.forEach(log => {
+                    const div = document.createElement('div');
+                    div.className = 'log-row';
+                    div.innerHTML = '<span class="log-time">' + log.time + '</span>' +
+                                    '<span class="log-msg type-' + log.type + '">' + log.message + '</span>';
+                    terminal.prepend(div); 
+                });
+                
+                // Keep terminal clean
+                while(terminal.children.length > 50) {
+                    terminal.removeChild(terminal.lastChild);
+                }
+            }
+        };
+
+        es.onerror = (err) => {
+           console.error("EventSource failed:", err);
+        };
+    </script>
+</body>
+</html>
+`
