@@ -59,7 +59,6 @@ func checkDifficultyFast(hash [32]byte) bool {
 
 func mineBlock(prevHash string, wallet string) bool {
 	atomic.StoreInt32(&found, 0)
-	startTime = time.Now()
 
 	timestamp := time.Now().UnixMilli()
 
