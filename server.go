@@ -247,12 +247,11 @@ const htmlPage = `
 
                 if (data.new_logs && data.new_logs.length > 0) {
                     data.new_logs.forEach(log => {
-                        const div = document.createElement('div');
-                        div.className = 'log-row';
+                        const div = document.createElement('div'); div.className = 'log-row';
                         div.innerHTML = '<span class="log-time">' + log.time + '</span><span class="log-msg type-' + log.type + '">' + log.message + '</span>';
-                        terminal.insertBefore(div, terminal.firstChild);
-                        if (terminal.children.length > 100) terminal.removeChild(terminal.lastChild);
+                        terminal.prepend(div); 
                     });
+                    while(terminal.children.length > 50) terminal.removeChild(terminal.lastChild);
                 }
             } catch (e) { console.error('Parse error:', e); }
         };
