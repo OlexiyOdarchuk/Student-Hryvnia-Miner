@@ -251,7 +251,7 @@ const htmlPage = `
                         div.innerHTML = '<span class="log-time">' + log.time + '</span><span class="log-msg type-' + log.type + '">' + log.message + '</span>';
                         terminal.prepend(div); 
                     });
-                    while(terminal.children.length > 50) terminal.removeChild(terminal.lastChild);
+                    while(terminal.children.length > 200) terminal.removeChild(terminal.lastChild);
                 }
             } catch (e) { console.error('Parse error:', e); }
         };
