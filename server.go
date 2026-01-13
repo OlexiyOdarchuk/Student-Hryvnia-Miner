@@ -110,46 +110,48 @@ const htmlPage = `
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        * { box-sizing: border-box; }
         :root { --dark-bg: #0d1117; --dark-card: #161b22; --dark-border: #30363d; --dark-text: #c9d1d9; --accent: #58a6ff; --green: #2ea043; --gold: #e3b341; --red: #da3633; --bg: var(--dark-bg); --card: var(--dark-card); --border: var(--dark-border); --text: var(--dark-text); }
-        html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; }
-        body { padding: 20px; }
+        html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; -webkit-font-smoothing: antialiased; }
+        body { padding: 15px; overflow-x: hidden; }
         .container { max-width: 1200px; margin: 0 auto; }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 20px; }
-        h1 { margin: 0; font-size: 1.8rem; display: flex; align-items: center; gap: 10px; }
-        .badge { background: var(--border); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: var(--accent); }
-        .top-info { display: flex; gap: 20px; align-items: center; }
-        .status { display: flex; gap: 5px; align-items: center; font-size: 0.9rem; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+        header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; }
+        h1 { margin: 0; font-size: clamp(1.2rem, 5vw, 1.8rem); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .badge { background: var(--border); padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--accent); white-space: nowrap; }
+        .top-info { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; }
+        .status { display: flex; gap: 5px; align-items: center; font-size: clamp(0.75rem, 3vw, 0.9rem); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; flex-shrink: 0; }
         .status-dot.offline { background: var(--red); animation: none; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
-        .card { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 8px; }
-        .card h3 { margin: 0 0 10px 0; font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; }
-        .card .value { font-size: 2rem; font-weight: bold; margin: 5px 0; }
-        .card .subtext { font-size: 0.85rem; color: #8b949e; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .card { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 6px; }
+        .card h3 { margin: 0 0 8px 0; font-size: clamp(0.7rem, 2.5vw, 0.85rem); color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: clamp(1.5rem, 6vw, 2rem); font-weight: bold; margin: 5px 0; word-break: break-word; }
+        .card .subtext { font-size: clamp(0.7rem, 2.5vw, 0.85rem); color: #8b949e; }
         .card.glow { box-shadow: 0 0 20px rgba(88, 166, 255, 0.15); border-color: var(--accent); }
-        .section { margin-bottom: 30px; }
-        .section h2 { font-size: 1rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-        .chart-container { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 8px; margin-bottom: 20px; height: 250px; position: relative; }
-        .table-container { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: #21262d; font-size: 0.8rem; color: #8b949e; font-weight: 600; text-transform: uppercase; }
+        .section { margin-bottom: 20px; }
+        .section h2 { font-size: clamp(0.85rem, 3vw, 1rem); color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin: 15px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .chart-container { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 6px; margin-bottom: 15px; height: 220px; position: relative; }
+        .table-container { background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 300px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: clamp(0.7rem, 2.5vw, 0.8rem); }
+        th { background: #21262d; color: #8b949e; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
         tr:last-child td { border-bottom: none; }
-        .w-addr { color: var(--accent); font-weight: 600; }
+        .w-addr { color: var(--accent); font-weight: 600; word-break: break-all; }
         .w-bal { color: var(--gold); font-weight: bold; }
         .w-anim { animation: flash 0.8s ease; }
-        .terminal { background: #090c10; border: 1px solid var(--border); border-radius: 8px; padding: 15px; height: 350px; overflow-y: auto; font-size: 0.8rem; }
-        .log-row { margin-bottom: 5px; display: flex; gap: 10px; opacity: 0; animation: slideIn 0.4s ease forwards; font-size: 0.85rem; }
-        .log-time { color: #8b949e; min-width: 75px; flex-shrink: 0; }
+        .terminal { background: #090c10; border: 1px solid var(--border); border-radius: 6px; padding: 12px; height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; font-size: clamp(0.7rem, 2.5vw, 0.8rem); }
+        .log-row { margin-bottom: 4px; display: flex; gap: 8px; opacity: 0; animation: slideIn 0.4s ease forwards; font-size: clamp(0.65rem, 2.5vw, 0.85rem); flex-wrap: wrap; }
+        .log-time { color: #8b949e; min-width: 60px; flex-shrink: 0; }
         .log-msg { flex-grow: 1; white-space: pre-wrap; word-break: break-word; }
         .type-info { color: var(--text); }
         .type-success { color: var(--green); font-weight: bold; }
         .type-error { color: var(--red); font-weight: bold; }
         @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes flash { 0% { background-color: rgba(46, 160, 67, 0.3); } 100% { background-color: transparent; } }
-        .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); color: #8b949e; font-size: 0.8rem; }
-        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 1.3rem; } .top-info { flex-direction: column; align-items: flex-start; } }
+        .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid var(--border); color: #8b949e; font-size: clamp(0.7rem, 2vw, 0.8rem); }
+        @media (max-width: 640px) { body { padding: 10px; } header { padding-bottom: 10px; margin-bottom: 15px; } h1 { font-size: 1.1rem; } .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; } .card { padding: 12px; } .top-info { width: 100%; } .chart-container { height: 200px; padding: 10px; } .terminal { height: 250px; padding: 10px; font-size: 0.75rem; } .section { margin-bottom: 15px; } }
+        @media (max-width: 480px) { body { padding: 8px; } h1 { font-size: 0.95rem; gap: 5px; } .badge { font-size: 0.6rem; padding: 3px 6px; } .grid { grid-template-columns: 1fr; gap: 8px; } .card { padding: 10px; } .card h3 { margin-bottom: 5px; } .card .value { font-size: 1.3rem; } .status { font-size: 0.75rem; } .top-info { font-size: 0.75rem; } .chart-container { height: 180px; } .table-container { font-size: 0.7rem; } th, td { padding: 8px 10px; } .terminal { height: 220px; font-size: 0.7rem; } .footer { margin-top: 20px; padding-top: 10px; font-size: 0.65rem; } }
     </style>
 </head>
 <body>
