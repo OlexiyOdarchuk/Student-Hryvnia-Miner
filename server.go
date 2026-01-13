@@ -54,12 +54,15 @@ func startWebServer() {
 
 			var newLogs []LogEntry
 			logRing.mu.Lock()
-			for i := 0; i < logRing.pos && i < 100; i++ {
-				idx := i
-				if i < logRing.pos-100 {
-					continue
-				}
-				log := logRing.data[idx%100]
+
+			start := 0
+			if logRing.pos > 100 {
+				start = logRing.pos - 100
+			}
+
+			for i := start; i < logRing.pos; i++ {
+				log := logRing.data[i%100]
+
 				if log.ID > clientLogCursor {
 					newLogs = append(newLogs, log)
 					clientLogCursor = log.ID
