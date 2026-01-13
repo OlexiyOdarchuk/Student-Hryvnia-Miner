@@ -16,6 +16,32 @@ var (
 	startTime time.Time
 )
 
+func checkDifficulty(hashArr [32]byte, difficulty string) bool {
+	if len(difficulty) == 0 {
+		return true
+	}
+
+	for i, c := range difficulty {
+		byteIndex := i / 2
+		if byteIndex >= 32 {
+			return false
+		}
+
+		if c == '0' {
+			if i%2 == 0 {
+				if hashArr[byteIndex] >= 0x10 {
+					return false
+				}
+			} else {
+				if hashArr[byteIndex] != 0 {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
 func mineBlock(prevHash string, wallet string) bool {
 	atomic.StoreInt32(&found, 0)
 	timestamp := time.Now().UnixNano() / 1e6
@@ -46,7 +72,7 @@ func mineBlock(prevHash string, wallet string) bool {
 				hashArr := sha256.Sum256(buffer)
 				atomic.AddUint64(&hashCount, 1)
 
-				if hashArr[0] == 0 && hashArr[1] == 0 && hashArr[2] < 16 {
+				if checkDifficulty(hashArr, Config.Difficulty) {
 					if atomic.CompareAndSwapInt32(&found, 0, 1) {
 						hashStr := hex.EncodeToString(hashArr[:])
 						pushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")

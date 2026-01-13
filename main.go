@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -14,11 +17,15 @@ func main() {
 		log.Println("⚠️ .env не знайдено, використовую system env")
 	}
 
+	LoadConfig()
+
 	startTime = time.Now()
 	walletDataMap = make(map[string]*WalletStats)
 
 	wallets = loadWalletsFromEnv()
 	reloadWallets()
+
+	setupGracefulShutdown()
 
 	go watchEnvFile()
 
@@ -29,7 +36,7 @@ func main() {
 	go balanceUpdater()
 
 	fmt.Println("==================================================")
-	fmt.Printf("🌐 ВЕБІНТФЕЙС: http://localhost%s\n", serverPort)
+	fmt.Printf("🌐 ВЕБІНТФЕЙС: http://localhost%s\n", Config.ServerPort)
 	fmt.Println("🔨 МАЙНЕР ЗАПУЩЕНО...")
 	fmt.Println("==================================================")
 
@@ -66,4 +73,18 @@ func main() {
 
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+func setupGracefulShutdown() {
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		pushLog(fmt.Sprintf("🛑 Сигнал: %v. Завершення майнера...", sig), "info")
+		fmt.Println("\n==================================================")
+		fmt.Println("🛑 МАЙНЕР ЗУПИНЯЄТЬСЯ...")
+		fmt.Println("==================================================")
+		os.Exit(0)
+	}()
 }

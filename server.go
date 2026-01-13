@@ -63,7 +63,10 @@ func startWebServer() {
 		}
 	})
 
-	http.ListenAndServe(serverPort, nil)
+	pushLog("🌐 Вебсервер запущено на http://localhost"+Config.ServerPort, "info")
+	if err := http.ListenAndServe(Config.ServerPort, nil); err != nil {
+		pushLog("❌ Помилка вебсервера: "+err.Error(), "error")
+	}
 }
 
 const htmlPage = `

@@ -2,12 +2,7 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/fsnotify/fsnotify"
-	"github.com/joho/godotenv"
 )
 
 func loadWalletsFromEnv() []string {
@@ -71,33 +66,6 @@ func contains(arr []string, v string) bool {
 		}
 	}
 	return false
-}
-
-func watchEnvFile() {
-	envPath, _ := filepath.Abs(".env")
-
-	watcher, _ := fsnotify.NewWatcher()
-	defer watcher.Close()
-
-	watcher.Add(envPath)
-	pushLog("👀 Watching "+envPath, "info")
-
-	for {
-		select {
-		case e := <-watcher.Events:
-			if e.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Chmod) != 0 {
-				time.Sleep(150 * time.Millisecond)
-				os.Unsetenv("WALLETS")
-				if err := godotenv.Load(envPath); err != nil {
-					pushLog("❌ env reload error", "error")
-					continue
-				}
-				reloadWallets()
-			}
-		case err := <-watcher.Errors:
-			pushLog("⚠️ watcher error: "+err.Error(), "error")
-		}
-	}
 }
 
 func getWallets() []string {

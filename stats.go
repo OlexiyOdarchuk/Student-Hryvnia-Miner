@@ -41,9 +41,9 @@ func balanceUpdater() {
 	for {
 		for _, w := range getWallets() {
 			updateSingleBalance(w)
-			time.Sleep(1 * time.Second) // Пауза між запитами, щоб не банили
+			time.Sleep(Config.BalanceCheck)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(Config.BalanceFreq)
 	}
 }
 
