@@ -17,14 +17,13 @@ var (
 )
 
 var Config struct {
-	BaseURL      string
-	ServerPort   string
-	Difficulty   string
-	HTTPTimeout  time.Duration
-	MaxRetries   int
-	RetryDelay   time.Duration
-	BalanceCheck time.Duration
-	BalanceFreq  time.Duration
+	BaseURL     string
+	ServerPort  string
+	Difficulty  int
+	HTTPTimeout time.Duration
+	MaxRetries  int
+	RetryDelay  time.Duration
+	BalanceFreq time.Duration
 }
 
 func LoadConfig() {
@@ -39,9 +38,13 @@ func LoadConfig() {
 		Config.ServerPort = ":8090"
 	}
 
-	Config.Difficulty = os.Getenv("DIFFICULTY")
-	if Config.Difficulty == "" {
-		Config.Difficulty = "00000"
+	difficulty := os.Getenv("DIFFICULTY")
+	if difficulty == "" {
+		Config.Difficulty = 3
+	} else {
+		if d, err := strconv.Atoi(difficulty); err == nil {
+			Config.Difficulty = d
+		}
 	}
 
 	timeout := os.Getenv("HTTP_TIMEOUT")
@@ -68,15 +71,6 @@ func LoadConfig() {
 	} else {
 		if ms, err := strconv.Atoi(retryDelay); err == nil {
 			Config.RetryDelay = time.Duration(ms) * time.Millisecond
-		}
-	}
-
-	balanceCheck := os.Getenv("BALANCE_CHECK_INTERVAL")
-	if balanceCheck == "" {
-		Config.BalanceCheck = 1 * time.Second
-	} else {
-		if sec, err := strconv.Atoi(balanceCheck); err == nil {
-			Config.BalanceCheck = time.Duration(sec) * time.Second
 		}
 	}
 
@@ -118,6 +112,7 @@ func watchEnvFile() {
 					continue
 				}
 				LoadConfig()
+				compileDifficultyBits(Config.Difficulty)
 				reloadWallets()
 				pushLog("♻️ Конфіг и гаманці перезавантажені", "info")
 			}

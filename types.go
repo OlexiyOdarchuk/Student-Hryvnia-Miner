@@ -14,6 +14,7 @@ type WalletStats struct {
 	Short         string `json:"short"`
 	SessionMined  int    `json:"session_mined"`
 	ServerBalance int    `json:"server_balance"`
+	Status        string `json:"status"`
 }
 
 type LogEntry struct {

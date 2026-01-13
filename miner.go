@@ -14,29 +14,44 @@ var (
 	hashCount uint64
 	found     int32
 	startTime time.Time
+
+	diffBytes  int
+	diffNibble uint8
 )
 
-func checkDifficulty(hashArr [32]byte, difficulty string) bool {
-	if len(difficulty) == 0 {
-		return true
+func compileDifficultyBits(bits int) {
+	if bits <= 0 {
+		diffBytes = 0
+		diffNibble = 0
+		return
 	}
 
-	for i, c := range difficulty {
-		byteIndex := i / 2
-		if byteIndex >= 32 {
+	if bits >= 256 {
+		diffBytes = 32
+		diffNibble = 0
+		return
+	}
+
+	diffBytes = bits / 8
+	remBits := bits % 8
+
+	if remBits == 0 {
+		diffNibble = 0
+	} else {
+		diffNibble = 0xFF << (8 - remBits)
+	}
+}
+
+func checkDifficultyFast(hash [32]byte) bool {
+	for i := 0; i < diffBytes; i++ {
+		if hash[i] != 0 {
 			return false
 		}
+	}
 
-		if c == '0' {
-			if i%2 == 0 {
-				if hashArr[byteIndex] >= 0x10 {
-					return false
-				}
-			} else {
-				if hashArr[byteIndex] != 0 {
-					return false
-				}
-			}
+	if diffNibble != 0 && diffBytes < 32 {
+		if hash[diffBytes]&diffNibble != 0 {
+			return false
 		}
 	}
 	return true
@@ -44,7 +59,9 @@ func checkDifficulty(hashArr [32]byte, difficulty string) bool {
 
 func mineBlock(prevHash string, wallet string) bool {
 	atomic.StoreInt32(&found, 0)
-	timestamp := time.Now().UnixNano() / 1e6
+	startTime = time.Now()
+
+	timestamp := time.Now().UnixMilli()
 
 	txPart := []byte(`[{"from":null,"to":"` + wallet + `","amount":1}]`)
 	minerPart := []byte(wallet)
@@ -52,7 +69,7 @@ func mineBlock(prevHash string, wallet string) bool {
 	tsPart := []byte(strconv.FormatInt(timestamp, 10))
 
 	cores := runtime.NumCPU()
-	doneChan := make(chan bool)
+	done := make(chan struct{})
 	var successFlag int32
 
 	for i := 0; i < cores; i++ {
@@ -72,18 +89,18 @@ func mineBlock(prevHash string, wallet string) bool {
 				hashArr := sha256.Sum256(buffer)
 				atomic.AddUint64(&hashCount, 1)
 
-				if checkDifficulty(hashArr, Config.Difficulty) {
+				if checkDifficultyFast(hashArr) {
 					if atomic.CompareAndSwapInt32(&found, 0, 1) {
 						hashStr := hex.EncodeToString(hashArr[:])
 						pushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
 
 						if submitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							atomic.StoreInt32(&successFlag, 1)
-							pushLog(fmt.Sprintln("💰 Блок зараховано! (+2 S-UAH)"), "success")
+							pushLog("💰 Блок зараховано! (+2 S-UAH)", "success")
 						} else {
 							pushLog("❌ Сервер відхилив блок", "error")
 						}
-						doneChan <- true
+						close(done)
 					}
 					return
 				}
@@ -92,6 +109,6 @@ func mineBlock(prevHash string, wallet string) bool {
 		}(i)
 	}
 
-	<-doneChan
+	<-done
 	return atomic.LoadInt32(&successFlag) == 1
 }

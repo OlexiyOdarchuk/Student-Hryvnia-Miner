@@ -3,11 +3,62 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http"
+	"sync"
 	"time"
 )
+
+var httpClient = &http.Client{
+	Timeout: 5 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
+var (
+	cachedHashMutex sync.RWMutex
+	cachedHash      string
+	cachedHashTime  time.Time
+	hashCacheTTL    = 300 * time.Millisecond
+)
+
+func getChainLastHashCached() string {
+	cachedHashMutex.RLock()
+	if time.Since(cachedHashTime) < hashCacheTTL {
+		defer cachedHashMutex.RUnlock()
+		return cachedHash
+	}
+	cachedHashMutex.RUnlock()
+
+	var result string
+	err := retryWithBackoff(func() error {
+		resp, err := httpClient.Get(Config.BaseURL + "/chain")
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		body, _ := ioutil.ReadAll(resp.Body)
+		var chain []map[string]interface{}
+		json.Unmarshal(body, &chain)
+		if len(chain) > 0 {
+			result = chain[len(chain)-1]["hash"].(string)
+		}
+		return nil
+	})
+
+	if err == nil {
+		cachedHashMutex.Lock()
+		cachedHash = result
+		cachedHashTime = time.Now()
+		cachedHashMutex.Unlock()
+	}
+	return result
+}
 
 func exponentialBackoff(attempt int) time.Duration {
 	base := Config.RetryDelay
@@ -45,68 +96,56 @@ func submitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
 
 	var success bool
 	err := retryWithBackoff(func() error {
-		client := &http.Client{Timeout: Config.HTTPTimeout}
 		req, _ := http.NewRequest("POST", Config.BaseURL+"/submit-block", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
-		success = resp.StatusCode == 200 || resp.StatusCode == 201
+		if resp.StatusCode != 200 && resp.StatusCode != 201 {
+			return fmt.Errorf("status %d", resp.StatusCode)
+		}
+		success = true
 		return nil
 	})
 
-	if err != nil && !success {
+	if err != nil {
 		pushLog("❌ Помилка при відправці блоку: "+err.Error(), "error")
+		return false
 	}
 	return success
 }
 
 func getChainLastHash() string {
-	var result string
-	err := retryWithBackoff(func() error {
-		client := &http.Client{Timeout: Config.HTTPTimeout}
-		resp, err := client.Get(Config.BaseURL + "/chain")
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		body, _ := ioutil.ReadAll(resp.Body)
-		var chain []map[string]interface{}
-		json.Unmarshal(body, &chain)
-		if len(chain) > 0 {
-			result = chain[len(chain)-1]["hash"].(string)
-		}
-		return nil
-	})
-
-	if err != nil {
-		pushLog("❌ Помилка отримання хеша: "+err.Error(), "error")
-	}
-	return result
+	return getChainLastHashCached()
 }
 
 func getBalance(addr string) int {
 	var balance int
 	err := retryWithBackoff(func() error {
-		client := &http.Client{Timeout: Config.HTTPTimeout}
-		resp, err := client.Get(Config.BaseURL + "/balance/" + addr)
+		resp, err := httpClient.Get(Config.BaseURL + "/balance/" + addr)
 		if err != nil {
 			return err
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("status %d", resp.StatusCode)
+		}
 		body, _ := ioutil.ReadAll(resp.Body)
 		var data struct {
 			Balance int `json:"balance"`
 		}
-		json.Unmarshal(body, &data)
+		if err := json.Unmarshal(body, &data); err != nil {
+			return err
+		}
 		balance = data.Balance
 		return nil
 	})
 
 	if err != nil {
 		pushLog("❌ Помилка отримання балансу: "+err.Error(), "error")
+		return 0
 	}
 	return balance
 }

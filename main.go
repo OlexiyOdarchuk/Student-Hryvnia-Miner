@@ -19,6 +19,8 @@ func main() {
 
 	LoadConfig()
 
+	compileDifficultyBits(Config.Difficulty)
+
 	startTime = time.Now()
 	walletDataMap = make(map[string]*WalletStats)
 
