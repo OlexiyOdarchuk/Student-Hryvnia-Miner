@@ -40,7 +40,7 @@ func LoadConfig() {
 
 	difficulty := os.Getenv("DIFFICULTY")
 	if difficulty == "" {
-		Config.Difficulty = 3
+		Config.Difficulty = 5
 	} else {
 		if d, err := strconv.Atoi(difficulty); err == nil {
 			Config.Difficulty = d

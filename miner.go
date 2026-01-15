@@ -62,7 +62,7 @@ func mineBlock(prevHash string, wallet string) bool {
 
 	timestamp := time.Now().UnixMilli()
 
-	txPart := []byte(`[{"from":null,"to":"` + wallet + `","amount":1}]`)
+	//txPart := []byte(`[{"from":null,"to":"` + wallet + `","amount":1}]`)
 	minerPart := []byte(wallet)
 	rewardPart := []byte("1")
 	tsPart := []byte(strconv.FormatInt(timestamp, 10))
@@ -79,7 +79,7 @@ func mineBlock(prevHash string, wallet string) bool {
 			for atomic.LoadInt32(&found) == 0 {
 				buffer = buffer[:0]
 				buffer = append(buffer, prevHash...)
-				buffer = append(buffer, txPart...)
+				//buffer = append(buffer, txPart...)
 				buffer = strconv.AppendInt(buffer, int64(nonce), 10)
 				buffer = append(buffer, minerPart...)
 				buffer = append(buffer, rewardPart...)
