@@ -45,6 +45,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	for {
+		time.Sleep(300 * time.Millisecond)
 		prevHash := getChainLastHash()
 		if prevHash == "" {
 			pushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")

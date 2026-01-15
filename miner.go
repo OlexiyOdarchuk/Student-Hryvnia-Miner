@@ -95,7 +95,7 @@ func mineBlock(prevHash string, wallet string) bool {
 
 						if submitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							atomic.StoreInt32(&successFlag, 1)
-							pushLog("💰 Блок зараховано! (+2 S-UAH)", "success")
+							pushLog("💰 Блок зараховано! (+1 S-UAH)", "success")
 						} else {
 							pushLog("❌ Сервер відхилив блок", "error")
 						}
