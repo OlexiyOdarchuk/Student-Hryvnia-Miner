@@ -14,6 +14,7 @@ import (
 func handleRoot(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
+	loadHTML()
 	w.Write([]byte(htmlPage))
 }
 

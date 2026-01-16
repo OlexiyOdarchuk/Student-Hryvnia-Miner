@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="uk">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>⚡ S-UAH MINER PRO</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Audiowide&family=Share+Tech+Mono&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <style>
+            :root {
+                --neon-cyan: #00f3ff;
+                --neon-purple: #bc13fe;
+                --neon-gold: #ffd700;
+                --bg-dark: #050510;
+                --card-bg: rgba(16, 20, 35, 0.85);
+                --border-color: rgba(255, 255, 255, 0.08);
+                --success: #00ff41;
+                --danger: #ff3860;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            body {
+                font-family: "Share Tech Mono", monospace;
+                background-color: var(--bg-dark);
+                color: #fff;
+                min-height: 100vh;
+                overflow-x: hidden;
+                position: relative;
+            }
+
+            /* MATRIX BACKGROUND */
+            #matrix-canvas {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: -1;
+                opacity: 0.15;
+            }
+
+            .container {
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 15px;
+                position: relative;
+                z-index: 1;
+            }
+
+            /* HEADER & SOCIALS */
+            header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px;
+                background: var(--card-bg);
+                border: 1px solid var(--neon-cyan);
+                box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
+                border-radius: 12px;
+                margin-bottom: 20px;
+                backdrop-filter: blur(10px);
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+
+            .brand {
+                display: flex;
+                flex-direction: column;
+            }
+
+            h1 {
+                font-family: "Audiowide", cursive;
+                font-size: 1.8rem;
+                background: linear-gradient(90deg, #fff, var(--neon-cyan));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+                letter-spacing: 1px;
+            }
+
+            .social-links {
+                display: flex;
+                gap: 15px;
+            }
+
+            .social-btn {
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid var(--neon-purple);
+                color: var(--neon-purple);
+                text-decoration: none;
+                transition: all 0.3s;
+                font-size: 1.2rem;
+            }
+
+            .social-btn:hover {
+                background: var(--neon-purple);
+                color: #fff;
+                box-shadow: 0 0 15px var(--neon-purple);
+                transform: scale(1.1);
+            }
+
+            /* CONTROL BAR */
+            .control-bar {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                justify-content: flex-end;
+            }
+
+            .ctrl-btn {
+                background: rgba(0, 243, 255, 0.1);
+                border: 1px solid var(--neon-cyan);
+                color: var(--neon-cyan);
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-family: "Audiowide", cursive;
+                transition: 0.3s;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .ctrl-btn:hover {
+                background: var(--neon-cyan);
+                color: #000;
+                box-shadow: 0 0 15px var(--neon-cyan);
+            }
+
+            .ctrl-btn.active {
+                background: var(--neon-cyan);
+                color: #000;
+            }
+
+            /* STATS */
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-bottom: 25px;
+            }
+
+            .stat-card {
+                background: linear-gradient(
+                    145deg,
+                    rgba(20, 20, 30, 0.9),
+                    rgba(10, 10, 20, 0.9)
+                );
+                border-left: 4px solid var(--neon-purple);
+                padding: 15px;
+                border-radius: 8px;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .stat-card::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 50px;
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(255, 255, 255, 0.05)
+                );
+                transform: skewX(-20deg);
+            }
+
+            .stat-label {
+                color: #888;
+                font-size: 0.8rem;
+                margin-bottom: 5px;
+                text-transform: uppercase;
+            }
+            .stat-val {
+                font-size: 1.6rem;
+                font-weight: bold;
+                color: #fff;
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+            }
+            .stat-unit {
+                font-size: 0.8rem;
+                color: var(--neon-cyan);
+            }
+
+            /* WALLETS - ADAPTIVE */
+            .wallets-container {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            /* Desktop Table View */
+            .desktop-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0 8px;
+                display: table;
+            }
+            .desktop-table th {
+                text-align: left;
+                color: #666;
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            .desktop-table td {
+                background: var(--card-bg);
+                padding: 15px;
+                border-top: 1px solid var(--border-color);
+                border-bottom: 1px solid var(--border-color);
+            }
+            .desktop-table td:first-child {
+                border-left: 1px solid var(--border-color);
+                border-radius: 8px 0 0 8px;
+                border-left: 3px solid var(--neon-cyan);
+            }
+            .desktop-table td:last-child {
+                border-right: 1px solid var(--border-color);
+                border-radius: 0 8px 8px 0;
+            }
+
+            /* Mobile Card View */
+            .mobile-card {
+                display: none; /* Hidden on desktop */
+                background: var(--card-bg);
+                border: 1px solid var(--border-color);
+                border-left: 4px solid var(--neon-cyan);
+                border-radius: 10px;
+                padding: 15px;
+                position: relative;
+                transition: transform 0.2s;
+            }
+
+            /* MINING ANIMATION CLASSES */
+            .mining-success {
+                animation: goldFlash 1s ease-in-out infinite alternate;
+                border-color: var(--neon-gold) !important;
+                box-shadow: 0 0 30px rgba(255, 215, 0, 0.4) !important;
+                z-index: 10;
+            }
+
+            @keyframes goldFlash {
+                0% {
+                    border-color: var(--neon-gold);
+                    box-shadow: 0 0 10px var(--neon-gold);
+                    transform: scale(1);
+                }
+                50% {
+                    border-color: #fff;
+                    box-shadow: 0 0 40px var(--neon-gold);
+                    transform: scale(1.02);
+                }
+                100% {
+                    border-color: var(--neon-gold);
+                    box-shadow: 0 0 10px var(--neon-gold);
+                    transform: scale(1);
+                }
+            }
+
+            .balance-up {
+                color: var(--success);
+                font-weight: bold;
+                animation: popUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            @keyframes popUp {
+                0% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.5);
+                    color: #fff;
+                }
+                100% {
+                    transform: scale(1);
+                }
+            }
+
+            /* UTILITIES */
+            .addr-pill {
+                background: rgba(0, 0, 0, 0.3);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-family: monospace;
+                color: var(--neon-cyan);
+                cursor: pointer;
+                border: 1px dashed rgba(0, 243, 255, 0.3);
+                display: inline-block;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .addr-pill:active {
+                background: var(--neon-cyan);
+                color: #000;
+            }
+
+            .btn-icon {
+                background: none;
+                border: 1px solid #444;
+                color: #888;
+                border-radius: 6px;
+                padding: 6px 10px;
+                cursor: pointer;
+                transition: 0.2s;
+            }
+            .btn-icon:hover {
+                border-color: #fff;
+                color: #fff;
+            }
+            .btn-del:hover {
+                border-color: var(--danger);
+                color: var(--danger);
+                background: rgba(255, 56, 96, 0.1);
+            }
+
+            /* MODALS */
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 9999;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(8px);
+                padding: 20px;
+                align-items: center;
+                justify-content: center;
+            }
+            .modal.active {
+                display: flex;
+                animation: fadeIn 0.3s;
+            }
+            .modal-box {
+                background: #111;
+                border: 1px solid var(--neon-purple);
+                width: 100%;
+                max-width: 400px;
+                padding: 25px;
+                border-radius: 12px;
+                box-shadow: 0 0 40px rgba(188, 19, 254, 0.2);
+            }
+            .form-input {
+                width: 100%;
+                background: #000;
+                border: 1px solid #333;
+                color: #fff;
+                padding: 12px;
+                border-radius: 6px;
+                margin: 10px 0;
+                outline: none;
+                transition: 0.3s;
+                font-family: "Share Tech Mono";
+            }
+            .form-input:focus {
+                border-color: var(--neon-cyan);
+                box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            }
+            .modal-btn {
+                width: 100%;
+                padding: 12px;
+                margin-top: 10px;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-family: "Audiowide";
+                text-transform: uppercase;
+            }
+            .btn-confirm {
+                background: var(--neon-purple);
+                color: #fff;
+            }
+            .btn-cancel {
+                background: transparent;
+                color: #777;
+                border: 1px solid #333;
+            }
+
+            /* RESPONSIVE MEDIA QUERIES */
+            @media (max-width: 768px) {
+                .desktop-table {
+                    display: none;
+                }
+                .mobile-card {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }
+                .mobile-card-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .mobile-label {
+                    color: #666;
+                    font-size: 0.8rem;
+                }
+                .mobile-val {
+                    font-size: 1rem;
+                    font-weight: bold;
+                }
+
+                header {
+                    flex-direction: column;
+                    align-items: stretch;
+                    text-align: center;
+                }
+                .brand {
+                    margin-bottom: 10px;
+                }
+                .social-links {
+                    justify-content: center;
+                }
+                .control-bar {
+                    justify-content: center;
+                }
+
+                /* Make chart shorter on mobile */
+                .chart-container {
+                    height: 250px !important;
+                }
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="matrix-canvas"></canvas>
+
+        <div class="container">
+            <header>
+                <div class="brand">
+                    <h1>
+                        ⚡ S-UAH MINER
+                        <span
+                            style="font-size: 0.6em; color: var(--neon-purple)"
+                            >PRO</span
+                        >
+                    </h1>
+                    <div style="color: #666; font-size: 0.8rem">
+                        DECENTRALIZED NODE INTERFACE
+                    </div>
+                </div>
+                <div class="social-links">
+                    <a
+                        href="https://github.com/OlexiyOdarchuk"
+                        target="_blank"
+                        class="social-btn"
+                        title="GitHub"
+                        ><i class="fab fa-github"></i
+                    ></a>
+                    <a
+                        href="https://t.me/NeShawyha"
+                        target="_blank"
+                        class="social-btn"
+                        title="Telegram"
+                        ><i class="fab fa-telegram"></i
+                    ></a>
+                </div>
+            </header>
+
+            <div class="control-bar">
+                <button class="ctrl-btn" onclick="openModal('addWalletModal')">
+                    <i class="fas fa-plus"></i> ADD WALLET
+                </button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Network Hashrate</div>
+                    <div class="stat-val" id="hashrate">0.00</div>
+                    <div class="stat-unit">MH/s</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Session Blocks</div>
+                    <div
+                        class="stat-val"
+                        id="blocks"
+                        style="color: var(--neon-gold)"
+                    >
+                        0
+                    </div>
+                    <div class="stat-unit">FOUND</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Balance</div>
+                    <div
+                        class="stat-val"
+                        id="balance"
+                        style="color: var(--success)"
+                    >
+                        0.00
+                    </div>
+                    <div class="stat-unit">S-UAH</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">System Status</div>
+                    <div
+                        class="stat-val"
+                        id="status"
+                        style="font-size: 1.2rem; color: var(--success)"
+                    >
+                        ONLINE
+                    </div>
+                    <div class="stat-unit" id="uptime">0s</div>
+                </div>
+            </div>
+
+            <div
+                style="
+                    background: rgba(0, 0, 0, 0.4);
+                    border: 1px solid var(--border-color);
+                    padding: 10px;
+                    border-radius: 8px;
+                    margin-bottom: 25px;
+                "
+                class="chart-container"
+            >
+                <canvas id="hashChart" style="max-height: 300px"></canvas>
+            </div>
+
+            <h3
+                style="
+                    margin-bottom: 15px;
+                    color: var(--neon-cyan);
+                    border-left: 4px solid var(--neon-cyan);
+                    padding-left: 10px;
+                "
+            >
+                ACTIVE MINERS
+            </h3>
+            <div class="wallets-container" id="wallets-container">
+                <table class="desktop-table">
+                    <thead>
+                        <tr>
+                            <th>Alias</th>
+                            <th>Address</th>
+                            <th>Blocks</th>
+                            <th>Balance</th>
+                            <th style="text-align: right">Controls</th>
+                        </tr>
+                    </thead>
+                    <tbody id="desktop-wallet-list"></tbody>
+                </table>
+            </div>
+
+            <div style="margin-top: 30px">
+                <h3 style="margin-bottom: 10px; color: #666; font-size: 0.9rem">
+                    SYSTEM TERMINAL
+                </h3>
+                <div
+                    id="terminal"
+                    style="
+                        height: 150px;
+                        overflow-y: auto;
+                        background: #000;
+                        border: 1px solid #333;
+                        padding: 10px;
+                        font-family: &quot;Share Tech Mono&quot;;
+                        font-size: 0.8rem;
+                        color: #aaa;
+                    "
+                ></div>
+            </div>
+        </div>
+
+        <div id="addWalletModal" class="modal">
+            <div class="modal-box">
+                <h2 style="color: var(--neon-cyan); margin-bottom: 20px">
+                    LINK NEW WALLET
+                </h2>
+                <form onsubmit="submitAddWallet(event)">
+                    <input
+                        type="text"
+                        id="walletAddress"
+                        class="form-input"
+                        placeholder="Wallet Address (0x...)"
+                        required
+                        minlength="20"
+                    />
+                    <input
+                        type="password"
+                        id="walletPassword"
+                        class="form-input"
+                        placeholder="Access Password"
+                        required
+                        minlength="6"
+                    />
+                    <button type="submit" class="modal-btn btn-confirm">
+                        CONNECT NODE
+                    </button>
+                    <button
+                        type="button"
+                        class="modal-btn btn-cancel"
+                        onclick="closeModal('addWalletModal')"
+                    >
+                        CANCEL
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="editWalletModal" class="modal">
+            <div class="modal-box">
+                <h2 style="color: var(--neon-purple); margin-bottom: 20px">
+                    RENAME WORKER
+                </h2>
+                <form onsubmit="submitEditWallet(event)">
+                    <input
+                        type="text"
+                        id="editWalletName"
+                        class="form-input"
+                        placeholder="Worker Name (e.g. Miner-1)"
+                        required
+                    />
+                    <button type="submit" class="modal-btn btn-confirm">
+                        SAVE
+                    </button>
+                    <button
+                        type="button"
+                        class="modal-btn btn-cancel"
+                        onclick="closeModal('editWalletModal')"
+                    >
+                        CANCEL
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="deleteWalletModal" class="modal">
+            <div class="modal-box" style="border-color: var(--danger)">
+                <h2 style="color: var(--danger); margin-bottom: 10px">
+                    DISCONNECT?
+                </h2>
+                <p style="color: #666; margin-bottom: 20px">
+                    Mining will stop for this address.
+                </p>
+                <input
+                    type="password"
+                    id="deleteWalletPassword"
+                    class="form-input"
+                    placeholder="Confirm Password"
+                />
+                <button
+                    onclick="submitDeleteWallet()"
+                    class="modal-btn btn-confirm"
+                    style="background: var(--danger)"
+                >
+                    DISCONNECT
+                </button>
+                <button
+                    type="button"
+                    class="modal-btn btn-cancel"
+                    onclick="closeModal('deleteWalletModal')"
+                >
+                    CANCEL
+                </button>
+            </div>
+        </div>
+
+        <audio
+            id="snd-coin"
+            src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"
+            preload="auto"
+        ></audio>
+
+        <script>
+            // --- CONFIG & STATE ---
+            //
+            let chart = null;
+            let walletsData = {}; // Store previous state to detect changes
+            const es = new EventSource("/events");
+
+            // Matrix Effect
+            const canvas = document.getElementById("matrix-canvas");
+            const ctx = canvas.getContext("2d");
+            let width = (canvas.width = window.innerWidth);
+            let height = (canvas.height = window.innerHeight);
+            const cols = Math.floor(width / 20);
+            const ypos = Array(cols).fill(0);
+
+            function matrix() {
+                ctx.fillStyle = "#0001";
+                ctx.fillRect(0, 0, width, height);
+                ctx.fillStyle = "#bc13fe"; // Neon Purple matrix
+                ctx.font = "15px monospace";
+                ypos.forEach((y, ind) => {
+                    const text = String.fromCharCode(Math.random() * 128);
+                    const x = ind * 20;
+                    ctx.fillText(text, x, y);
+                    if (y > 100 + Math.random() * 10000) ypos[ind] = 0;
+                    else ypos[ind] = y + 20;
+                });
+            }
+            setInterval(matrix, 50);
+            window.onresize = () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            };
+
+            function triggerMiningSuccess(addr) {
+                const deskRow = document.getElementById("d-row-" + addr);
+                const mobCard = document.getElementById("m-card-" + addr);
+
+                if (deskRow) {
+                    deskRow.classList.add("mining-success");
+                    setTimeout(
+                        () => deskRow.classList.remove("mining-success"),
+                        2000,
+                    );
+                }
+                if (mobCard) {
+                    mobCard.classList.add("mining-success");
+                    setTimeout(
+                        () => mobCard.classList.remove("mining-success"),
+                        2000,
+                    );
+                }
+            }
+
+            // --- UI LOGIC ---
+            function renderWallets(wallets) {
+                const deskBody = document.getElementById("desktop-wallet-list");
+                const container = document.getElementById("wallets-container");
+
+                // Clear existing mobile cards (keeping the table)
+                document
+                    .querySelectorAll(".mobile-card")
+                    .forEach((e) => e.remove());
+
+                wallets.forEach((w) => {
+                    // Check for Mining Event (Blocks increased)
+                    if (
+                        walletsData[w.address] &&
+                        w.session_mined > walletsData[w.address].session_mined
+                    ) {
+                        triggerMiningSuccess(w.address);
+                    }
+
+                    // Update State Cache
+                    walletsData[w.address] = w;
+
+                    // 1. Desktop Render
+                    let dRow = document.getElementById("d-row-" + w.address);
+                    if (!dRow) {
+                        dRow = document.createElement("tr");
+                        dRow.id = "d-row-" + w.address;
+                        deskBody.appendChild(dRow);
+                    }
+                    dRow.innerHTML = `
+                    <td style="color: var(--neon-cyan); font-weight: bold;">${w.name || "Worker"}</td>
+                    <td><span class="addr-pill" onclick="copy('${w.address}')">${w.address}</span></td>
+                    <td style="color: var(--neon-gold); font-weight: bold; font-size: 1.1em;">${w.session_mined}</td>
+                    <td class="${w.server_balance > (walletsData[w.address]?.server_balance || 0) ? "balance-up" : ""}">${w.server_balance}</td>
+                    <td style="text-align: right;">
+                        <button class="btn-icon" onclick="setupEdit('${w.address}', '${w.name}')"><i class="fas fa-pen"></i></button>
+                        <button class="btn-icon btn-del" onclick="setupDelete('${w.address}')"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+
+                    // 2. Mobile Render (Cards)
+                    const mCard = document.createElement("div");
+                    mCard.className = "mobile-card";
+                    mCard.id = "m-card-" + w.address;
+                    mCard.innerHTML = `
+                    <div class="mobile-card-row" style="margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                        <span style="color: var(--neon-cyan); font-weight: bold;">${w.name || "Worker"}</span>
+                        <div style="display:flex; gap: 5px;">
+                            <button class="btn-icon" onclick="setupEdit('${w.address}', '${w.name}')"><i class="fas fa-pen"></i></button>
+                            <button class="btn-icon btn-del" onclick="setupDelete('${w.address}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="mobile-card-row">
+                        <span class="mobile-label">Address</span>
+                        <span class="addr-pill" onclick="copy('${w.address}')" style="font-size: 0.8em; max-width: 150px;">${w.address}</span>
+                    </div>
+                    <div class="mobile-card-row">
+                        <span class="mobile-label">Session Blocks</span>
+                        <span class="mobile-val" style="color: var(--neon-gold);">${w.session_mined} ⛏️</span>
+                    </div>
+                    <div class="mobile-card-row">
+                        <span class="mobile-label">Balance</span>
+                        <span class="mobile-val" style="color: var(--success);">${w.server_balance}</span>
+                    </div>
+                `;
+                    container.appendChild(mCard);
+                });
+
+                // Cleanup deleted
+                const currentAddrs = wallets.map((w) => w.address);
+                Object.keys(walletsData).forEach((addr) => {
+                    if (!currentAddrs.includes(addr)) {
+                        document.getElementById("d-row-" + addr)?.remove();
+                        delete walletsData[addr];
+                    }
+                });
+            }
+
+            // --- CHART ---
+            function initChart() {
+                const ctx = document
+                    .getElementById("hashChart")
+                    .getContext("2d");
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, "rgba(188, 19, 254, 0.5)");
+                gradient.addColorStop(1, "rgba(188, 19, 254, 0)");
+
+                chart = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: Array(60).fill(""),
+                        datasets: [
+                            {
+                                data: Array(60).fill(0),
+                                borderColor: "#bc13fe",
+                                backgroundColor: gradient,
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                tension: 0.4,
+                                fill: true,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { display: false },
+                            y: {
+                                grid: { color: "rgba(255,255,255,0.05)" },
+                                ticks: { color: "#666" },
+                            },
+                        },
+                        animation: false,
+                    },
+                });
+            }
+
+            // --- DATA STREAM ---
+            es.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+
+                document.getElementById("hashrate").innerText =
+                    data.hashrate.toFixed(2);
+                document.getElementById("blocks").innerText = data.total_blocks;
+                document.getElementById("balance").innerText =
+                    data.total_balance;
+                document.getElementById("uptime").innerText = data.uptime;
+
+                if (data.wallets) renderWallets(data.wallets);
+
+                // Chart
+                if (!chart) initChart();
+                fetch("/api/hashrate-history")
+                    .then((r) => r.json())
+                    .then((d) => {
+                        if (chart && d.history) {
+                            chart.data.datasets[0].data = d.history.slice(-60);
+                            chart.update();
+                        }
+                    });
+
+                // Logs
+                if (data.new_logs) {
+                    const term = document.getElementById("terminal");
+                    data.new_logs.forEach((l) => {
+                        const line = document.createElement("div");
+                        line.style.marginBottom = "4px";
+                        line.innerHTML = `<span style="color:#555">[${l.time}]</span> <span style="color:${l.type === "error" ? "#ff3860" : l.type === "success" ? "#00ff41" : "#ccc"}">${l.message}</span>`;
+                        term.prepend(line);
+                    });
+                }
+            };
+
+            // --- ACTIONS ---
+            function copy(txt) {
+                navigator.clipboard.writeText(txt);
+                alert("📋 Address copied!"); // Simple alert replaced with toast in prod, but simple here
+            }
+
+            let editAddr = "",
+                delAddr = "";
+
+            function openModal(id) {
+                document.getElementById(id).classList.add("active");
+                document.getElementById(id).querySelector("input")?.focus();
+            }
+            function closeModal(id) {
+                document.getElementById(id).classList.remove("active");
+            }
+
+            function setupEdit(a, n) {
+                editAddr = a;
+                document.getElementById("editWalletName").value = n || "";
+                openModal("editWalletModal");
+            }
+            function setupDelete(a) {
+                delAddr = a;
+                openModal("deleteWalletModal");
+            }
+
+            // API Calls
+            async function apiCall(endpoint, body) {
+                try {
+                    const res = await fetch("/api/" + endpoint, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                    });
+                    const d = await res.json();
+                    if (d.success) {
+                        closeModal(
+                            endpoint === "add-wallet"
+                                ? "addWalletModal"
+                                : endpoint === "rename-wallet"
+                                  ? "editWalletModal"
+                                  : "deleteWalletModal",
+                        );
+                        if (endpoint === "add-wallet") {
+                            document.getElementById("walletAddress").value = "";
+                            document.getElementById("walletPassword").value =
+                                "";
+                        }
+                    } else {
+                        alert("❌ Error: " + d.message);
+                    }
+                } catch (e) {
+                    alert("❌ Connection Error");
+                }
+            }
+
+            function submitAddWallet(e) {
+                e.preventDefault();
+                apiCall("add-wallet", {
+                    address: document
+                        .getElementById("walletAddress")
+                        .value.trim(),
+                    password: document.getElementById("walletPassword").value,
+                });
+            }
+            function submitEditWallet(e) {
+                e.preventDefault();
+                apiCall("rename-wallet", {
+                    address: editAddr,
+                    name: document.getElementById("editWalletName").value,
+                });
+            }
+            function submitDeleteWallet() {
+                apiCall("delete-wallet", {
+                    address: delAddr,
+                    password: document.getElementById("deleteWalletPassword")
+                        .value,
+                });
+            }
+
+            // Window clicks to close modals
+            window.onclick = (e) => {
+                if (e.target.classList.contains("modal"))
+                    closeModal(e.target.id);
+            };
+
+            initChart();
+        </script>
+    </body>
+</html>

@@ -71,7 +71,7 @@ func mineBlock(prevHash string, wallet string) bool {
 	done := make(chan struct{})
 	var successFlag int32
 
-	for i := 0; i < cores; i++ {
+	for i := range cores {
 		go func(workerID int) {
 			buffer := make([]byte, 0, 512)
 			nonce := workerID

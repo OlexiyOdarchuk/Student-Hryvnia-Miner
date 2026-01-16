@@ -38,7 +38,7 @@ func main() {
 	fmt.Println("🔨 МАЙНЕР ЗАПУЩЕНО...")
 	fmt.Println("==================================================")
 
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	for {
 		prevHash := getChainLastHash()
