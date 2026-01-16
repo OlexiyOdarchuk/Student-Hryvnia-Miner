@@ -45,7 +45,6 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	for {
-		time.Sleep(300 * time.Millisecond)
 		prevHash := getChainLastHash()
 		if prevHash == "" {
 			pushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")
@@ -74,7 +73,7 @@ func main() {
 			go updateSingleBalance(currentWallet)
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(170 * time.Millisecond)
 	}
 }
 

@@ -160,7 +160,7 @@ const htmlPage = `
 <body>
     <div class="container">
         <header>
-            <h1>⚡ S-UAH Miner PRO<span class="badge">by iShawyha</span></h1>
+            <h1>⚡ S-UAH Miner PRO<span class="badge"><a href="https://github.com/OlexiyOdarchuk" style="color: var(--accent); text-decoration: none;">by iShawyha</a></span></h1>
             <div class="top-info">
                 <div class="status"><div class="status-dot" id="status-dot"></div><span id="status">Connecting...</span></div>
                 <div id="uptime" style="color: #8b949e; font-size: 0.9rem;">Uptime: 0s</div>
@@ -171,7 +171,7 @@ const htmlPage = `
             <div class="card glow"><h3>📊 Швидкість</h3><div class="value" id="hashrate">0.00</div><div class="subtext">MH/s</div></div>
             <div class="card"><h3>🔗 Блоків сесії</h3><div class="value" style="color: var(--green);" id="blocks">0</div><div class="subtext">з момента запуску</div></div>
             <div class="card"><h3>💰 Баланс</h3><div class="value" style="color: var(--gold);" id="balance">0</div><div class="subtext">S-UAH</div></div>
-            <div class="card"><h3>⏱️ Частота</h3><div class="value" id="frequency">0.00</div><div class="subtext">block/час</div></div>
+            <div class="card"><h3>⏱️ Частота</h3><div class="value" id="frequency">0.00</div><div class="subtext">block/сек</div></div>
         </div>
 
         <div class="section">
@@ -223,7 +223,7 @@ const htmlPage = `
                 document.getElementById('status-dot').classList.remove('offline');
                 document.getElementById('status').innerText = '🟢 Online';
 
-                const blockRate = (data.total_blocks / Math.max(1, (Date.now() - connectedTime) / 3600000)).toFixed(2);
+                const blockRate = (data.total_blocks / Math.max(1, (Date.now() - connectedTime) / 1000)).toFixed(2);
                 document.getElementById('frequency').innerText = blockRate;
 
                 if (!chart) initChart();
