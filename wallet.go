@@ -3,7 +3,11 @@ package main
 import (
 	"os"
 	"strings"
+	"sync"
 )
+
+var walletNames = make(map[string]string)
+var walletNamesMutex sync.RWMutex
 
 func loadWalletsFromEnv() []string {
 	raw := strings.TrimSpace(os.Getenv("WALLETS"))
@@ -15,7 +19,7 @@ func loadWalletsFromEnv() []string {
 	var res []string
 	for _, w := range parts {
 		w = strings.TrimSpace(w)
-		if len(w) < 20 {
+		if len(w) < MinWalletAddressLen {
 			panic("❌ Некоректний гаманець: " + w)
 		}
 		res = append(res, w)
@@ -74,4 +78,25 @@ func getWallets() []string {
 	cp := make([]string, len(wallets))
 	copy(cp, wallets)
 	return cp
+}
+
+func setWalletName(address, name string) {
+	walletNamesMutex.Lock()
+	defer walletNamesMutex.Unlock()
+	walletNames[address] = name
+}
+
+func getWalletName(address string) string {
+	walletNamesMutex.RLock()
+	defer walletNamesMutex.RUnlock()
+	if name, ok := walletNames[address]; ok && name != "" {
+		return name
+	}
+	return "Безімено"
+}
+
+func deleteWalletName(address string) {
+	walletNamesMutex.Lock()
+	defer walletNamesMutex.Unlock()
+	delete(walletNames, address)
 }

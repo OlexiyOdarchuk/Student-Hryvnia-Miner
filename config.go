@@ -17,71 +17,50 @@ var (
 )
 
 var Config struct {
-	BaseURL     string
-	ServerPort  string
-	Difficulty  int
-	HTTPTimeout time.Duration
-	MaxRetries  int
-	RetryDelay  time.Duration
-	BalanceFreq time.Duration
+	BaseURL       string
+	ServerPort    string
+	Difficulty    int
+	HTTPTimeout   time.Duration
+	MaxRetries    int
+	RetryDelay    time.Duration
+	BalanceFreq   time.Duration
+	AdminPassword string
 }
 
 func LoadConfig() {
+	Config.BaseURL = getEnvOrDefault("BASE_URL", DefaultBaseURL)
+	Config.ServerPort = getEnvOrDefault("SERVER_PORT", DefaultServerPort)
+	Config.Difficulty = getEnvAsInt("DIFFICULTY", DefaultDifficulty)
+	Config.HTTPTimeout = getEnvAsTimeDuration("HTTP_TIMEOUT", int(DefaultHTTPTimeout.Seconds()))
+	Config.MaxRetries = getEnvAsInt("MAX_RETRIES", DefaultMaxRetries)
+	Config.RetryDelay = time.Duration(getEnvAsInt("RETRY_DELAY_MS", int(DefaultRetryDelay.Milliseconds()))) * time.Millisecond
+	Config.BalanceFreq = time.Duration(getEnvAsInt("BALANCE_UPDATE_FREQ", int(DefaultBalanceUpdateFreq.Seconds()))) * time.Second
+	Config.AdminPassword = getEnvOrDefault("ADMIN_PASSWORD", "")
+}
 
-	Config.BaseURL = os.Getenv("BASE_URL")
-	if Config.BaseURL == "" {
-		Config.BaseURL = "https://s-hryvnia-1.onrender.com"
+func getEnvOrDefault(key, defaultValue string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
 	}
+	return defaultValue
+}
 
-	Config.ServerPort = os.Getenv("SERVER_PORT")
-	if Config.ServerPort == "" {
-		Config.ServerPort = ":8090"
-	}
-
-	difficulty := os.Getenv("DIFFICULTY")
-	if difficulty == "" {
-		Config.Difficulty = 5
-	} else {
-		if d, err := strconv.Atoi(difficulty); err == nil {
-			Config.Difficulty = d
+func getEnvAsInt(key string, defaultValue int) int {
+	if val := os.Getenv(key); val != "" {
+		if num, err := strconv.Atoi(val); err == nil {
+			return num
 		}
 	}
+	return defaultValue
+}
 
-	timeout := os.Getenv("HTTP_TIMEOUT")
-	if timeout == "" {
-		Config.HTTPTimeout = 5 * time.Second
-	} else {
-		if sec, err := strconv.Atoi(timeout); err == nil {
-			Config.HTTPTimeout = time.Duration(sec) * time.Second
+func getEnvAsTimeDuration(key string, defaultSeconds int) time.Duration {
+	if val := os.Getenv(key); val != "" {
+		if sec, err := strconv.Atoi(val); err == nil {
+			return time.Duration(sec) * time.Second
 		}
 	}
-
-	retries := os.Getenv("MAX_RETRIES")
-	if retries == "" {
-		Config.MaxRetries = 3
-	} else {
-		if r, err := strconv.Atoi(retries); err == nil {
-			Config.MaxRetries = r
-		}
-	}
-
-	retryDelay := os.Getenv("RETRY_DELAY_MS")
-	if retryDelay == "" {
-		Config.RetryDelay = 100 * time.Millisecond
-	} else {
-		if ms, err := strconv.Atoi(retryDelay); err == nil {
-			Config.RetryDelay = time.Duration(ms) * time.Millisecond
-		}
-	}
-
-	balanceFreq := os.Getenv("BALANCE_UPDATE_FREQ")
-	if balanceFreq == "" {
-		Config.BalanceFreq = 5 * time.Second
-	} else {
-		if sec, err := strconv.Atoi(balanceFreq); err == nil {
-			Config.BalanceFreq = time.Duration(sec) * time.Second
-		}
-	}
+	return time.Duration(defaultSeconds) * time.Second
 }
 
 func watchEnvFile() {
@@ -97,16 +76,8 @@ func watchEnvFile() {
 		select {
 		case e := <-watcher.Events:
 			if e.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Chmod) != 0 {
-				time.Sleep(100 * time.Millisecond)
-				os.Unsetenv("WALLETS")
-				os.Unsetenv("BASE_URL")
-				os.Unsetenv("SERVER_PORT")
-				os.Unsetenv("DIFFICULTY")
-				os.Unsetenv("HTTP_TIMEOUT")
-				os.Unsetenv("MAX_RETRIES")
-				os.Unsetenv("RETRY_DELAY_MS")
-				os.Unsetenv("BALANCE_CHECK_INTERVAL")
-				os.Unsetenv("BALANCE_UPDATE_FREQ")
+				time.Sleep(EnvWatcherDebounce)
+				clearEnvVariables()
 				if err := godotenv.Load(envPath); err != nil {
 					pushLog("❌ env reload error", "error")
 					continue
@@ -119,5 +90,23 @@ func watchEnvFile() {
 		case err := <-watcher.Errors:
 			pushLog("⚠️ watcher error: "+err.Error(), "error")
 		}
+	}
+}
+
+func clearEnvVariables() {
+	envVars := []string{
+		"WALLETS",
+		"BASE_URL",
+		"SERVER_PORT",
+		"DIFFICULTY",
+		"HTTP_TIMEOUT",
+		"MAX_RETRIES",
+		"RETRY_DELAY_MS",
+		"BALANCE_CHECK_INTERVAL",
+		"BALANCE_UPDATE_FREQ",
+		"ADMIN_PASSWORD",
+	}
+	for _, v := range envVars {
+		os.Unsetenv(v)
 	}
 }

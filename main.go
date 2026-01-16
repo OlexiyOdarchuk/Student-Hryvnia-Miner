@@ -18,7 +18,6 @@ func main() {
 	}
 
 	LoadConfig()
-
 	compileDifficultyBits(Config.Difficulty)
 
 	startTime = time.Now()
@@ -30,11 +29,8 @@ func main() {
 	setupGracefulShutdown()
 
 	go watchEnvFile()
-
 	go startWebServer()
-
 	go speedMonitor()
-
 	go balanceUpdater()
 
 	fmt.Println("==================================================")
@@ -73,7 +69,7 @@ func main() {
 			go updateSingleBalance(currentWallet)
 		}
 
-		time.Sleep(170 * time.Millisecond)
+		time.Sleep(MinerSleepInterval)
 	}
 }
 

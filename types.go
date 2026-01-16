@@ -11,6 +11,7 @@ type DashboardData struct {
 
 type WalletStats struct {
 	Address       string `json:"address"`
+	Name          string `json:"name"`
 	Short         string `json:"short"`
 	SessionMined  int    `json:"session_mined"`
 	ServerBalance int    `json:"server_balance"`

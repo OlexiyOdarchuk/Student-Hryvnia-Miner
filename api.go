@@ -12,11 +12,11 @@ import (
 )
 
 var httpClient = &http.Client{
-	Timeout: 5 * time.Second,
+	Timeout: DefaultHTTPTimeout,
 	Transport: &http.Transport{
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
+		MaxIdleConns:        MaxIdleConnections,
+		MaxIdleConnsPerHost: MaxIdleConnsPerHost,
+		IdleConnTimeout:     IdleConnTimeout,
 	},
 }
 
@@ -24,7 +24,7 @@ var (
 	cachedHashMutex sync.RWMutex
 	cachedHash      string
 	cachedHashTime  time.Time
-	hashCacheTTL    = 300 * time.Millisecond
+	hashCacheTTL    = DefaultHashCacheTTL
 )
 
 func getChainLastHashCached() string {
@@ -63,8 +63,8 @@ func getChainLastHashCached() string {
 func exponentialBackoff(attempt int) time.Duration {
 	base := Config.RetryDelay
 	delayMs := float64(base.Milliseconds()) * math.Pow(2, float64(attempt))
-	if delayMs > 30000 {
-		delayMs = 30000
+	if delayMs > ExponentialBackoffMaxMs {
+		delayMs = ExponentialBackoffMaxMs
 	}
 	return time.Duration(delayMs) * time.Millisecond
 }

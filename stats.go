@@ -26,12 +26,14 @@ var logRing LogRing
 
 func speedMonitor() {
 	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 	for range ticker.C {
 		c := atomic.SwapUint64(&hashCount, 0)
-		hashPerSec := float64(c) / 1000000.0
+		hashPerSec := float64(c) / MegahashDivisor
 		globalHashrate.Store(hashPerSec)
+
 		hashrateHistMutex.Lock()
-		hashrateHistory[hashrateHistPos%60] = hashPerSec
+		hashrateHistory[hashrateHistPos%HashrateHistorySize] = hashPerSec
 		hashrateHistPos++
 		hashrateHistMutex.Unlock()
 	}
@@ -47,7 +49,7 @@ func pushLog(msg string, lType string) {
 		Message: msg,
 		Type:    lType,
 	}
-	logRing.data[logRing.pos%100] = entry
+	logRing.data[logRing.pos%LogRingBufferSize] = entry
 	logRing.pos++
 }
 
