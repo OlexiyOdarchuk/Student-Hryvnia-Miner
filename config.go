@@ -35,7 +35,7 @@ func LoadConfig() {
 	Config.MaxRetries = getEnvAsInt("MAX_RETRIES", DefaultMaxRetries)
 	Config.RetryDelay = time.Duration(getEnvAsInt("RETRY_DELAY_MS", int(DefaultRetryDelay.Milliseconds()))) * time.Millisecond
 	Config.BalanceFreq = time.Duration(getEnvAsInt("BALANCE_UPDATE_FREQ", int(DefaultBalanceUpdateFreq.Seconds()))) * time.Second
-	Config.AdminPassword = getEnvOrDefault("ADMIN_PASSWORD", "")
+	Config.AdminPassword = getEnvOrDefault("ADMIN_PASSWORD", DefaultAdminPassword)
 }
 
 func getEnvOrDefault(key, defaultValue string) string {

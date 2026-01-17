@@ -4,7 +4,7 @@ import "time"
 
 // Server configuration constants
 const (
-	DefaultServerPort        = ":8090"
+	DefaultServerPort        = ":8080"
 	DefaultBaseURL           = "https://s-hryvnia-1.onrender.com"
 	walletsFile              = "wallets.json"
 	DefaultDifficulty        = 20
@@ -14,6 +14,7 @@ const (
 	DefaultBalanceUpdateFreq = 5 * time.Second
 	DefaultHashCacheTTL      = 300 * time.Millisecond
 	DefaultSSEUpdateInterval = 200 * time.Millisecond
+	DefaultAdminPassword     = "admin123"
 )
 
 // HTTP client configuration
