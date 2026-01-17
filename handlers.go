@@ -340,7 +340,7 @@ func handleToggleWallet(w http.ResponseWriter, r *http.Request) {
 	dataMutex.Lock()
 	stats, ok := walletDataMap[req.Address]
 	if ok {
-		stats.Working = !req.Working
+		stats.Working = req.Working
 	}
 	dataMutex.Unlock()
 
