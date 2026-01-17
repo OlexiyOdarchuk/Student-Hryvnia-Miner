@@ -2,19 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 func handleRoot(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
-	loadHTML()
 	w.Write([]byte(htmlPage))
 }
 
@@ -185,51 +181,29 @@ func handleAddWallet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	envPath := ".env"
-	envContent, _ := ioutil.ReadFile(envPath)
-	envStr := string(envContent)
-	lines := strings.Split(envStr, "\n")
-	found := false
-	var newLines []string
-
-	for _, line := range lines {
-		if strings.HasPrefix(line, "WALLETS=") {
-			currentWallets := strings.TrimPrefix(line, "WALLETS=")
-			currentWallets = strings.Trim(currentWallets, "\"")
-			if currentWallets != "" {
-				newLines = append(newLines, "WALLETS=\""+currentWallets+","+req.Address+"\"")
-			} else {
-				newLines = append(newLines, "WALLETS=\""+req.Address+"\"")
-			}
-			found = true
-		} else if line != "" {
-			newLines = append(newLines, line)
-		}
-	}
-
-	if !found {
-		newLines = append(newLines, "WALLETS=\""+req.Address+"\"")
-	}
-
-	newEnvStr := strings.Join(newLines, "\n")
-	if err := ioutil.WriteFile(envPath, []byte(newEnvStr), 0644); err != nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"message": "Помилка при збереженні конфіга: " + err.Error(),
-		})
+	dataMutex.Lock()
+	if _, exists := walletDataMap[req.Address]; exists {
+		dataMutex.Unlock()
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Вже існує"})
 		return
 	}
 
-	os.Unsetenv("WALLETS")
-	godotenv.Load(envPath)
-	reloadWallets()
+	// Створюємо новий запис
+	newWallet := &WalletStats{
+		Address:       req.Address,
+		Name:          "Worker",
+		Working:       true,
+		SessionMined:  0,
+		ServerBalance: 0,
+	}
+	walletDataMap[req.Address] = newWallet
+	wallets = append(wallets, req.Address)
+	dataMutex.Unlock()
 
-	pushLog("✅ Гаманець додано: "+req.Address[:12]+"...", "success")
+	saveWallets()
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Гаманець успішно додано!",
-	})
+	pushLog("➕ Додано: "+req.Address[:8]+"...", "success")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
 
 func handleRenameWallet(w http.ResponseWriter, r *http.Request) {
@@ -265,6 +239,7 @@ func handleRenameWallet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setWalletName(req.Address, req.Name)
+	saveWallets()
 	pushLog("✏️ Гаманець перейменовано: "+req.Name, "success")
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -300,50 +275,81 @@ func handleDeleteWallet(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	envPath := ".env"
-	envContent, _ := ioutil.ReadFile(envPath)
-	envStr := string(envContent)
-	lines := strings.Split(envStr, "\n")
-	var newLines []string
-
-	for _, line := range lines {
-		if strings.HasPrefix(line, "WALLETS=") {
-			currentWallets := strings.TrimPrefix(line, "WALLETS=")
-			currentWallets = strings.Trim(currentWallets, "\"")
-			var walletList []string
-			for _, w := range strings.Split(currentWallets, ",") {
-				w = strings.TrimSpace(w)
-				if w != "" && w != req.Address {
-					walletList = append(walletList, w)
-				}
-			}
-			if len(walletList) > 0 {
-				newLines = append(newLines, "WALLETS=\""+strings.Join(walletList, ",")+"\"")
-			}
-		} else if line != "" {
-			newLines = append(newLines, line)
-		}
+	dataMutex.Lock()
+	if _, exists := walletDataMap[req.Address]; !exists {
+		dataMutex.Unlock()
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Не знайдено"})
+		return
 	}
 
-	newEnvStr := strings.Join(newLines, "\n")
-	if err := ioutil.WriteFile(envPath, []byte(newEnvStr), 0644); err != nil {
+	delete(walletDataMap, req.Address)
+
+	newWalletsList := []string{}
+	for _, addr := range wallets {
+		if addr != req.Address {
+			newWalletsList = append(newWalletsList, addr)
+		}
+	}
+	wallets = newWalletsList
+	dataMutex.Unlock()
+
+	saveWallets()
+
+	pushLog("🗑️ Видалено: "+req.Address[:8]+"...", "info")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func handleToggleWallet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		Address string `json:"address"`
+		Working bool   `json:"working"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": false,
-			"message": "Помилка при збереженні конфіга: " + err.Error(),
+			"message": "Invalid request format",
 		})
 		return
 	}
 
-	os.Unsetenv("WALLETS")
-	godotenv.Load(envPath)
-	deleteWalletName(req.Address)
-	reloadWallets()
+	req.Address = strings.TrimSpace(req.Address)
 
-	pushLog("🗑️ Гаманець видалено", "success")
+	dataMutex.Lock()
+	stats, ok := walletDataMap[req.Address]
+	if ok {
+		stats.Working = !req.Working
+	}
+	dataMutex.Unlock()
+
+	if !ok {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Гаманець не знайдено",
+		})
+		return
+	}
+
+	statusIcon := "▶️"
+	statusText := "відновлено"
+	if !req.Working {
+		statusIcon = "⏸️"
+		statusText = "призупинено"
+	}
+	saveWallets()
+	pushLog(fmt.Sprintf("%s Майнінг %s для: %s...", statusIcon, statusText, req.Address[:12]), "info")
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Гаманець видалено",
+		"message": "Статус оновлено",
+		"working": req.Working,
 	})
 }
 
@@ -354,4 +360,5 @@ func setupRoutes() {
 	http.HandleFunc("/api/add-wallet", handleAddWallet)
 	http.HandleFunc("/api/rename-wallet", handleRenameWallet)
 	http.HandleFunc("/api/delete-wallet", handleDeleteWallet)
+	http.HandleFunc("/api/toggle-wallet", handleToggleWallet)
 }

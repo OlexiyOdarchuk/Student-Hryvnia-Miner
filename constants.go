@@ -6,6 +6,7 @@ import "time"
 const (
 	DefaultServerPort        = ":8090"
 	DefaultBaseURL           = "https://s-hryvnia-1.onrender.com"
+	walletsFile              = "wallets.json"
 	DefaultDifficulty        = 20
 	DefaultHTTPTimeout       = 5 * time.Second
 	DefaultMaxRetries        = 3

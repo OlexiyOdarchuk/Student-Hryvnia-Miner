@@ -16,6 +16,7 @@ type WalletStats struct {
 	SessionMined  int    `json:"session_mined"`
 	ServerBalance int    `json:"server_balance"`
 	Status        string `json:"status"`
+	Working       bool   `json:"working"`
 }
 
 type LogEntry struct {
@@ -23,4 +24,10 @@ type LogEntry struct {
 	Time    string `json:"time"`
 	Message string `json:"message"`
 	Type    string `json:"type"` // "info", "success", "error"
+}
+
+type WalletConfig struct {
+	Address string `json:"address"`
+	Name    string `json:"name"`
+	Working bool   `json:"working"`
 }

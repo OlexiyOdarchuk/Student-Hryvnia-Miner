@@ -1,942 +1,1136 @@
 <!doctype html>
-<html lang="uk">
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta
             name="viewport"
             content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
-        <title>⚡ S-UAH MINER PRO</title>
+        <title>S-UAH // NEON NEXUS</title>
+
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
         <link
-            href="https://fonts.googleapis.com/css2?family=Audiowide&family=Share+Tech+Mono&display=swap"
+            href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
             rel="stylesheet"
         />
         <link
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
+
         <style>
             :root {
-                --neon-cyan: #00f3ff;
+                /* COLOR PALETTE: NEON CYBERPUNK */
+                --bg-deep: #030512;
+                --bg-panel: rgba(10, 15, 35, 0.7);
+
+                --neon-cyan: #00fff2;
+                --neon-pink: #ff00d4;
                 --neon-purple: #bc13fe;
                 --neon-gold: #ffd700;
-                --bg-dark: #050510;
-                --card-bg: rgba(16, 20, 35, 0.85);
-                --border-color: rgba(255, 255, 255, 0.08);
-                --success: #00ff41;
-                --danger: #ff3860;
+                --neon-red: #ff3860;
+
+                --text-bright: #ffffff;
+                --text-dim: #8a9dbf;
+
+                --glow-cyan:
+                    0 0 10px rgba(0, 255, 242, 0.5),
+                    0 0 20px rgba(0, 255, 242, 0.3);
+                --glow-pink:
+                    0 0 10px rgba(255, 0, 212, 0.5),
+                    0 0 20px rgba(255, 0, 212, 0.3);
+                --glow-gold: 0 0 10px rgba(255, 215, 0, 0.5);
+
+                --border-light: 1px solid rgba(0, 255, 242, 0.2);
+                --backdrop-blur: blur(12px);
+
+                --font-header: "Rajdhani", sans-serif;
+                --font-ui: "Inter", sans-serif;
+                --font-mono: "JetBrains Mono", monospace;
             }
 
             * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-                -webkit-tap-highlight-color: transparent;
+                outline: none;
             }
 
             body {
-                font-family: "Share Tech Mono", monospace;
-                background-color: var(--bg-dark);
-                color: #fff;
-                min-height: 100vh;
-                overflow-x: hidden;
+                background-color: var(--bg-deep);
+                color: var(--text-bright);
+                font-family: var(--font-ui);
+                height: 100vh;
+                display: flex;
+                overflow: hidden;
+                /* Animated Cyber Grid Background */
+                background-image:
+                    linear-gradient(
+                        rgba(0, 255, 242, 0.03) 1px,
+                        transparent 1px
+                    ),
+                    linear-gradient(
+                        90deg,
+                        rgba(0, 255, 242, 0.03) 1px,
+                        transparent 1px
+                    );
+                background-size: 30px 30px;
                 position: relative;
             }
 
-            /* MATRIX BACKGROUND */
-            #matrix-canvas {
+            /* Ambient Light Effect */
+            body::before {
+                content: "";
                 position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
+                top: -50%;
+                left: -50%;
+                width: 200%;
+                height: 200%;
+                background: radial-gradient(
+                    circle at center,
+                    rgba(188, 19, 254, 0.15) 0%,
+                    rgba(3, 5, 18, 0) 60%
+                );
                 z-index: -1;
-                opacity: 0.15;
+                pointer-events: none;
+                animation: pulseAmbient 10s infinite alternate;
+            }
+            @keyframes pulseAmbient {
+                0% {
+                    opacity: 0.5;
+                    transform: scale(1);
+                }
+                100% {
+                    opacity: 1;
+                    transform: scale(1.1);
+                }
             }
 
-            .container {
-                max-width: 1400px;
-                margin: 0 auto;
-                padding: 15px;
+            /* --- COMMON STYLES --- */
+            .glass-panel {
+                background: var(--bg-panel);
+                backdrop-filter: var(--backdrop-blur);
+                border: var(--border-light);
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+                border-radius: 12px;
+            }
+
+            .neon-text-cyan {
+                color: var(--neon-cyan);
+                text-shadow: 0 0 10px rgba(0, 255, 242, 0.7);
+            }
+            .neon-text-pink {
+                color: var(--neon-pink);
+                text-shadow: 0 0 10px rgba(255, 0, 212, 0.7);
+            }
+            .neon-text-gold {
+                color: var(--neon-gold);
+                text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+            }
+
+            /* --- LAYOUT --- */
+            .sidebar {
+                width: 280px;
+                display: flex;
+                flex-direction: column;
+                padding: 25px;
+                flex-shrink: 0;
+                z-index: 10;
+                border-right: var(--border-light);
+            }
+
+            .main-content {
+                flex: 1;
+                display: grid;
+                grid-template-rows: auto 1fr 180px; /* Chart / Table / Terminal */
+                overflow: hidden;
                 position: relative;
-                z-index: 1;
+                padding: 20px;
+                gap: 20px;
             }
 
-            /* HEADER & SOCIALS */
-            header {
+            /* --- SIDEBAR ELEMENTS --- */
+            .brand {
+                font-family: var(--font-header);
+                font-weight: 700;
+                font-size: 1.5rem;
+                margin-bottom: 40px;
+                letter-spacing: 1px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .stat-widget {
+                margin-bottom: 30px;
+            }
+            .stat-label {
+                font-size: 0.8rem;
+                color: var(--text-dim);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 5px;
+                font-family: var(--font-header);
+            }
+            .stat-value {
+                font-size: 2rem;
+                font-family: var(--font-mono);
+                font-weight: 700;
+                text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+            }
+            .stat-sub {
+                font-size: 0.8rem;
+                color: var(--neon-cyan);
+                margin-top: 5px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .sidebar-controls {
+                margin-top: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            /* --- NEON BUTTONS --- */
+            .btn {
+                background: rgba(0, 255, 242, 0.05);
+                border: 1px solid var(--neon-cyan);
+                color: var(--neon-cyan);
+                padding: 12px 16px;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 600;
+                font-family: var(--font-header);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                cursor: pointer;
+                transition: all 0.3s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                box-shadow: 0 0 5px rgba(0, 255, 242, 0.2);
+            }
+            .btn:hover {
+                background: var(--neon-cyan);
+                color: #000;
+                box-shadow: var(--glow-cyan);
+            }
+
+            .btn-primary {
+                background: rgba(255, 0, 212, 0.1);
+                border-color: var(--neon-pink);
+                color: var(--neon-pink);
+            }
+            .btn-primary:hover {
+                background: var(--neon-pink);
+                color: #fff;
+                box-shadow: var(--glow-pink);
+            }
+
+            .btn-sm {
+                padding: 6px;
+                width: 34px;
+                height: 34px;
+                border-radius: 6px;
+            }
+            .btn-danger-hover:hover {
+                border-color: var(--neon-red);
+                color: var(--neon-red);
+                box-shadow: 0 0 10px var(--neon-red);
+                background: transparent;
+            }
+
+            /* --- CHART SECTION --- */
+            .chart-section {
+                height: 300px;
+                padding: 20px;
+                position: relative;
+                border-bottom: 2px solid rgba(0, 255, 242, 0.1);
+            }
+
+            /* --- TABLE SECTION --- */
+            .table-panel {
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+            .list-header {
+                padding: 15px 25px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 15px;
-                background: var(--card-bg);
-                border: 1px solid var(--neon-cyan);
-                box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
-                border-radius: 12px;
-                margin-bottom: 20px;
-                backdrop-filter: blur(10px);
-                flex-wrap: wrap;
-                gap: 15px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+            .list-title {
+                font-family: var(--font-header);
+                font-size: 1.1rem;
+                font-weight: 700;
             }
 
-            .brand {
-                display: flex;
-                flex-direction: column;
+            .list-container {
+                overflow-y: auto;
+                flex: 1;
             }
 
-            h1 {
-                font-family: "Audiowide", cursive;
-                font-size: 1.8rem;
-                background: linear-gradient(90deg, #fff, var(--neon-cyan));
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
-                letter-spacing: 1px;
-            }
-
-            .social-links {
-                display: flex;
-                gap: 15px;
-            }
-
-            .social-btn {
-                width: 40px;
-                height: 40px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 50%;
-                background: rgba(255, 255, 255, 0.05);
-                border: 1px solid var(--neon-purple);
-                color: var(--neon-purple);
-                text-decoration: none;
-                transition: all 0.3s;
-                font-size: 1.2rem;
-            }
-
-            .social-btn:hover {
-                background: var(--neon-purple);
-                color: #fff;
-                box-shadow: 0 0 15px var(--neon-purple);
-                transform: scale(1.1);
-            }
-
-            /* CONTROL BAR */
-            .control-bar {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 20px;
-                justify-content: flex-end;
-            }
-
-            .ctrl-btn {
-                background: rgba(0, 243, 255, 0.1);
-                border: 1px solid var(--neon-cyan);
-                color: var(--neon-cyan);
-                padding: 8px 16px;
-                border-radius: 6px;
-                cursor: pointer;
-                font-family: "Audiowide", cursive;
-                transition: 0.3s;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            .ctrl-btn:hover {
-                background: var(--neon-cyan);
-                color: #000;
-                box-shadow: 0 0 15px var(--neon-cyan);
-            }
-
-            .ctrl-btn.active {
-                background: var(--neon-cyan);
-                color: #000;
-            }
-
-            /* STATS */
-            .stats-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 15px;
-                margin-bottom: 25px;
-            }
-
-            .stat-card {
-                background: linear-gradient(
-                    145deg,
-                    rgba(20, 20, 30, 0.9),
-                    rgba(10, 10, 20, 0.9)
-                );
-                border-left: 4px solid var(--neon-purple);
-                padding: 15px;
-                border-radius: 8px;
-                position: relative;
-                overflow: hidden;
-            }
-
-            .stat-card::after {
-                content: "";
-                position: absolute;
-                top: 0;
-                right: 0;
-                width: 50px;
-                height: 100%;
-                background: linear-gradient(
-                    90deg,
-                    transparent,
-                    rgba(255, 255, 255, 0.05)
-                );
-                transform: skewX(-20deg);
-            }
-
-            .stat-label {
-                color: #888;
-                font-size: 0.8rem;
-                margin-bottom: 5px;
-                text-transform: uppercase;
-            }
-            .stat-val {
-                font-size: 1.6rem;
-                font-weight: bold;
-                color: #fff;
-                text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
-            }
-            .stat-unit {
-                font-size: 0.8rem;
-                color: var(--neon-cyan);
-            }
-
-            /* WALLETS - ADAPTIVE */
-            .wallets-container {
-                display: flex;
-                flex-direction: column;
-                gap: 15px;
-            }
-
-            /* Desktop Table View */
-            .desktop-table {
+            /* Neon Table Styling */
+            .grid-table {
                 width: 100%;
                 border-collapse: separate;
                 border-spacing: 0 8px;
-                display: table;
+                padding: 0 15px;
             }
-            .desktop-table th {
+
+            .grid-table th {
                 text-align: left;
-                color: #666;
-                padding: 10px;
-                font-size: 0.9rem;
+                padding: 10px 20px;
+                color: var(--text-dim);
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 1px;
             }
-            .desktop-table td {
-                background: var(--card-bg);
-                padding: 15px;
-                border-top: 1px solid var(--border-color);
-                border-bottom: 1px solid var(--border-color);
+
+            .grid-row {
+                background: rgba(255, 255, 255, 0.02);
+                transition: all 0.2s;
+                border-radius: 8px;
             }
-            .desktop-table td:first-child {
-                border-left: 1px solid var(--border-color);
+            .grid-row td {
+                padding: 15px 20px;
+                border-top: 1px solid rgba(0, 255, 242, 0.05);
+                border-bottom: 1px solid rgba(0, 255, 242, 0.05);
+                font-size: 0.95rem;
+                vertical-align: middle;
+            }
+            .grid-row td:first-child {
+                border-left: 1px solid rgba(0, 255, 242, 0.1);
                 border-radius: 8px 0 0 8px;
-                border-left: 3px solid var(--neon-cyan);
             }
-            .desktop-table td:last-child {
-                border-right: 1px solid var(--border-color);
+            .grid-row td:last-child {
+                border-right: 1px solid rgba(0, 255, 242, 0.1);
                 border-radius: 0 8px 8px 0;
             }
 
-            /* Mobile Card View */
-            .mobile-card {
-                display: none; /* Hidden on desktop */
-                background: var(--card-bg);
-                border: 1px solid var(--border-color);
-                border-left: 4px solid var(--neon-cyan);
-                border-radius: 10px;
-                padding: 15px;
-                position: relative;
-                transition: transform 0.2s;
+            .grid-row:hover {
+                background: rgba(0, 255, 242, 0.05);
+                box-shadow: 0 0 15px rgba(0, 255, 242, 0.1) inset;
+                transform: translateY(-1px);
+            }
+            .grid-row.paused {
+                opacity: 0.5;
+                filter: grayscale(0.5);
             }
 
-            /* MINING ANIMATION CLASSES */
-            .mining-success {
-                animation: goldFlash 1s ease-in-out infinite alternate;
-                border-color: var(--neon-gold) !important;
-                box-shadow: 0 0 30px rgba(255, 215, 0, 0.4) !important;
-                z-index: 10;
+            /* Status Badges */
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                border-radius: 100px;
+                font-size: 0.7rem;
+                font-weight: 700;
+                font-family: var(--font-header);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
             }
-
-            @keyframes goldFlash {
-                0% {
-                    border-color: var(--neon-gold);
-                    box-shadow: 0 0 10px var(--neon-gold);
-                    transform: scale(1);
-                }
-                50% {
-                    border-color: #fff;
-                    box-shadow: 0 0 40px var(--neon-gold);
-                    transform: scale(1.02);
-                }
-                100% {
-                    border-color: var(--neon-gold);
-                    box-shadow: 0 0 10px var(--neon-gold);
-                    transform: scale(1);
-                }
-            }
-
-            .balance-up {
-                color: var(--success);
-                font-weight: bold;
-                animation: popUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            }
-            @keyframes popUp {
-                0% {
-                    transform: scale(1);
-                }
-                50% {
-                    transform: scale(1.5);
-                    color: #fff;
-                }
-                100% {
-                    transform: scale(1);
-                }
-            }
-
-            /* UTILITIES */
-            .addr-pill {
-                background: rgba(0, 0, 0, 0.3);
-                padding: 4px 8px;
-                border-radius: 4px;
-                font-family: monospace;
+            .badge-active {
+                background: rgba(0, 255, 242, 0.1);
                 color: var(--neon-cyan);
-                cursor: pointer;
-                border: 1px dashed rgba(0, 243, 255, 0.3);
-                display: inline-block;
-                max-width: 100%;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                border: 1px solid var(--neon-cyan);
             }
-            .addr-pill:active {
-                background: var(--neon-cyan);
-                color: #000;
+            .badge-paused {
+                background: rgba(255, 166, 0, 0.1);
+                color: orange;
+                border: 1px solid orange;
             }
 
-            .btn-icon {
-                background: none;
-                border: 1px solid #444;
-                color: #888;
-                border-radius: 6px;
-                padding: 6px 10px;
-                cursor: pointer;
-                transition: 0.2s;
-            }
-            .btn-icon:hover {
-                border-color: #fff;
-                color: #fff;
-            }
-            .btn-del:hover {
-                border-color: var(--danger);
-                color: var(--danger);
-                background: rgba(255, 56, 96, 0.1);
+            .dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: currentColor;
+                box-shadow: 0 0 8px currentColor;
             }
 
-            /* MODALS */
-            .modal {
-                display: none;
+            .mono-val {
+                font-family: var(--font-mono);
+                letter-spacing: -0.5px;
+            }
+
+            /* --- TERMINAL --- */
+            .terminal {
+                background: rgba(0, 0, 0, 0.6);
+                border: 1px solid var(--neon-purple);
+                box-shadow: 0 0 15px rgba(188, 19, 254, 0.1);
+                padding: 16px;
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
+                color: var(--text-dim);
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column-reverse;
+                border-radius: 12px;
+            }
+            .log-entry {
+                margin-bottom: 5px;
+                padding-left: 10px;
+                border-left: 2px solid transparent;
+                line-height: 1.4;
+            }
+            .log-entry.info {
+                border-color: var(--neon-cyan);
+            }
+            .log-entry.success {
+                border-color: var(--neon-pink);
+                color: var(--text-bright);
+                text-shadow: 0 0 5px var(--neon-pink);
+            }
+            .log-entry.error {
+                border-color: var(--neon-red);
+                color: var(--neon-red);
+                text-shadow: 0 0 5px var(--neon-red);
+            }
+            .log-time {
+                opacity: 0.6;
+                margin-right: 10px;
+                color: var(--neon-cyan);
+            }
+
+            /* --- FOCUS MODE OVERLAY --- */
+            #focus-overlay {
                 position: fixed;
-                z-index: 9999;
-                left: 0;
                 top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: var(--bg-deep);
+                z-index: 9999;
+                display: none;
+                grid-template-rows: 80px 1fr 150px;
+                background-image: radial-gradient(
+                    circle at center,
+                    rgba(0, 255, 242, 0.1) 0%,
+                    #030512 70%
+                );
+            }
+            #focus-overlay.active {
+                display: grid;
+                animation: fadeIn 0.3s;
+            }
+
+            .focus-top {
+                padding: 0 50px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-bottom: 1px solid rgba(0, 255, 242, 0.2);
+            }
+            .focus-mid {
+                position: relative;
+                width: 100%;
+                height: 100%;
+            }
+            .focus-bot {
+                display: flex;
+                gap: 100px;
+                padding: 0 50px;
+                align-items: center;
+                background: rgba(0, 0, 0, 0.4);
+                border-top: 1px solid rgba(0, 255, 242, 0.2);
+            }
+
+            .f-metric {
+                display: flex;
+                flex-direction: column;
+            }
+            .f-val {
+                font-family: var(--font-mono);
+                font-size: 4.5rem;
+                font-weight: 700;
+                color: #fff;
+                line-height: 1;
+            }
+            .f-lbl {
+                font-size: 1rem;
+                color: var(--text-dim);
+                text-transform: uppercase;
+                letter-spacing: 3px;
+                margin-bottom: 10px;
+                font-family: var(--font-header);
+            }
+
+            /* --- MODALS --- */
+            .modal-wrap {
+                position: fixed;
+                top: 0;
+                left: 0;
                 width: 100%;
                 height: 100%;
                 background: rgba(0, 0, 0, 0.85);
-                backdrop-filter: blur(8px);
-                padding: 20px;
+                backdrop-filter: blur(15px);
+                z-index: 2000;
+                display: none;
                 align-items: center;
                 justify-content: center;
             }
-            .modal.active {
+            .modal-wrap.open {
                 display: flex;
-                animation: fadeIn 0.3s;
+                animation: fadeIn 0.2s;
             }
+
             .modal-box {
-                background: #111;
-                border: 1px solid var(--neon-purple);
-                width: 100%;
-                max-width: 400px;
-                padding: 25px;
-                border-radius: 12px;
-                box-shadow: 0 0 40px rgba(188, 19, 254, 0.2);
+                width: 90%;
+                max-width: 450px;
+                padding: 35px;
+                border: 1px solid var(--neon-cyan);
+                box-shadow: var(--glow-cyan);
             }
-            .form-input {
+
+            .inp-group {
+                margin-bottom: 25px;
+            }
+            .inp {
                 width: 100%;
-                background: #000;
-                border: 1px solid #333;
+                background: rgba(0, 0, 0, 0.5);
+                border: 1px solid rgba(0, 255, 242, 0.3);
                 color: #fff;
-                padding: 12px;
-                border-radius: 6px;
-                margin: 10px 0;
-                outline: none;
+                padding: 15px;
+                border-radius: 8px;
+                font-family: var(--font-mono);
+                font-size: 1rem;
                 transition: 0.3s;
-                font-family: "Share Tech Mono";
             }
-            .form-input:focus {
+            .inp:focus {
                 border-color: var(--neon-cyan);
-                box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+                box-shadow: var(--glow-cyan);
             }
-            .modal-btn {
-                width: 100%;
-                padding: 12px;
-                margin-top: 10px;
-                border: none;
-                border-radius: 6px;
-                cursor: pointer;
-                font-family: "Audiowide";
-                text-transform: uppercase;
+
+            /* Custom Scrollbar */
+            ::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
             }
-            .btn-confirm {
+            ::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, 0.1);
+            }
+            ::-webkit-scrollbar-thumb {
                 background: var(--neon-purple);
-                color: #fff;
+                border-radius: 3px;
             }
-            .btn-cancel {
-                background: transparent;
-                color: #777;
-                border: 1px solid #333;
+            ::-webkit-scrollbar-thumb:hover {
+                background: var(--neon-pink);
+                box-shadow: var(--glow-pink);
             }
 
-            /* RESPONSIVE MEDIA QUERIES */
-            @media (max-width: 768px) {
-                .desktop-table {
-                    display: none;
-                }
-                .mobile-card {
-                    display: flex;
+            /* Responsive */
+            @media (max-width: 1024px) {
+                body {
                     flex-direction: column;
-                    gap: 10px;
+                    height: auto;
+                    overflow: auto;
                 }
-                .mobile-card-row {
-                    display: flex;
-                    justify-content: space-between;
+                .sidebar {
+                    width: 100%;
+                    border-right: none;
+                    border-bottom: var(--border-light);
+                    flex-direction: row;
+                    flex-wrap: wrap;
+                    gap: 30px;
                     align-items: center;
+                    padding: 20px;
                 }
-                .mobile-label {
-                    color: #666;
-                    font-size: 0.8rem;
-                }
-                .mobile-val {
-                    font-size: 1rem;
-                    font-weight: bold;
-                }
-
-                header {
-                    flex-direction: column;
-                    align-items: stretch;
-                    text-align: center;
+                .sidebar-controls {
+                    margin-top: 0;
+                    flex-direction: row;
+                    width: 100%;
                 }
                 .brand {
-                    margin-bottom: 10px;
+                    margin-bottom: 0;
+                    margin-right: auto;
+                    font-size: 1.2rem;
                 }
-                .social-links {
-                    justify-content: center;
+                .stat-widget {
+                    margin-bottom: 0;
                 }
-                .control-bar {
-                    justify-content: center;
+                .main-content {
+                    grid-template-rows: auto auto 200px;
+                    display: flex;
+                    flex-direction: column;
+                    padding: 10px;
                 }
-
-                /* Make chart shorter on mobile */
-                .chart-container {
-                    height: 250px !important;
+                .chart-section {
+                    height: 250px;
+                }
+                .grid-table {
+                    padding: 0;
+                }
+                .grid-row td {
+                    padding: 12px 10px;
+                }
+                .f-val {
+                    font-size: 2.5rem;
+                }
+                .focus-bot {
+                    gap: 30px;
+                    padding: 0 20px;
+                }
+                .grid-table th:nth-child(4),
+                .grid-table td:nth-child(4) {
+                    display: none;
                 }
             }
 
             @keyframes fadeIn {
                 from {
                     opacity: 0;
-                    transform: translateY(20px);
+                    transform: scale(0.95);
                 }
                 to {
                     opacity: 1;
-                    transform: translateY(0);
+                    transform: scale(1);
                 }
             }
         </style>
     </head>
     <body>
-        <canvas id="matrix-canvas"></canvas>
-
-        <div class="container">
-            <header>
-                <div class="brand">
-                    <h1>
-                        ⚡ S-UAH MINER
-                        <span
-                            style="font-size: 0.6em; color: var(--neon-purple)"
-                            >PRO</span
-                        >
-                    </h1>
-                    <div style="color: #666; font-size: 0.8rem">
-                        DECENTRALIZED NODE INTERFACE
-                    </div>
-                </div>
-                <div class="social-links">
-                    <a
-                        href="https://github.com/OlexiyOdarchuk"
-                        target="_blank"
-                        class="social-btn"
-                        title="GitHub"
-                        ><i class="fab fa-github"></i
-                    ></a>
-                    <a
-                        href="https://t.me/NeShawyha"
-                        target="_blank"
-                        class="social-btn"
-                        title="Telegram"
-                        ><i class="fab fa-telegram"></i
-                    ></a>
-                </div>
-            </header>
-
-            <div class="control-bar">
-                <button class="ctrl-btn" onclick="openModal('addWalletModal')">
-                    <i class="fas fa-plus"></i> ADD WALLET
-                </button>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Network Hashrate</div>
-                    <div class="stat-val" id="hashrate">0.00</div>
-                    <div class="stat-unit">MH/s</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Session Blocks</div>
-                    <div
-                        class="stat-val"
-                        id="blocks"
-                        style="color: var(--neon-gold)"
-                    >
-                        0
-                    </div>
-                    <div class="stat-unit">FOUND</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Total Balance</div>
-                    <div
-                        class="stat-val"
-                        id="balance"
-                        style="color: var(--success)"
-                    >
-                        0.00
-                    </div>
-                    <div class="stat-unit">S-UAH</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">System Status</div>
-                    <div
-                        class="stat-val"
-                        id="status"
-                        style="font-size: 1.2rem; color: var(--success)"
-                    >
-                        ONLINE
-                    </div>
-                    <div class="stat-unit" id="uptime">0s</div>
-                </div>
-            </div>
-
-            <div
-                style="
-                    background: rgba(0, 0, 0, 0.4);
-                    border: 1px solid var(--border-color);
-                    padding: 10px;
-                    border-radius: 8px;
-                    margin-bottom: 25px;
-                "
-                class="chart-container"
-            >
-                <canvas id="hashChart" style="max-height: 300px"></canvas>
-            </div>
-
-            <h3
-                style="
-                    margin-bottom: 15px;
-                    color: var(--neon-cyan);
-                    border-left: 4px solid var(--neon-cyan);
-                    padding-left: 10px;
-                "
-            >
-                ACTIVE MINERS
-            </h3>
-            <div class="wallets-container" id="wallets-container">
-                <table class="desktop-table">
-                    <thead>
-                        <tr>
-                            <th>Alias</th>
-                            <th>Address</th>
-                            <th>Blocks</th>
-                            <th>Balance</th>
-                            <th style="text-align: right">Controls</th>
-                        </tr>
-                    </thead>
-                    <tbody id="desktop-wallet-list"></tbody>
-                </table>
-            </div>
-
-            <div style="margin-top: 30px">
-                <h3 style="margin-bottom: 10px; color: #666; font-size: 0.9rem">
-                    SYSTEM TERMINAL
-                </h3>
+        <div id="focus-overlay">
+            <div class="focus-top">
                 <div
-                    id="terminal"
+                    class="neon-text-cyan"
                     style="
-                        height: 150px;
-                        overflow-y: auto;
-                        background: #000;
-                        border: 1px solid #333;
-                        padding: 10px;
-                        font-family: &quot;Share Tech Mono&quot;;
-                        font-size: 0.8rem;
-                        color: #aaa;
+                        font-family: var(--font-header);
+                        font-size: 1.2rem;
+                        letter-spacing: 2px;
                     "
-                ></div>
+                >
+                    <i class="fas fa-network-wired"></i> NEON_NEXUS // MONITOR
+                </div>
+                <button class="btn" onclick="toggleFocus()">
+                    [ESC] RETURN
+                </button>
+            </div>
+            <div class="focus-mid">
+                <canvas id="focusChart"></canvas>
+            </div>
+            <div class="focus-bot">
+                <div class="f-metric">
+                    <span class="f-lbl">Network Hashrate</span>
+                    <span class="f-val neon-text-cyan"
+                        ><span id="f-hash">0.00</span>
+                        <span style="font-size: 0.4em">MH/s</span></span
+                    >
+                </div>
+                <div class="f-metric">
+                    <span class="f-lbl">Total Balance</span>
+                    <span class="f-val neon-text-pink"
+                        ><span id="f-balance">0.00</span>
+                        <span style="font-size: 0.4em">S-UAH</span></span
+                    >
+                </div>
             </div>
         </div>
 
-        <div id="addWalletModal" class="modal">
-            <div class="modal-box">
-                <h2 style="color: var(--neon-cyan); margin-bottom: 20px">
-                    LINK NEW WALLET
-                </h2>
-                <form onsubmit="submitAddWallet(event)">
-                    <input
-                        type="text"
-                        id="walletAddress"
-                        class="form-input"
-                        placeholder="Wallet Address (0x...)"
-                        required
-                        minlength="20"
-                    />
-                    <input
-                        type="password"
-                        id="walletPassword"
-                        class="form-input"
-                        placeholder="Access Password"
-                        required
-                        minlength="6"
-                    />
-                    <button type="submit" class="modal-btn btn-confirm">
-                        CONNECT NODE
-                    </button>
-                    <button
-                        type="button"
-                        class="modal-btn btn-cancel"
-                        onclick="closeModal('addWalletModal')"
+        <div class="sidebar glass-panel">
+            <div class="brand neon-text-cyan">
+                <i class="fas fa-bolt"></i> S-UAH
+                <span class="neon-text-pink">MINER</span>
+            </div>
+
+            <div class="stat-widget">
+                <div class="stat-label">Total Hashrate</div>
+                <div class="stat-value neon-text-cyan" id="s-hash">
+                    0.00
+                    <span style="font-size: 0.5em; color: var(--text-dim)"
+                        >MH/s</span
                     >
-                        CANCEL
-                    </button>
+                </div>
+                <div class="stat-sub">
+                    <i
+                        class="fas fa-circle"
+                        style="font-size: 0.6em; text-shadow: var(--glow-cyan)"
+                    ></i>
+                    Active
+                </div>
+            </div>
+
+            <div class="stat-widget">
+                <div class="stat-label">Total Balance</div>
+                <div class="stat-value neon-text-pink" id="s-balance">0.00</div>
+                <div class="stat-sub">S-UAH Mined</div>
+            </div>
+
+            <div class="stat-widget">
+                <div class="stat-label">Session Blocks</div>
+                <div class="stat-value neon-text-gold" id="s-blocks">0</div>
+            </div>
+
+            <div class="stat-widget">
+                <div class="stat-label">System Uptime</div>
+                <div
+                    class="stat-value"
+                    id="s-uptime"
+                    style="font-size: 1.4rem; color: var(--text-dim)"
+                >
+                    0s
+                </div>
+            </div>
+
+            <div class="sidebar-controls">
+                <button
+                    class="btn btn-primary"
+                    onclick="openModal('addWalletModal')"
+                >
+                    <i class="fas fa-plus-circle"></i> Add Node
+                </button>
+                <button class="btn" onclick="toggleFocus()">
+                    <i class="fas fa-expand-arrows-alt"></i> Focus View
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="chart-section glass-panel">
+                <canvas id="mainChart"></canvas>
+            </div>
+
+            <div class="table-panel glass-panel">
+                <div class="list-header">
+                    <div class="list-title neon-text-cyan">Managed Nodes</div>
+                    <div
+                        class="stat-label"
+                        id="node-count"
+                        style="margin-bottom: 0; color: var(--text-bright)"
+                    >
+                        0 ONLINE
+                    </div>
+                </div>
+
+                <div class="list-container">
+                    <table class="grid-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 20%">Alias</th>
+                                <th style="width: 30%">Address</th>
+                                <th style="width: 15%">Status</th>
+                                <th style="width: 10%">Blocks</th>
+                                <th style="width: 15%">Balance</th>
+                                <th style="width: 10%; text-align: right">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="wallet-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="terminal" id="terminal">
+                <div class="log-entry info">
+                    <span class="log-time">[SYSTEM]</span> Neon Nexus interface
+                    loaded. Establishing uplink...
+                </div>
+            </div>
+        </div>
+
+        <div id="addWalletModal" class="modal-wrap">
+            <div class="modal-box glass-panel">
+                <h3
+                    class="neon-text-cyan"
+                    style="
+                        margin-bottom: 25px;
+                        font-family: var(--font-header);
+                        letter-spacing: 1px;
+                    "
+                >
+                    // CONNECT NEW NODE
+                </h3>
+                <form
+                    onsubmit="handleApi(event, 'add-wallet', {address: this.addr.value, password: this.pass.value, working: true})"
+                >
+                    <div class="inp-group">
+                        <input
+                            name="addr"
+                            class="inp"
+                            placeholder="Wallet Address (0x...)"
+                            required
+                            minlength="20"
+                        />
+                    </div>
+                    <div class="inp-group">
+                        <input
+                            name="pass"
+                            type="password"
+                            class="inp"
+                            placeholder="Access Password"
+                            required
+                        />
+                    </div>
+                    <div style="display: flex; gap: 15px">
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                            style="flex: 1"
+                        >
+                            INITIALIZE
+                        </button>
+                        <button
+                            type="button"
+                            class="btn"
+                            style="flex: 1"
+                            onclick="closeModal('addWalletModal')"
+                        >
+                            CANCEL
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
 
-        <div id="editWalletModal" class="modal">
-            <div class="modal-box">
-                <h2 style="color: var(--neon-purple); margin-bottom: 20px">
-                    RENAME WORKER
-                </h2>
-                <form onsubmit="submitEditWallet(event)">
-                    <input
-                        type="text"
-                        id="editWalletName"
-                        class="form-input"
-                        placeholder="Worker Name (e.g. Miner-1)"
-                        required
-                    />
-                    <button type="submit" class="modal-btn btn-confirm">
-                        SAVE
-                    </button>
-                    <button
-                        type="button"
-                        class="modal-btn btn-cancel"
-                        onclick="closeModal('editWalletModal')"
-                    >
-                        CANCEL
-                    </button>
+        <div id="editWalletModal" class="modal-wrap">
+            <div
+                class="modal-box glass-panel"
+                style="
+                    border-color: var(--neon-pink);
+                    box-shadow: var(--glow-pink);
+                "
+            >
+                <h3
+                    class="neon-text-pink"
+                    style="
+                        margin-bottom: 25px;
+                        font-family: var(--font-header);
+                        letter-spacing: 1px;
+                    "
+                >
+                    // RECONFIGURE WORKER
+                </h3>
+                <form
+                    onsubmit="handleApi(event, 'rename-wallet', {address: editTarget, name: this.name.value})"
+                >
+                    <div class="inp-group">
+                        <input
+                            name="name"
+                            id="editNameInp"
+                            class="inp"
+                            placeholder="Worker Alias (e.g. RACK-01)"
+                            required
+                        />
+                    </div>
+                    <div style="display: flex; gap: 15px">
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                            style="flex: 1"
+                        >
+                            UPDATE
+                        </button>
+                        <button
+                            type="button"
+                            class="btn"
+                            style="flex: 1"
+                            onclick="closeModal('editWalletModal')"
+                        >
+                            CANCEL
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
 
-        <div id="deleteWalletModal" class="modal">
-            <div class="modal-box" style="border-color: var(--danger)">
-                <h2 style="color: var(--danger); margin-bottom: 10px">
-                    DISCONNECT?
-                </h2>
-                <p style="color: #666; margin-bottom: 20px">
-                    Mining will stop for this address.
+        <div id="deleteWalletModal" class="modal-wrap">
+            <div
+                class="modal-box glass-panel"
+                style="
+                    border-color: var(--neon-red);
+                    box-shadow: 0 0 20px var(--neon-red);
+                "
+            >
+                <h3
+                    style="
+                        margin-bottom: 15px;
+                        color: var(--neon-red);
+                        font-family: var(--font-header);
+                        letter-spacing: 1px;
+                    "
+                >
+                    // TERMINATE UPLINK?
+                </h3>
+                <p
+                    style="
+                        color: var(--text-dim);
+                        margin-bottom: 25px;
+                        font-size: 0.9rem;
+                    "
+                >
+                    WARNING: Mining operations for this node will cease
+                    immediately.
                 </p>
-                <input
-                    type="password"
-                    id="deleteWalletPassword"
-                    class="form-input"
-                    placeholder="Confirm Password"
-                />
-                <button
-                    onclick="submitDeleteWallet()"
-                    class="modal-btn btn-confirm"
-                    style="background: var(--danger)"
+                <form
+                    onsubmit="handleApi(event, 'delete-wallet', {address: delTarget, password: this.pass.value})"
                 >
-                    DISCONNECT
-                </button>
-                <button
-                    type="button"
-                    class="modal-btn btn-cancel"
-                    onclick="closeModal('deleteWalletModal')"
-                >
-                    CANCEL
-                </button>
+                    <div class="inp-group">
+                        <input
+                            name="pass"
+                            type="password"
+                            class="inp"
+                            placeholder="Confirm Security Key"
+                            required
+                            style="border-color: var(--neon-red)"
+                        />
+                    </div>
+                    <div style="display: flex; gap: 15px">
+                        <button
+                            type="submit"
+                            class="btn"
+                            style="
+                                flex: 1;
+                                background: var(--neon-red);
+                                color: white;
+                                border: none;
+                                box-shadow: 0 0 15px var(--neon-red);
+                            "
+                        >
+                            DISCONNECT
+                        </button>
+                        <button
+                            type="button"
+                            class="btn"
+                            style="flex: 1"
+                            onclick="closeModal('deleteWalletModal')"
+                        >
+                            CANCEL
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-
-        <audio
-            id="snd-coin"
-            src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"
-            preload="auto"
-        ></audio>
 
         <script>
-            // --- CONFIG & STATE ---
-            //
-            let chart = null;
-            let walletsData = {}; // Store previous state to detect changes
-            const es = new EventSource("/events");
+            // --- GLOBAL STATE (Stable Logic from previous version) ---
+            let charts = {};
+            let editTarget = null;
+            let delTarget = null;
+            const eventSource = new EventSource("/events");
 
-            // Matrix Effect
-            const canvas = document.getElementById("matrix-canvas");
-            const ctx = canvas.getContext("2d");
-            let width = (canvas.width = window.innerWidth);
-            let height = (canvas.height = window.innerHeight);
-            const cols = Math.floor(width / 20);
-            const ypos = Array(cols).fill(0);
+            // --- CHART SETUP (Neon Style) ---
+            function initCharts() {
+                const opts = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            display: true,
+                            grid: { color: "rgba(0, 255, 242, 0.05)" },
+                            ticks: {
+                                color: "#8a9dbf",
+                                font: { family: "JetBrains Mono" },
+                            },
+                        },
+                    },
+                    elements: {
+                        line: { tension: 0.4, borderWidth: 3 },
+                        point: { radius: 0 },
+                    },
+                };
 
-            function matrix() {
-                ctx.fillStyle = "#0001";
-                ctx.fillRect(0, 0, width, height);
-                ctx.fillStyle = "#bc13fe"; // Neon Purple matrix
-                ctx.font = "15px monospace";
-                ypos.forEach((y, ind) => {
-                    const text = String.fromCharCode(Math.random() * 128);
-                    const x = ind * 20;
-                    ctx.fillText(text, x, y);
-                    if (y > 100 + Math.random() * 10000) ypos[ind] = 0;
-                    else ypos[ind] = y + 20;
-                });
-            }
-            setInterval(matrix, 50);
-            window.onresize = () => {
-                width = canvas.width = window.innerWidth;
-                height = canvas.height = window.innerHeight;
-            };
-
-            function triggerMiningSuccess(addr) {
-                const deskRow = document.getElementById("d-row-" + addr);
-                const mobCard = document.getElementById("m-card-" + addr);
-
-                if (deskRow) {
-                    deskRow.classList.add("mining-success");
-                    setTimeout(
-                        () => deskRow.classList.remove("mining-success"),
-                        2000,
-                    );
-                }
-                if (mobCard) {
-                    mobCard.classList.add("mining-success");
-                    setTimeout(
-                        () => mobCard.classList.remove("mining-success"),
-                        2000,
-                    );
-                }
-            }
-
-            // --- UI LOGIC ---
-            function renderWallets(wallets) {
-                const deskBody = document.getElementById("desktop-wallet-list");
-                const container = document.getElementById("wallets-container");
-
-                // Clear existing mobile cards (keeping the table)
-                document
-                    .querySelectorAll(".mobile-card")
-                    .forEach((e) => e.remove());
-
-                wallets.forEach((w) => {
-                    // Check for Mining Event (Blocks increased)
-                    if (
-                        walletsData[w.address] &&
-                        w.session_mined > walletsData[w.address].session_mined
-                    ) {
-                        triggerMiningSuccess(w.address);
-                    }
-
-                    // Update State Cache
-                    walletsData[w.address] = w;
-
-                    // 1. Desktop Render
-                    let dRow = document.getElementById("d-row-" + w.address);
-                    if (!dRow) {
-                        dRow = document.createElement("tr");
-                        dRow.id = "d-row-" + w.address;
-                        deskBody.appendChild(dRow);
-                    }
-                    dRow.innerHTML = `
-                    <td style="color: var(--neon-cyan); font-weight: bold;">${w.name || "Worker"}</td>
-                    <td><span class="addr-pill" onclick="copy('${w.address}')">${w.address}</span></td>
-                    <td style="color: var(--neon-gold); font-weight: bold; font-size: 1.1em;">${w.session_mined}</td>
-                    <td class="${w.server_balance > (walletsData[w.address]?.server_balance || 0) ? "balance-up" : ""}">${w.server_balance}</td>
-                    <td style="text-align: right;">
-                        <button class="btn-icon" onclick="setupEdit('${w.address}', '${w.name}')"><i class="fas fa-pen"></i></button>
-                        <button class="btn-icon btn-del" onclick="setupDelete('${w.address}')"><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
-
-                    // 2. Mobile Render (Cards)
-                    const mCard = document.createElement("div");
-                    mCard.className = "mobile-card";
-                    mCard.id = "m-card-" + w.address;
-                    mCard.innerHTML = `
-                    <div class="mobile-card-row" style="margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
-                        <span style="color: var(--neon-cyan); font-weight: bold;">${w.name || "Worker"}</span>
-                        <div style="display:flex; gap: 5px;">
-                            <button class="btn-icon" onclick="setupEdit('${w.address}', '${w.name}')"><i class="fas fa-pen"></i></button>
-                            <button class="btn-icon btn-del" onclick="setupDelete('${w.address}')"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                    <div class="mobile-card-row">
-                        <span class="mobile-label">Address</span>
-                        <span class="addr-pill" onclick="copy('${w.address}')" style="font-size: 0.8em; max-width: 150px;">${w.address}</span>
-                    </div>
-                    <div class="mobile-card-row">
-                        <span class="mobile-label">Session Blocks</span>
-                        <span class="mobile-val" style="color: var(--neon-gold);">${w.session_mined} ⛏️</span>
-                    </div>
-                    <div class="mobile-card-row">
-                        <span class="mobile-label">Balance</span>
-                        <span class="mobile-val" style="color: var(--success);">${w.server_balance}</span>
-                    </div>
-                `;
-                    container.appendChild(mCard);
-                });
-
-                // Cleanup deleted
-                const currentAddrs = wallets.map((w) => w.address);
-                Object.keys(walletsData).forEach((addr) => {
-                    if (!currentAddrs.includes(addr)) {
-                        document.getElementById("d-row-" + addr)?.remove();
-                        delete walletsData[addr];
-                    }
-                });
-            }
-
-            // --- CHART ---
-            function initChart() {
-                const ctx = document
-                    .getElementById("hashChart")
+                const ctx1 = document
+                    .getElementById("mainChart")
                     .getContext("2d");
-                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                gradient.addColorStop(0, "rgba(188, 19, 254, 0.5)");
-                gradient.addColorStop(1, "rgba(188, 19, 254, 0)");
+                // Neon Gradient fill
+                const grad = ctx1.createLinearGradient(0, 0, 0, 300);
+                grad.addColorStop(0, "rgba(0, 255, 242, 0.4)");
+                grad.addColorStop(1, "rgba(0, 255, 242, 0)");
 
-                chart = new Chart(ctx, {
+                charts.main = new Chart(ctx1, {
                     type: "line",
                     data: {
                         labels: Array(60).fill(""),
                         datasets: [
                             {
                                 data: Array(60).fill(0),
-                                borderColor: "#bc13fe",
-                                backgroundColor: gradient,
-                                borderWidth: 2,
-                                pointRadius: 0,
-                                tension: 0.4,
+                                borderColor: "#00fff2", // Neon Cyan
+                                backgroundColor: grad,
+                                fill: true,
+                            },
+                        ],
+                    },
+                    options: opts,
+                });
+
+                // Focus Mode Chart (Pink Accent)
+                const ctx2 = document
+                    .getElementById("focusChart")
+                    .getContext("2d");
+                const grad2 = ctx2.createLinearGradient(
+                    0,
+                    0,
+                    0,
+                    window.innerHeight,
+                );
+                grad2.addColorStop(0, "rgba(255, 0, 212, 0.3)");
+                grad2.addColorStop(1, "rgba(255, 0, 212, 0)");
+
+                charts.focus = new Chart(ctx2, {
+                    type: "line",
+                    data: {
+                        labels: Array(60).fill(""),
+                        datasets: [
+                            {
+                                data: Array(60).fill(0),
+                                borderColor: "#ff00d4", // Neon Pink
+                                borderWidth: 4,
+                                backgroundColor: grad2,
                                 fill: true,
                             },
                         ],
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        ...opts,
                         scales: {
                             x: { display: false },
-                            y: {
-                                grid: { color: "rgba(255,255,255,0.05)" },
-                                ticks: { color: "#666" },
-                            },
+                            y: { display: false },
                         },
-                        animation: false,
                     },
                 });
             }
 
-            // --- DATA STREAM ---
-            es.onmessage = (e) => {
+            // --- SMART TABLE UPDATE (Stable No-Flicker Logic) ---
+            function updateTable(wallets) {
+                const tbody = document.getElementById("wallet-tbody");
+                document.getElementById("node-count").innerText =
+                    wallets.length + " ONLINE";
+
+                const existingRows = new Set(
+                    Array.from(tbody.children).map((r) => r.id),
+                );
+                const incomingIds = new Set();
+
+                wallets.forEach((w) => {
+                    const rowId = `w-${w.address}`;
+                    incomingIds.add(rowId);
+
+                    const isPaused = w.working === false;
+                    const statusHtml = isPaused
+                        ? `<span class="badge badge-paused"><span class="dot"></span> PAUSED</span>`
+                        : `<span class="badge badge-active"><span class="dot" style="box-shadow: var(--glow-cyan)"></span> ACTIVE</span>`;
+
+                    let row = document.getElementById(rowId);
+
+                    if (!row) {
+                        row = document.createElement("tr");
+                        row.id = rowId;
+                        row.className = "grid-row";
+                        row.innerHTML = `
+                        <td class="cell-name" style="font-weight:600; color: var(--text-bright);"></td>
+                        <td class="cell-addr mono-val" style="color: var(--text-dim); font-size: 0.8rem;"></td>
+                        <td class="cell-status"></td>
+                        <td class="cell-blocks mono-val neon-text-gold"></td>
+                        <td class="cell-balance mono-val neon-text-pink"></td>
+                        <td style="text-align: right;">
+                            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                                <button class="btn btn-sm btn-pause" title="Toggle Power"></button>
+                                <button class="btn btn-sm" onclick="setupEdit('${w.address}')"><i class="fas fa-pen"></i></button>
+                                <button class="btn btn-sm btn-danger-hover" onclick="setupDel('${w.address}')"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    `;
+                        tbody.appendChild(row);
+                    }
+
+                    // Update content
+                    if (
+                        row.querySelector(".cell-name").innerText !==
+                        (w.name || "Unknown Unit")
+                    )
+                        row.querySelector(".cell-name").innerText =
+                            w.name || "Unknown Unit";
+
+                    if (row.querySelector(".cell-addr").innerText !== w.address)
+                        row.querySelector(".cell-addr").innerText = w.address;
+
+                    const currentStatus =
+                        row.querySelector(".cell-status").innerHTML;
+                    if (currentStatus !== statusHtml)
+                        row.querySelector(".cell-status").innerHTML =
+                            statusHtml;
+
+                    row.querySelector(".cell-blocks").innerText =
+                        w.session_mined;
+                    row.querySelector(".cell-balance").innerText =
+                        w.server_balance.toFixed(4);
+
+                    const pauseBtn = row.querySelector(".btn-pause");
+                    const pauseIcon = isPaused
+                        ? '<i class="fas fa-play" style="color:var(--neon-cyan)"></i>'
+                        : '<i class="fas fa-power-off"></i>';
+                    if (pauseBtn.innerHTML !== pauseIcon)
+                        pauseBtn.innerHTML = pauseIcon;
+                    pauseBtn.style.borderColor = isPaused
+                        ? "var(--neon-cyan)"
+                        : "var(--neon-pink)";
+                    pauseBtn.style.color = isPaused
+                        ? "var(--neon-cyan)"
+                        : "var(--neon-pink)";
+
+                    pauseBtn.onclick = () => togglePause(w.address, !isPaused);
+
+                    if (isPaused && !row.classList.contains("paused"))
+                        row.classList.add("paused");
+                    if (!isPaused && row.classList.contains("paused"))
+                        row.classList.remove("paused");
+                });
+
+                existingRows.forEach((id) => {
+                    if (!incomingIds.has(id))
+                        document.getElementById(id).remove();
+                });
+            }
+
+            // --- EVENT HANDLING ---
+            eventSource.onmessage = (e) => {
                 const data = JSON.parse(e.data);
 
-                document.getElementById("hashrate").innerText =
-                    data.hashrate.toFixed(2);
-                document.getElementById("blocks").innerText = data.total_blocks;
-                document.getElementById("balance").innerText =
-                    data.total_balance;
-                document.getElementById("uptime").innerText = data.uptime;
+                ["s-hash", "f-hash"].forEach(
+                    (id) =>
+                        (document.getElementById(id).innerText =
+                            data.hashrate.toFixed(2)),
+                );
+                ["s-balance", "f-balance"].forEach(
+                    (id) =>
+                        (document.getElementById(id).innerText =
+                            data.total_balance.toFixed(4)),
+                );
+                document.getElementById("s-blocks").innerText =
+                    data.total_blocks;
+                document.getElementById("s-uptime").innerText = data.uptime;
 
-                if (data.wallets) renderWallets(data.wallets);
+                const updateC = (c, val, color) => {
+                    const d = c.data.datasets[0].data;
+                    d.shift();
+                    d.push(val);
+                    c.data.datasets[0].borderColor = color; // Dynamic color
+                    c.update();
+                };
+                if (charts.main) updateC(charts.main, data.hashrate, "#00fff2");
+                if (charts.focus)
+                    updateC(charts.focus, data.hashrate, "#ff00d4");
 
-                // Chart
-                if (!chart) initChart();
-                fetch("/api/hashrate-history")
-                    .then((r) => r.json())
-                    .then((d) => {
-                        if (chart && d.history) {
-                            chart.data.datasets[0].data = d.history.slice(-60);
-                            chart.update();
-                        }
-                    });
-
-                // Logs
-                if (data.new_logs) {
-                    const term = document.getElementById("terminal");
-                    data.new_logs.forEach((l) => {
-                        const line = document.createElement("div");
-                        line.style.marginBottom = "4px";
-                        line.innerHTML = `<span style="color:#555">[${l.time}]</span> <span style="color:${l.type === "error" ? "#ff3860" : l.type === "success" ? "#00ff41" : "#ccc"}">${l.message}</span>`;
-                        term.prepend(line);
-                    });
-                }
+                if (data.wallets) updateTable(data.wallets);
+                if (data.new_logs)
+                    data.new_logs.forEach((l) => addLog(l.message, l.type));
             };
 
-            // --- ACTIONS ---
-            function copy(txt) {
-                navigator.clipboard.writeText(txt);
-                alert("📋 Address copied!"); // Simple alert replaced with toast in prod, but simple here
-            }
-
-            let editAddr = "",
-                delAddr = "";
-
-            function openModal(id) {
-                document.getElementById(id).classList.add("active");
-                document.getElementById(id).querySelector("input")?.focus();
-            }
-            function closeModal(id) {
-                document.getElementById(id).classList.remove("active");
-            }
-
-            function setupEdit(a, n) {
-                editAddr = a;
-                document.getElementById("editWalletName").value = n || "";
-                openModal("editWalletModal");
-            }
-            function setupDelete(a) {
-                delAddr = a;
-                openModal("deleteWalletModal");
-            }
-
-            // API Calls
-            async function apiCall(endpoint, body) {
+            // --- API ACTIONS (Stable) ---
+            async function handleApi(e, endpoint, body) {
+                e.preventDefault();
                 try {
                     const res = await fetch("/api/" + endpoint, {
                         method: "POST",
@@ -952,50 +1146,79 @@
                                   ? "editWalletModal"
                                   : "deleteWalletModal",
                         );
-                        if (endpoint === "add-wallet") {
-                            document.getElementById("walletAddress").value = "";
-                            document.getElementById("walletPassword").value =
-                                "";
-                        }
+                        if (e.target) e.target.reset();
+                        addLog(
+                            `API command [${endpoint}] executed.`,
+                            "success",
+                        );
                     } else {
-                        alert("❌ Error: " + d.message);
+                        addLog(`Command failed: ${d.message}`, "error");
                     }
-                } catch (e) {
-                    alert("❌ Connection Error");
+                } catch (err) {
+                    addLog("Uplink connection failed.", "error");
                 }
             }
 
-            function submitAddWallet(e) {
-                e.preventDefault();
-                apiCall("add-wallet", {
-                    address: document
-                        .getElementById("walletAddress")
-                        .value.trim(),
-                    password: document.getElementById("walletPassword").value,
-                });
-            }
-            function submitEditWallet(e) {
-                e.preventDefault();
-                apiCall("rename-wallet", {
-                    address: editAddr,
-                    name: document.getElementById("editWalletName").value,
-                });
-            }
-            function submitDeleteWallet() {
-                apiCall("delete-wallet", {
-                    address: delAddr,
-                    password: document.getElementById("deleteWalletPassword")
-                        .value,
-                });
+            function togglePause(addr, shouldWork) {
+                fetch("/api/toggle-wallet", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        address: addr,
+                        working: shouldWork,
+                    }),
+                }).catch(() =>
+                    addLog("Failed to toggle unit power state.", "error"),
+                );
             }
 
-            // Window clicks to close modals
+            // --- UI HELPERS ---
+            function addLog(msg, type = "info") {
+                const t = document.getElementById("terminal");
+                const d = document.createElement("div");
+                d.className = `log-entry ${type}`;
+                d.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+                t.prepend(d);
+                if (t.children.length > 50) t.lastChild.remove();
+            }
+
+            function toggleFocus() {
+                const el = document.getElementById("focus-overlay");
+                el.classList.toggle("active");
+                if (el.classList.contains("active")) {
+                    document.documentElement
+                        .requestFullscreen()
+                        .catch(() => {});
+                    setTimeout(() => charts.focus.resize(), 50);
+                } else {
+                    document.exitFullscreen().catch(() => {});
+                }
+            }
+
+            function openModal(id) {
+                const m = document.getElementById(id);
+                m.classList.add("open");
+                const input = m.querySelector("input");
+                if (input) input.focus();
+            }
+            function closeModal(id) {
+                document.getElementById(id).classList.remove("open");
+            }
+            function setupEdit(addr) {
+                editTarget = addr;
+                document.getElementById("editNameInp").value = "";
+                openModal("editWalletModal");
+            }
+            function setupDel(addr) {
+                delTarget = addr;
+                openModal("deleteWalletModal");
+            }
             window.onclick = (e) => {
-                if (e.target.classList.contains("modal"))
+                if (e.target.classList.contains("modal-wrap"))
                     closeModal(e.target.id);
             };
 
-            initChart();
+            window.onload = initCharts;
         </script>
     </body>
 </html>

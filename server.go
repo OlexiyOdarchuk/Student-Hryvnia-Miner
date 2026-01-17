@@ -2,7 +2,12 @@ package main
 
 import (
 	"net/http"
+
+	_ "embed"
 )
+
+//go:embed index.html
+var htmlPage string
 
 func startWebServer() {
 	setupRoutes()

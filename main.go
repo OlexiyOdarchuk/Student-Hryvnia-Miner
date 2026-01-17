@@ -23,8 +23,7 @@ func main() {
 	startTime = time.Now()
 	walletDataMap = make(map[string]*WalletStats)
 
-	wallets = loadWalletsFromEnv()
-	reloadWallets()
+	loadWallets()
 
 	setupGracefulShutdown()
 
@@ -54,7 +53,21 @@ func main() {
 			time.Sleep(1 * time.Second)
 			continue
 		}
+
 		currentWallet := ws[rand.Intn(len(ws))]
+
+		dataMutex.Lock()
+		stats, exists := walletDataMap[currentWallet]
+		isWorking := true
+		if exists {
+			isWorking = stats.Working
+		}
+		dataMutex.Unlock()
+
+		if !isWorking {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
 
 		success := mineBlock(prevHash, currentWallet)
 

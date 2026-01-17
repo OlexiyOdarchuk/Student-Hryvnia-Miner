@@ -84,8 +84,7 @@ func watchEnvFile() {
 				}
 				LoadConfig()
 				compileDifficultyBits(Config.Difficulty)
-				reloadWallets()
-				pushLog("♻️ Конфіг и гаманці перезавантажені", "info")
+				pushLog("♻️ Конфіг перезавантажено", "info")
 			}
 		case err := <-watcher.Errors:
 			pushLog("⚠️ watcher error: "+err.Error(), "error")

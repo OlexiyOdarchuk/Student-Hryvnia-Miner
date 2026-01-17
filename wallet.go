@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -30,37 +32,6 @@ func loadWalletsFromEnv() []string {
 	}
 
 	return res
-}
-
-func reloadWallets() {
-	newWallets := loadWalletsFromEnv()
-
-	walletsMutex.Lock()
-	defer walletsMutex.Unlock()
-
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
-
-	// додати нові
-	for _, w := range newWallets {
-		if _, ok := walletDataMap[w]; !ok {
-			walletDataMap[w] = &WalletStats{
-				Address: w,
-				Short:   "..." + w[len(w)-8:],
-			}
-			pushLog("➕ Додано гаманець "+w[len(w)-6:], "info")
-		}
-	}
-
-	// видалити відсутні
-	for w := range walletDataMap {
-		if !contains(newWallets, w) {
-			delete(walletDataMap, w)
-			pushLog("➖ Видалено гаманець "+w[len(w)-6:], "info")
-		}
-	}
-
-	wallets = newWallets
 }
 
 func contains(arr []string, v string) bool {
@@ -99,4 +70,69 @@ func deleteWalletName(address string) {
 	walletNamesMutex.Lock()
 	defer walletNamesMutex.Unlock()
 	delete(walletNames, address)
+}
+
+func loadWallets() {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	fileData, err := os.ReadFile(walletsFile)
+	if os.IsNotExist(err) {
+		_ = os.WriteFile(walletsFile, []byte("[]"), 0644)
+		return
+	}
+
+	var configs []WalletConfig
+	if err := json.Unmarshal(fileData, &configs); err != nil {
+		log.Println("⚠️ Помилка читання wallets.json:", err)
+		return
+	}
+
+	wallets = []string{}
+
+	for _, cfg := range configs {
+		wallets = append(wallets, cfg.Address)
+
+		if _, exists := walletDataMap[cfg.Address]; !exists {
+			walletDataMap[cfg.Address] = &WalletStats{
+				Address:       cfg.Address,
+				Name:          cfg.Name,
+				Working:       cfg.Working,
+				SessionMined:  0,
+				ServerBalance: 0,
+			}
+		} else {
+
+			walletDataMap[cfg.Address].Name = cfg.Name
+			walletDataMap[cfg.Address].Working = cfg.Working
+		}
+	}
+
+	log.Printf("📂 Завантажено %d гаманців з JSON", len(wallets))
+}
+
+func saveWallets() {
+	dataMutex.RLock()
+
+	var configs []WalletConfig
+
+	for _, stats := range walletDataMap {
+		configs = append(configs, WalletConfig{
+			Address: stats.Address,
+			Name:    stats.Name,
+			Working: stats.Working,
+		})
+	}
+	dataMutex.RUnlock()
+
+	fileData, err := json.MarshalIndent(configs, "", "  ")
+	if err != nil {
+		log.Println("⚠️ Помилка формування JSON:", err)
+		return
+	}
+
+	err = os.WriteFile(walletsFile, fileData, 0644)
+	if err != nil {
+		log.Println("⚠️ Помилка запису файлу:", err)
+	}
 }
