@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>S-UAH  MINER // QUANTUM</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/elliptic@6.5.4/dist/elliptic.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/elliptic/6.5.4/elliptic.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -1182,10 +1182,10 @@
                     <div style="font-size: 0.85rem; color: #64748b; text-align: center;">
                         <div style="margin-bottom: 10px;">S-UAH Miner // Quantum</div>
                         <div style="display: flex; gap: 15px; justify-content: center;">
-                            <a href="https://github.com/your-username/s-hryvnia-miner" target="_blank" rel="noopener noreferrer" style="color: #94a3b8; font-size: 1.2rem; transition: 0.3s;" onmouseover="this.style.color='#818cf8'" onmouseout="this.style.color='#94a3b8'" title="GitHub">
+                            <a href="https://github.com/OlexiyOdarchuk" target="_blank" rel="noopener noreferrer" style="color: #94a3b8; font-size: 1.2rem; transition: 0.3s;" onmouseover="this.style.color='#818cf8'" onmouseout="this.style.color='#94a3b8'" title="GitHub">
                                 <i class="fab fa-github"></i>
                             </a>
-                            <a href="https://t.me/your-telegram" target="_blank" rel="noopener noreferrer" style="color: #94a3b8; font-size: 1.2rem; transition: 0.3s;" onmouseover="this.style.color='#06b6d4'" onmouseout="this.style.color='#94a3b8'" title="Telegram">
+                            <a href="https://t.me/NeShawyha" target="_blank" rel="noopener noreferrer" style="color: #94a3b8; font-size: 1.2rem; transition: 0.3s;" onmouseover="this.style.color='#06b6d4'" onmouseout="this.style.color='#94a3b8'" title="Telegram">
                                 <i class="fab fa-telegram"></i>
                             </a>
                         </div>
@@ -1784,8 +1784,10 @@
         let eventSource = null;
         let reconnectTimeout = null;
         let reconnectAttempts = 0;
+        let pendingTxData = null;
         const maxReconnectAttempts = 10;
         const reconnectDelay = 3000;
+        let ec = null
 
         function connectEventSource() {
             if (eventSource) {
@@ -2300,225 +2302,141 @@
             }
         }
 
-        // --- TRANSACTION HANDLING ---
-        async function handleSendTransaction(e) {
-            e.preventDefault();
-            
-            const fromAddr = document.getElementById('tx-from-wallet').value;
-            const toAddr = document.getElementById('tx-to-address').value.trim();
-            const amountInput = document.getElementById('tx-amount');
-            const amount = parseFloat(amountInput.value);
-            
-            // Validation
-            if (!fromAddr) {
-                toast('Please select a wallet', 'error');
-                return;
+        // --- TRANSACTIcON HANDLING ---
+    // --- ГЛОБАЛЬНІ ЗМІННІ (Мають бути на початку скрипта, якщо ще немає) ---
+
+    // 1. ВАЛІДАЦІЯ ТА ПІДГОТОВКА
+    function handleSendTransaction(e) {
+        ec = new elliptic.ec('secp256k1'); 
+        e.preventDefault();
+
+        const fromAddr = document.getElementById('tx-from-wallet').value;
+        const toAddr = document.getElementById('tx-to-address').value.trim();
+        const amount = parseFloat(document.getElementById('tx-amount').value);
+
+        // Валідація полів
+        if (!fromAddr) return toast('Оберіть гаманець', 'error');
+        if (!toAddr || toAddr.length < 10) return toast('Невірна адреса отримувача', 'error');
+        if (!amount || amount <= 0 || isNaN(amount)) return toast('Невірна сума', 'error');
+
+        // Перевірка балансу (візуальна)
+        const balanceSpan = document.getElementById('tx-wallet-balance');
+        if (balanceSpan) {
+            const balance = parseFloat(balanceSpan.textContent.replace(' S-UAH', '').trim());
+            if (!isNaN(balance) && amount > balance) {
+                return toast(`Недостатньо коштів. Баланс: ${balance.toFixed(4)}`, 'error');
             }
-            
-            if (!toAddr || toAddr.length < 20) {
-                toast('Please enter a valid recipient address', 'error');
-                return;
-            }
-            
-            if (!amount || amount <= 0 || isNaN(amount)) {
-                toast('Please enter a valid amount greater than 0', 'error');
-                return;
-            }
-            
-            // Check balance
-            const balanceSpan = document.getElementById('tx-wallet-balance');
-            if (balanceSpan) {
-                const balanceText = balanceSpan.textContent.replace(' S-UAH', '').trim();
-                const balance = parseFloat(balanceText);
-                
-                if (!isNaN(balance) && amount > balance) {
-                    toast(`Insufficient balance. Available: ${balance.toFixed(4)} S-UAH`, 'error');
-                    return;
-                }
-            }
-            
-            // Store transaction data and show admin password modal
-            pendingTransaction = { from: fromAddr, to: toAddr, amount };
-            closeModals();
-            modal('admin-password');
         }
 
-        async function signTransaction(txData, privateKey) {
-            if (!privateKey || privateKey.length === 0) {
-                throw new Error('Private key is required');
+        // Зберігаємо дані транзакції
+        pendingTxData = { from: fromAddr, to: toAddr, amount: amount };
+
+        // Закриваємо модалку транзакції (якщо потрібно) і відкриваємо пароль
+        // closeModals(); // Розкоментуй, якщо хочеш закривати попереднє вікно
+        modal('admin-password');
+    }
+
+    // 2. ОТРИМАННЯ КЛЮЧА -> ПІДПИС -> ВІДПРАВКА
+    async function handleAdminAuth(e) {
+        e.preventDefault();
+
+        const password = e.target.password.value.trim();
+        const btn = document.getElementById('admin-auth-btn');
+        const originalText = btn.innerHTML;
+
+        if (!password) return toast('Введіть пароль', 'error');
+
+        // Блокуємо UI
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+
+        try {
+            // А. Отримуємо ключ (локальний бекенд)
+            const keyRes = await fetch('/api/get-wallet-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    address: pendingTxData.from,
+                    password: password
+                })
+            });
+
+            const keyData = await keyRes.json();
+
+            if (!keyData.success || !keyData.private_key) {
+                throw new Error(keyData.message || "Невірний пароль або ключ не знайдено");
             }
-            
-            const ec = new elliptic.ec('secp256k1');
-            
-            // Create key pair from private key (should already be in hex format)
-            const privKeyHex = privateKey.replace(/^0x/, '').trim();
-            const keyPair = ec.keyFromPrivate(privKeyHex, 'hex');
-            
-            // Copy transaction data and remove signature if exists
-            const txCopy = Object.assign({}, txData);
-            delete txCopy.signature;
-            
-            // Create JSON string from transaction
-            const txString = JSON.stringify(txCopy);
-            
-            // Hash the transaction string using SHA-256
+
+            // Б. Формуємо об'єкт транзакції 
+            // Порядок полів критично важливий! amount має бути числом.
+            const txObject = {
+                from: pendingTxData.from,
+                to: pendingTxData.to,
+                amount: pendingTxData.amount,
+                fee: 0
+            };
+
+            // В. Хешування (JSON.stringify -> SHA256)
+            const jsonString = JSON.stringify(txObject);
+            console.log("Signing JSON:", jsonString);
+
             const encoder = new TextEncoder();
-            const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(txString));
+            const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(jsonString));
             const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const messageHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            
-            // Sign the hash and return DER format
-            return keyPair.sign(messageHash, 'hex').toDER('hex');
-        }
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-        async function handleAdminAuth(e) {
-            e.preventDefault();
-            const password = e.target.password.value.trim();
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn.innerHTML;
-            
-            if (!pendingTransaction) {
-                toast('No pending transaction', 'error');
+            // Г. Підпис (Клієнтський)
+            // Використовуємо глобальну змінну `ec` (оголошену на початку файлу)
+            const keyPair = ec.keyFromPrivate(keyData.private_key);
+            const signature = keyPair.sign(hashHex, "hex").toDER("hex");
+
+            // Д. Відправка (на головну ноду)
+            txObject.signature = signature;
+
+            const txRes = await fetch('https://s-hryvnia-1.onrender.com/transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(txObject)
+            });
+
+            const responseText = await txRes.text();
+            let result = {};
+            try { result = JSON.parse(responseText); } catch (e) { }
+
+            if (txRes.ok) {
+                toast('✅ Транзакція успішна!', 'success');
                 closeModals();
-                return;
-            }
-            
-            if (!password) {
-                toast('Please enter admin password', 'error');
-                return;
-            }
-            
-            // Show loading state
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            closeModals();
-            
-            try {
-                // Step 1: Get private key after password verification
-                const keyResponse = await fetch('/api/get-wallet-key', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        address: pendingTransaction.from,
-                        password: password
-                    })
-                });
-                
-                if (!keyResponse.ok) {
-                    throw new Error(`HTTP error! status: ${keyResponse.status}`);
-                }
-                
-                const keyResult = await keyResponse.json();
-                
-                if (!keyResult.success) {
-                    toast(keyResult.message || 'Failed to get wallet key', 'error');
-                    pendingTransaction = null;
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                    return;
-                }
-                
-                if (!keyResult.private_key) {
-                    toast('Private key not found for this wallet', 'error');
-                    pendingTransaction = null;
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                    return;
-                }
-                
-                // Step 2: Prepare transaction data (exactly like in the example)
-                const txData = {
-                    from: pendingTransaction.from,
-                    to: pendingTransaction.to,
-                    amount: pendingTransaction.amount,
-                    fee: 0
-                };
-                
-                // Step 3: Sign transaction using elliptic (like in the example)
-                let signature;
-                try {
-                    signature = await signTransaction(txData, keyResult.private_key);
-                } catch (signError) {
-                    console.error('Signing error:', signError);
-                    toast('Failed to sign transaction: ' + (signError.message || 'Invalid private key format'), 'error');
-                    pendingTransaction = null;
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                    return;
-                }
-                
-                if (!signature) {
-                    toast('Failed to generate signature', 'error');
-                    pendingTransaction = null;
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                    return;
-                }
-                
-                // Step 4: Send signed transaction (matching backend format)
-                const txPayload = {
-                    from: pendingTransaction.from,
-                    to: pendingTransaction.to,
-                    amount: pendingTransaction.amount,
-                    fee: 0,
-                    signature: signature
-                };
-                
-                console.log('Sending transaction:', {
-                    from: txPayload.from.substring(0, 12) + '...',
-                    to: txPayload.to.substring(0, 12) + '...',
-                    amount: txPayload.amount,
-                    signatureLength: signature.length
-                });
-                
-                const response = await fetch('/api/send-money', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(txPayload)
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    toast('Transaction sent successfully!', 'success');
-                    document.getElementById('tx-to-address').value = '';
-                    document.getElementById('tx-amount').value = '';
-                    // Reset wallet selection
-                    const container = document.getElementById('wallet-select-container');
-                    container.querySelectorAll('.wallet-select-card.selected').forEach(c => c.classList.remove('selected'));
-                    document.getElementById('tx-from-wallet').value = '';
-                    document.getElementById('tx-wallet-info').style.display = 'none';
-                    document.getElementById('tx-preview').style.display = 'none';
-                } else {
-                    toast(result.message || 'Transaction failed', 'error');
-                }
-            } catch (error) {
-                console.error('Transaction error:', error);
-                let errorMsg = 'Error sending transaction: ';
-                if (error.message.includes('Failed to fetch')) {
-                    errorMsg += 'Network error. Please check your connection.';
-                } else {
-                    errorMsg += (error.message || 'Unknown error');
-                }
-                toast(errorMsg, 'error');
-            } finally {
-                pendingTransaction = null;
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalBtnText;
-            }
-        }
 
-        async function sha256(message) {
-            const msgBuffer = new TextEncoder().encode(message);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        }
+                // Очистка полів
+                document.getElementById('tx-amount').value = '';
+                document.getElementById('tx-to-address').value = '';
+                // Скидання вибору гаманця
+                const container = document.getElementById('wallet-select-container');
+                if (container) container.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
 
+                document.getElementById('tx-from-wallet').value = '';
+                const infoDiv = document.getElementById('tx-wallet-info');
+                if (infoDiv) infoDiv.style.display = 'none';
+                const previewDiv = document.getElementById('tx-preview');
+                if (previewDiv) previewDiv.style.display = 'none';
+
+                e.target.reset();
+            } else {
+                const msg = result.message || result.error || responseText;
+                throw new Error(msg || "Помилка сервера");
+            }
+
+        } catch (err) {
+            console.error(err);
+            let msg = err.message;
+            if (msg.includes('Failed to fetch')) msg = 'Помилка з\'єднання з мережею';
+            toast(msg, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            // pendingTxData = null; // Залишаємо дані, щоб можна було спробувати ще раз при помилці пароля
+        }
+    }
         // --- WALLET HANDLING ---
         async function handleAddWallet(e) {
             e.preventDefault();
