@@ -135,6 +135,7 @@ func handleAddWallet(w http.ResponseWriter, r *http.Request) {
 		Address    string `json:"address"`
 		PrivateKey string `json:"private_key"` // Необов'язкове поле
 		Password   string `json:"password"`
+		Name       string `json:"name"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -199,10 +200,18 @@ func handleAddWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	walletName := "Worker"
+	if strings.TrimSpace(req.Name) != "" {
+		walletName = strings.TrimSpace(req.Name)
+		if len(walletName) > 50 {
+			walletName = walletName[:50]
+		}
+	}
+
 	newWallet := &WalletStats{
 		Address:       req.Address,
 		PrivateKey:    req.PrivateKey,
-		Name:          "Worker",
+		Name:          walletName,
 		Working:       true,
 		SessionMined:  0,
 		ServerBalance: 0,
@@ -384,6 +393,57 @@ func handleToggleWallet(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func handleGetWalletKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		Address  string `json:"address"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Invalid request format",
+		})
+		return
+	}
+
+	req.Address = strings.TrimSpace(req.Address)
+	req.Password = strings.TrimSpace(req.Password)
+
+	if Config.AdminPassword != "" && req.Password != Config.AdminPassword {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Invalid admin password",
+		})
+		return
+	}
+
+	dataMutex.RLock()
+	wallet, exists := walletDataMap[req.Address]
+	if !exists || wallet.PrivateKey == "" {
+		dataMutex.RUnlock()
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Wallet not found or no private key available",
+		})
+		return
+	}
+	key := wallet.PrivateKey
+	dataMutex.RUnlock()
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":     true,
+		"private_key": key,
+	})
+}
+
 func setupRoutes() {
 	http.HandleFunc("/", handleRoot)
 	http.HandleFunc("/api/hashrate-history", handleHashrateHistory)
@@ -392,4 +452,5 @@ func setupRoutes() {
 	http.HandleFunc("/api/rename-wallet", handleRenameWallet)
 	http.HandleFunc("/api/delete-wallet", handleDeleteWallet)
 	http.HandleFunc("/api/toggle-wallet", handleToggleWallet)
+	http.HandleFunc("/api/get-wallet-key", handleGetWalletKey)
 }
