@@ -1,1074 +1,738 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>S-UAH // NEON NEXUS</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>S-UAH // ETHER CLOUD</title>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap"
-        rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         :root {
-            /* COLOR PALETTE: NEON CYBERPUNK */
-            --bg-deep: #030512;
-            --bg-panel: rgba(10, 15, 35, 0.7);
+            /* Palette: Deep Space & Glass */
+            --bg-dark: #0f172a;
+            --bg-accent: #1e1b4b;
 
-            --neon-cyan: #00fff2;
-            --neon-pink: #ff00d4;
-            --neon-purple: #bc13fe;
-            --neon-gold: #ffd700;
-            --neon-red: #ff3860;
+            --primary: #6366f1; /* Indigo */
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --secondary: #ec4899; /* Pink */
+            --success: #10b981; /* Emerald */
+            --warning: #f59e0b; /* Amber */
+            --danger: #ef4444; /* Red */
 
-            --text-bright: #ffffff;
-            --text-dim: #8a9dbf;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
 
-            --glow-cyan:
-                0 0 10px rgba(0, 255, 242, 0.5),
-                0 0 20px rgba(0, 255, 242, 0.3);
-            --glow-pink:
-                0 0 10px rgba(255, 0, 212, 0.5),
-                0 0 20px rgba(255, 0, 212, 0.3);
-            --glow-gold: 0 0 10px rgba(255, 215, 0, 0.5);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+            --glass-blur: blur(20px);
+            --card-radius: 24px;
 
-            --border-light: 1px solid rgba(0, 255, 242, 0.2);
-            --backdrop-blur: blur(12px);
-
-            --font-header: "Rajdhani", sans-serif;
-            --font-ui: "Inter", sans-serif;
-            --font-mono: "JetBrains Mono", monospace;
+            --nav-height: 70px; /* Mobile bottom bar height */
+            --sidebar-width: 260px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            outline: none;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            background-color: var(--bg-deep);
-            color: var(--text-bright);
-            font-family: var(--font-ui);
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
             height: 100vh;
-            display: flex;
             overflow: hidden;
-            /* Animated Cyber Grid Background */
-            background-image:
-                linear-gradient(rgba(0, 255, 242, 0.03) 1px,
-                    transparent 1px),
-                linear-gradient(90deg,
-                    rgba(0, 255, 242, 0.03) 1px,
-                    transparent 1px);
-            background-size: 30px 30px;
-            position: relative;
+            display: flex;
         }
 
-        /* Ambient Light Effect */
-        body::before {
-            content: "";
+        /* --- BACKGROUND ANIMATION (Moving Orbs) --- */
+        .ambient-bg {
             position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle at center,
-                    rgba(188, 19, 254, 0.15) 0%,
-                    rgba(3, 5, 18, 0) 60%);
+            top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: -1;
-            pointer-events: none;
-            animation: pulseAmbient 10s infinite alternate;
+            overflow: hidden;
+            background: radial-gradient(circle at top left, #1e1b4b, #0f172a);
+        }
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 20s infinite ease-in-out;
+        }
+        .orb-1 { width: 400px; height: 400px; background: var(--primary); top: -100px; left: -100px; animation-delay: 0s; }
+        .orb-2 { width: 300px; height: 300px; background: var(--secondary); bottom: -50px; right: -50px; animation-delay: -5s; }
+        .orb-3 { width: 200px; height: 200px; background: #8b5cf6; top: 40%; left: 60%; animation-delay: -10s; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, 50px); }
         }
 
-        @keyframes pulseAmbient {
-            0% {
-                opacity: 0.5;
-                transform: scale(1);
-            }
-
-            100% {
-                opacity: 1;
-                transform: scale(1.1);
-            }
+        /* --- UTILS --- */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
-
-        /* --- COMMON STYLES --- */
-        .glass-panel {
-            background: var(--bg-panel);
-            backdrop-filter: var(--backdrop-blur);
-            border: var(--border-light);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
+        .text-mono { font-family: 'JetBrains Mono', monospace; }
+        .text-grad {
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
 
-        .neon-text-cyan {
-            color: var(--neon-cyan);
-            text-shadow: 0 0 10px rgba(0, 255, 242, 0.7);
-        }
-
-        .neon-text-pink {
-            color: var(--neon-pink);
-            text-shadow: 0 0 10px rgba(255, 0, 212, 0.7);
-        }
-
-        .neon-text-gold {
-            color: var(--neon-gold);
-            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* --- LAYOUT --- */
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* --- SIDEBAR (Desktop) --- */
         .sidebar {
-            width: 280px;
+            width: var(--sidebar-width);
+            height: 100%;
             display: flex;
             flex-direction: column;
-            padding: 25px;
-            flex-shrink: 0;
+            padding: 30px;
+            border-right: var(--glass-border);
             z-index: 10;
-            border-right: var(--border-light);
+            transition: transform 0.3s;
         }
 
-        .main-content {
-            flex: 1;
-            display: grid;
-            grid-template-rows: auto 1fr 180px;
-            /* Chart / Table / Terminal */
-            overflow: hidden;
-            position: relative;
-            padding: 20px;
-            gap: 20px;
-        }
-
-        /* --- SIDEBAR ELEMENTS --- */
         .brand {
-            font-family: var(--font-header);
-            font-weight: 700;
             font-size: 1.5rem;
-            margin-bottom: 40px;
-            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 50px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            color: white;
+        }
+        .brand i { color: var(--primary); filter: drop-shadow(0 0 10px var(--primary)); }
+
+        .nav-links { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 14px 20px;
+            border-radius: 16px;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: 0.3s;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--primary);
+            border: 1px solid rgba(99, 102, 241, 0.2);
         }
 
-        .stat-widget {
+        /* --- MAIN CONTENT --- */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            padding-bottom: 100px; /* Space for mobile nav */
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .page-title { font-size: 1.8rem; font-weight: 700; }
+        .user-status { display: flex; align-items: center; gap: 10px; }
+        .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 10px var(--success); }
+
+        /* --- DASHBOARD WIDGETS --- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            padding: 24px;
+            border-radius: var(--card-radius);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 60%);
+            opacity: 0; transition: 0.5s;
+        }
+        .stat-card:hover::after { opacity: 1; }
+
+        .stat-icon {
+            width: 48px; height: 48px; border-radius: 14px;
+            background: rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; margin-bottom: 15px;
+            color: var(--text-main);
+        }
+        .stat-val { font-size: 2rem; font-weight: 700; margin-bottom: 5px; line-height: 1; }
+        .stat-lbl { color: var(--text-muted); font-size: 0.9rem; font-weight: 500; }
+
+        .chart-container {
+            height: 350px;
+            padding: 20px;
+            border-radius: var(--card-radius);
             margin-bottom: 30px;
         }
 
-        .stat-label {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
-            font-family: var(--font-header);
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-family: var(--font-mono);
-            font-weight: 700;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-        }
-
-        .stat-sub {
-            font-size: 0.8rem;
-            color: var(--neon-cyan);
-            margin-top: 5px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .sidebar-controls {
-            margin-top: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        /* --- NEON BUTTONS --- */
-        .btn {
-            background: rgba(0, 255, 242, 0.05);
-            border: 1px solid var(--neon-cyan);
-            color: var(--neon-cyan);
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            font-family: var(--font-header);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            box-shadow: 0 0 5px rgba(0, 255, 242, 0.2);
-        }
-
-        .btn:hover {
-            background: var(--neon-cyan);
-            color: #000;
-            box-shadow: var(--glow-cyan);
-        }
-
-        .btn-primary {
-            background: rgba(255, 0, 212, 0.1);
-            border-color: var(--neon-pink);
-            color: var(--neon-pink);
-        }
-
-        .btn-primary:hover {
-            background: var(--neon-pink);
-            color: #fff;
-            box-shadow: var(--glow-pink);
-        }
-
-        .btn-sm {
-            padding: 6px;
-            width: 34px;
-            height: 34px;
-            border-radius: 6px;
-        }
-
-        .btn-danger-hover:hover {
-            border-color: var(--neon-red);
-            color: var(--neon-red);
-            box-shadow: 0 0 10px var(--neon-red);
-            background: transparent;
-        }
-
-        /* --- CHART SECTION --- */
-        .chart-section {
-            height: 300px;
-            padding: 20px;
-            position: relative;
-            border-bottom: 2px solid rgba(0, 255, 242, 0.1);
-        }
-
-        /* --- TABLE SECTION --- */
-        .table-panel {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .list-header {
-            padding: 15px 25px;
+        /* --- NODES SECTION (Switchable) --- */
+        .toolbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 20px;
         }
-
-        .list-title {
-            font-family: var(--font-header);
-            font-size: 1.1rem;
-            font-weight: 700;
+        .view-switch {
+            background: rgba(0,0,0,0.3);
+            padding: 4px;
+            border-radius: 12px;
+            display: flex;
+            gap: 4px;
         }
-
-        .list-container {
-            overflow-y: auto;
-            flex: 1;
+        .switch-btn {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: 0.2s;
         }
+        .switch-btn.active { background: rgba(255,255,255,0.1); color: white; }
 
-        /* Neon Table Styling */
-        .grid-table {
+        /* Grid View (Cards) */
+        .nodes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .node-card {
+            padding: 24px;
+            border-radius: var(--card-radius);
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .node-card:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        .node-card.paused { opacity: 0.7; grayscale: 0.8; }
+
+        .nc-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .nc-icon {
+            width: 40px; height: 40px; border-radius: 12px; background: rgba(99,102,241,0.1);
+            color: var(--primary); display: flex; align-items: center; justify-content: center;
+        }
+        .nc-badge {
+            padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+            border: 1px solid transparent;
+        }
+        .bg-active { background: rgba(16, 185, 129, 0.1); color: var(--success); border-color: rgba(16, 185, 129, 0.2); }
+        .bg-paused { background: rgba(245, 158, 11, 0.1); color: var(--warning); border-color: rgba(245, 158, 11, 0.2); }
+
+        .nc-body { margin-bottom: 20px; }
+        .nc-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        .nc-label { color: var(--text-muted); }
+
+        .nc-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        .btn-card {
+            padding: 8px; border-radius: 8px; border: none; cursor: pointer;
+            background: rgba(255,255,255,0.05); color: var(--text-muted);
+            transition: 0.2s;
+        }
+        .btn-card:hover { background: white; color: black; }
+        .btn-card.danger:hover { background: var(--danger); color: white; }
+
+        /* List View (Table) */
+        .nodes-list {
+            overflow-x: auto;
+            border-radius: 16px;
+        }
+        .list-table {
             width: 100%;
             border-collapse: separate;
-            border-spacing: 0 8px;
-            padding: 0 15px;
+            border-spacing: 0;
+            min-width: 600px;
         }
-
-        .grid-table th {
-            text-align: left;
-            padding: 10px 20px;
-            color: var(--text-dim);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .list-table th {
+            text-align: left; padding: 16px 24px;
+            color: var(--text-muted); font-weight: 500; font-size: 0.85rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-
-        .grid-row {
-            background: rgba(255, 255, 255, 0.02);
-            transition: all 0.2s;
-            border-radius: 8px;
-        }
-
-        .grid-row td {
-            padding: 15px 20px;
-            border-top: 1px solid rgba(0, 255, 242, 0.05);
-            border-bottom: 1px solid rgba(0, 255, 242, 0.05);
+        .list-table td {
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
             font-size: 0.95rem;
-            vertical-align: middle;
         }
+        .list-table tr:hover td { background: rgba(255,255,255,0.02); }
 
-        .grid-row td:first-child {
-            border-left: 1px solid rgba(0, 255, 242, 0.1);
-            border-radius: 8px 0 0 8px;
-        }
-
-        .grid-row td:last-child {
-            border-right: 1px solid rgba(0, 255, 242, 0.1);
-            border-radius: 0 8px 8px 0;
-        }
-
-        .grid-row:hover {
-            background: rgba(0, 255, 242, 0.05);
-            box-shadow: 0 0 15px rgba(0, 255, 242, 0.1) inset;
-            transform: translateY(-1px);
-        }
-
-        .grid-row.paused {
-            opacity: 0.5;
-            filter: grayscale(0.5);
-        }
-
-        /* Status Badges */
-        .badge {
-            display: inline-flex;
+        /* --- BOTTOM BAR (Mobile) --- */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; width: 100%; height: var(--nav-height);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border-top: var(--glass-border);
+            z-index: 100;
+            justify-content: space-around;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 100px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            font-family: var(--font-header);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            padding-bottom: env(safe-area-inset-bottom);
         }
+        .b-nav-item {
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            color: var(--text-muted); text-decoration: none; font-size: 0.75rem;
+            padding: 8px 20px; border-radius: 12px;
+        }
+        .b-nav-item i { font-size: 1.2rem; margin-bottom: 2px; }
+        .b-nav-item.active { color: var(--primary); }
 
-        .badge-active {
-            background: rgba(0, 255, 242, 0.1);
-            color: var(--neon-cyan);
-            border: 1px solid var(--neon-cyan);
+        /* --- BUTTONS & INPUTS --- */
+        .btn {
+            border: none; padding: 12px 24px; border-radius: 12px;
+            font-weight: 600; cursor: pointer; transition: 0.3s;
+            font-family: inherit; display: inline-flex; align-items: center; gap: 8px; justify-content: center;
         }
-
-        .badge-paused {
-            background: rgba(255, 166, 0, 0.1);
-            color: orange;
-            border: 1px solid orange;
-        }
-
-        .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-            box-shadow: 0 0 8px currentColor;
-        }
-
-        .mono-val {
-            font-family: var(--font-mono);
-            letter-spacing: -0.5px;
-        }
+        .btn-primary { background: var(--primary); color: white; box-shadow: 0 0 20px var(--primary-glow); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 25px var(--primary-glow); }
+        .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); }
+        .btn-ghost:hover { border-color: white; color: white; }
 
         /* --- TERMINAL --- */
-        .terminal {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--neon-purple);
-            box-shadow: 0 0 15px rgba(188, 19, 254, 0.1);
-            padding: 16px;
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            color: var(--text-dim);
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column-reverse;
-            border-radius: 12px;
+        .terminal-box {
+            height: 300px; padding: 20px; overflow-y: auto;
+            display: flex; flex-direction: column-reverse;
+            border-radius: var(--card-radius);
+            background: rgba(0,0,0,0.3);
         }
-
-        .log-entry {
-            margin-bottom: 5px;
-            padding-left: 10px;
-            border-left: 2px solid transparent;
-            line-height: 1.4;
-        }
-
-        .log-entry.info {
-            border-color: var(--neon-cyan);
-        }
-
-        .log-entry.success {
-            border-color: var(--neon-pink);
-            color: var(--text-bright);
-            text-shadow: 0 0 5px var(--neon-pink);
-        }
-
-        .log-entry.error {
-            border-color: var(--neon-red);
-            color: var(--neon-red);
-            text-shadow: 0 0 5px var(--neon-red);
-        }
-
-        .log-time {
-            opacity: 0.6;
-            margin-right: 10px;
-            color: var(--neon-cyan);
-        }
-
-        /* --- FOCUS MODE OVERLAY --- */
-        #focus-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-deep);
-            z-index: 9999;
-            display: none;
-            grid-template-rows: 80px 1fr 150px;
-            background-image: radial-gradient(circle at center,
-                    rgba(0, 255, 242, 0.1) 0%,
-                    #030512 70%);
-        }
-
-        #focus-overlay.active {
-            display: grid;
-            animation: fadeIn 0.3s;
-        }
-
-        .focus-top {
-            padding: 0 50px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(0, 255, 242, 0.2);
-        }
-
-        .focus-mid {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        .focus-bot {
-            display: flex;
-            gap: 100px;
-            padding: 0 50px;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.4);
-            border-top: 1px solid rgba(0, 255, 242, 0.2);
-        }
-
-        .f-metric {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .f-val {
-            font-family: var(--font-mono);
-            font-size: 4.5rem;
-            font-weight: 700;
-            color: #fff;
-            line-height: 1;
-        }
-
-        .f-lbl {
-            font-size: 1rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            margin-bottom: 10px;
-            font-family: var(--font-header);
-        }
+        .log-line { margin-bottom: 8px; font-size: 0.85rem; display: flex; gap: 10px; }
+        .log-time { color: var(--primary); opacity: 0.7; }
+        .log-msg { color: var(--text-muted); }
+        .log-msg.success { color: var(--success); }
+        .log-msg.error { color: var(--danger); }
 
         /* --- MODALS --- */
-        .modal-wrap {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(15px);
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+            z-index: 2000; display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: 0.3s;
         }
-
-        .modal-wrap.open {
-            display: flex;
-            animation: fadeIn 0.2s;
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal {
+            width: 90%; max-width: 450px;
+            padding: 30px; border-radius: 24px;
+            transform: scale(0.9); transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-
-        .modal-box {
-            width: 90%;
-            max-width: 450px;
-            padding: 35px;
-            border: 1px solid var(--neon-cyan);
-            box-shadow: var(--glow-cyan);
-        }
-
-        .inp-group {
-            margin-bottom: 25px;
-        }
-
+        .modal-overlay.open .modal { transform: scale(1); }
         .inp {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(0, 255, 242, 0.3);
-            color: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: var(--font-mono);
-            font-size: 1rem;
-            transition: 0.3s;
+            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+            padding: 14px; border-radius: 12px; color: white; margin-bottom: 15px; outline: none;
+            transition: 0.3s; font-family: inherit;
         }
+        .inp:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
 
-        .inp:focus {
-            border-color: var(--neon-cyan);
-            box-shadow: var(--glow-cyan);
+        /* --- FOCUS MODE --- */
+        #focus-view {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
         }
+        #focus-view.active { display: flex; animation: fadeIn 0.3s; }
+        .focus-data { text-align: center; margin-bottom: 50px; }
+        .focus-val { font-size: 5rem; font-weight: 800; background: -webkit-linear-gradient(#fff, #999); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--neon-purple);
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--neon-pink);
-            box-shadow: var(--glow-pink);
-        }
-
-        /* Responsive */
+        /* --- RESPONSIVE --- */
         @media (max-width: 1024px) {
-            body {
-                flex-direction: column;
-                height: auto;
-                overflow: auto;
-            }
-
-            .sidebar {
-                width: 100%;
-                border-right: none;
-                border-bottom: var(--border-light);
-                flex-direction: row;
-                flex-wrap: wrap;
-                gap: 30px;
-                align-items: center;
-                padding: 20px;
-            }
-
-            .sidebar-controls {
-                margin-top: 0;
-                flex-direction: row;
-                width: 100%;
-            }
-
-            .brand {
-                margin-bottom: 0;
-                margin-right: auto;
-                font-size: 1.2rem;
-            }
-
-            .stat-widget {
-                margin-bottom: 0;
-            }
-
-            .main-content {
-                grid-template-rows: auto auto 200px;
-                display: flex;
-                flex-direction: column;
-                padding: 10px;
-            }
-
-            .chart-section {
-                height: 250px;
-            }
-
-            .grid-table {
-                padding: 0;
-            }
-
-            .grid-row td {
-                padding: 12px 10px;
-            }
-
-            .f-val {
-                font-size: 2.5rem;
-            }
-
-            .focus-bot {
-                gap: 30px;
-                padding: 0 20px;
-            }
-
-            .grid-table th:nth-child(4),
-            .grid-table td:nth-child(4) {
-                display: none;
-            }
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
+            .sidebar { display: none; }
+            .bottom-nav { display: flex; }
+            .main-content { padding: 20px; padding-bottom: 120px; }
+            .page-title { font-size: 1.5rem; }
+            .chart-container { height: 250px; }
         }
     </style>
 </head>
-
 <body>
-    <div id="focus-overlay">
-        <div class="focus-top">
-            <div class="neon-text-cyan" style="
-                        font-family: var(--font-header);
-                        font-size: 1.2rem;
-                        letter-spacing: 2px;
-                    ">
-                <i class="fas fa-network-wired"></i> NEON_NEXUS // MONITOR
-            </div>
-            <button class="btn" onclick="toggleFocus()">
-                [ESC] RETURN
-            </button>
-        </div>
-        <div class="focus-mid">
-            <canvas id="focusChart"></canvas>
-        </div>
-        <div class="focus-bot">
-            <div class="f-metric">
-                <span class="f-lbl">Network Hashrate</span>
-                <span class="f-val neon-text-cyan"><span id="f-hash">0.00</span>
-                    <span style="font-size: 0.4em">MH/s</span></span>
-            </div>
-            <div class="f-metric">
-                <span class="f-lbl">Total Balance</span>
-                <span class="f-val neon-text-pink"><span id="f-balance">0.00</span>
-                    <span style="font-size: 0.4em">S-UAH</span></span>
-            </div>
-        </div>
+
+    <div class="ambient-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
     </div>
 
-    <div class="sidebar glass-panel">
-        <div class="brand neon-text-cyan">
-            <i class="fas fa-bolt"></i> S-UAH
-            <span class="neon-text-pink">MINER</span>
+    <div id="focus-view">
+        <div class="focus-data">
+            <div style="color: var(--primary); font-weight:600; letter-spacing: 2px; margin-bottom: 10px;">TOTAL HASHRATE</div>
+            <div class="focus-val text-mono"><span id="f-hash">0.00</span> MH/s</div>
         </div>
-
-        <div class="stat-widget">
-            <div class="stat-label">Total Hashrate</div>
-            <div class="stat-value neon-text-cyan" id="s-hash">
-                0.00
-                <span style="font-size: 0.5em; color: var(--text-dim)">MH/s</span>
-            </div>
-            <div class="stat-sub">
-                <i class="fas fa-circle" style="font-size: 0.6em; text-shadow: var(--glow-cyan)"></i>
-                Active
-            </div>
+        <div class="focus-data">
+            <div style="color: var(--secondary); font-weight:600; letter-spacing: 2px; margin-bottom: 10px;">BALANCE</div>
+            <div class="focus-val text-mono" style="font-size: 3rem;"><span id="f-balance">0.00</span></div>
         </div>
-
-        <div class="stat-widget">
-            <div class="stat-label">Total Balance</div>
-            <div class="stat-value neon-text-pink" id="s-balance">0.00</div>
-            <div class="stat-sub">S-UAH Mined</div>
-        </div>
-
-        <div class="stat-widget">
-            <div class="stat-label">Session Blocks</div>
-            <div class="stat-value neon-text-gold" id="s-blocks">0</div>
-        </div>
-
-        <div class="stat-widget">
-            <div class="stat-label">System Uptime</div>
-            <div class="stat-value" id="s-uptime" style="font-size: 1.4rem; color: var(--text-dim)">
-                0s
-            </div>
-        </div>
-
-        <div class="sidebar-controls">
-            <button class="btn btn-primary" onclick="openModal('addWalletModal')">
-                <i class="fas fa-plus-circle"></i> Add Node
-            </button>
-            <button class="btn" onclick="toggleFocus()">
-                <i class="fas fa-expand-arrows-alt"></i> Focus View
-            </button>
-        </div>
+        <button class="btn btn-ghost" onclick="toggleFocus()" style="margin-top: 50px;">
+            <i class="fas fa-compress"></i> EXIT FOCUS
+        </button>
     </div>
 
-    <div class="main-content">
-        <div class="chart-section glass-panel">
-            <canvas id="mainChart"></canvas>
-        </div>
+    <div class="app-container">
+        <nav class="sidebar glass">
+            <div class="brand">
+                <i class="fas fa-cube fa-lg"></i> S-UAH
+            </div>
+            <div class="nav-links">
+                <a class="nav-item active" onclick="switchTab('dashboard')">
+                    <i class="fas fa-chart-pie"></i> Dashboard
+                </a>
+                <a class="nav-item" onclick="switchTab('nodes')">
+                    <i class="fas fa-server"></i> Nodes
+                </a>
+                <a class="nav-item" onclick="switchTab('logs')">
+                    <i class="fas fa-terminal"></i> Terminal
+                </a>
+            </div>
+            <div style="margin-top: auto;">
+                <button class="btn btn-primary" style="width: 100%;" onclick="openModal('addWalletModal')">
+                    <i class="fas fa-plus"></i> Connect Node
+                </button>
+            </div>
+        </nav>
 
-        <div class="table-panel glass-panel">
-            <div class="list-header">
-                <div class="list-title neon-text-cyan">Managed Nodes</div>
-                <div class="stat-label" id="node-count" style="margin-bottom: 0; color: var(--text-bright)">
-                    0 ONLINE
+        <main class="main-content">
+
+            <div id="view-dashboard" class="fade-in">
+                <div class="header">
+                    <div class="page-title">Dashboard Overview</div>
+                    <div class="user-status glass" style="padding: 8px 16px; border-radius: 30px; font-size: 0.9rem;">
+                        <div class="status-dot"></div> System Online
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card glass">
+                        <div class="stat-icon"><i class="fas fa-bolt" style="color: var(--primary)"></i></div>
+                        <div class="stat-val text-mono" id="d-hash">0.00</div>
+                        <div class="stat-lbl">Total Hashrate (MH/s)</div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon"><i class="fas fa-coins" style="color: var(--secondary)"></i></div>
+                        <div class="stat-val text-mono" id="d-balance">0.00</div>
+                        <div class="stat-lbl">Total Balance (S-UAH)</div>
+                    </div>
+                    <div class="stat-card glass">
+                        <div class="stat-icon"><i class="fas fa-cubes" style="color: var(--warning)"></i></div>
+                        <div class="stat-val text-mono" id="d-blocks">0</div>
+                        <div class="stat-lbl">Blocks Mined</div>
+                    </div>
+                    <div class="stat-card glass" onclick="toggleFocus()" style="cursor: pointer;">
+                        <div class="stat-icon"><i class="fas fa-expand" style="color: #fff"></i></div>
+                        <div class="stat-val" style="font-size: 1.2rem;">Focus Mode</div>
+                        <div class="stat-lbl">Click to expand</div>
+                    </div>
+                </div>
+
+                <div class="chart-container glass">
+                    <canvas id="mainChart"></canvas>
                 </div>
             </div>
 
-            <div class="list-container">
-                <table class="grid-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 20%">Alias</th>
-                            <th style="width: 30%">Address</th>
-                            <th style="width: 15%">Status</th>
-                            <th style="width: 10%">Blocks</th>
-                            <th style="width: 15%">Balance</th>
-                            <th style="width: 10%; text-align: right">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="wallet-tbody"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="terminal" id="terminal">
-            <div class="log-entry info">
-                <span class="log-time">[SYSTEM]</span> Neon Nexus interface
-                loaded. Establishing uplink...
-            </div>
-        </div>
-    </div>
-
-    <div id="addWalletModal" class="modal-wrap">
-        <div class="modal-box glass-panel">
-            <h3 class="neon-text-cyan" style="
-                        margin-bottom: 25px;
-                        font-family: var(--font-header);
-                        letter-spacing: 1px;
-                    ">
-                // CONNECT NEW NODE
-            </h3>
-            <form
-                onsubmit="handleApi(event, 'add-wallet', {address: this.addr.value, password: this.pass.value, working: true})">
-                <div class="inp-group">
-                    <input name="addr" class="inp" placeholder="Wallet Address (0x...)" required minlength="20" />
-                </div>
-                <div class="inp-group">
-                    <input name="pass" type="password" class="inp" placeholder="Access Password" required />
-                </div>
-                <div style="display: flex; gap: 15px">
-                    <button type="submit" class="btn btn-primary" style="flex: 1">
-                        INITIALIZE
+            <div id="view-nodes" class="hidden fade-in">
+                <div class="header">
+                    <div class="page-title">Managed Nodes</div>
+                    <button class="btn btn-primary" onclick="openModal('addWalletModal')" style="display: none;" id="mobile-add-btn">
+                        <i class="fas fa-plus"></i>
                     </button>
-                    <button type="button" class="btn" style="flex: 1" onclick="closeModal('addWalletModal')">
-                        CANCEL
-                    </button>
+                </div>
+
+                <div class="toolbar glass" style="padding: 15px; border-radius: 16px;">
+                    <div style="font-weight: 600; color: var(--text-muted);"><span id="node-count">0</span> Active Units</div>
+                    <div class="view-switch">
+                        <button class="switch-btn active" onclick="setNodeView('grid')"><i class="fas fa-grid-2"></i> Cards</button>
+                        <button class="switch-btn" onclick="setNodeView('list')"><i class="fas fa-list"></i> List</button>
+                    </div>
+                </div>
+
+                <div id="nodes-container" class="nodes-grid">
+                    </div>
+            </div>
+
+            <div id="view-logs" class="hidden fade-in">
+                <div class="header">
+                    <div class="page-title">System Logs</div>
+                </div>
+                <div class="terminal-box glass" id="terminal">
+                    <div class="log-line"><span class="log-time">[SYSTEM]</span> <span class="log-msg">Interface initialized successfully.</span></div>
+                </div>
+            </div>
+        </main>
+
+        <div class="bottom-nav">
+            <a class="b-nav-item active" onclick="switchTab('dashboard')">
+                <i class="fas fa-chart-pie"></i> Dashboard
+            </a>
+            <a class="b-nav-item" onclick="switchTab('nodes')">
+                <i class="fas fa-server"></i> Nodes
+            </a>
+            <a class="b-nav-item" onclick="switchTab('logs')">
+                <i class="fas fa-terminal"></i> Logs
+            </a>
+            <a class="b-nav-item" onclick="openModal('addWalletModal')" style="color: var(--primary);">
+                <i class="fas fa-plus-circle"></i> Add
+            </a>
+        </div>
+    </div>
+
+    <div id="addWalletModal" class="modal-overlay">
+        <div class="modal glass">
+            <h3 style="margin-bottom: 20px;">Connect New Node</h3>
+            <form onsubmit="handleApi(event, 'add-wallet', {address: this.addr.value, password: this.pass.value, working: true})">
+                <input name="addr" class="inp" placeholder="Wallet Address (0x...)" required minlength="20">
+                <input name="pass" type="password" class="inp" placeholder="Access Password" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('addWalletModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Connect</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="editWalletModal" class="modal-wrap">
-        <div class="modal-box glass-panel" style="
-                    border-color: var(--neon-pink);
-                    box-shadow: var(--glow-pink);
-                ">
-            <h3 class="neon-text-pink" style="
-                        margin-bottom: 25px;
-                        font-family: var(--font-header);
-                        letter-spacing: 1px;
-                    ">
-                // RECONFIGURE WORKER
-            </h3>
+    <div id="editWalletModal" class="modal-overlay">
+        <div class="modal glass">
+            <h3 style="margin-bottom: 20px;">Edit Node Name</h3>
             <form onsubmit="handleApi(event, 'rename-wallet', {address: editTarget, name: this.name.value})">
-                <div class="inp-group">
-                    <input name="name" id="editNameInp" class="inp" placeholder="Worker Alias (e.g. RACK-01)"
-                        required />
-                </div>
-                <div style="display: flex; gap: 15px">
-                    <button type="submit" class="btn btn-primary" style="flex: 1">
-                        UPDATE
-                    </button>
-                    <button type="button" class="btn" style="flex: 1" onclick="closeModal('editWalletModal')">
-                        CANCEL
-                    </button>
+                <input name="name" id="editNameInp" class="inp" placeholder="Friendly Name (e.g. Worker 1)" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('editWalletModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="deleteWalletModal" class="modal-wrap">
-        <div class="modal-box glass-panel" style="
-                    border-color: var(--neon-red);
-                    box-shadow: 0 0 20px var(--neon-red);
-                ">
-            <h3 style="
-                        margin-bottom: 15px;
-                        color: var(--neon-red);
-                        font-family: var(--font-header);
-                        letter-spacing: 1px;
-                    ">
-                // TERMINATE UPLINK?
-            </h3>
-            <p style="
-                        color: var(--text-dim);
-                        margin-bottom: 25px;
-                        font-size: 0.9rem;
-                    ">
-                WARNING: Mining operations for this node will cease
-                immediately.
-            </p>
+    <div id="deleteWalletModal" class="modal-overlay">
+        <div class="modal glass" style="border-color: rgba(239, 68, 68, 0.3);">
+            <h3 style="margin-bottom: 10px; color: var(--danger);">Disconnect Node?</h3>
+            <p style="margin-bottom: 20px; color: var(--text-muted);">Mining will stop immediately.</p>
             <form onsubmit="handleApi(event, 'delete-wallet', {address: delTarget, password: this.pass.value})">
-                <div class="inp-group">
-                    <input name="pass" type="password" class="inp" placeholder="Confirm Security Key" required
-                        style="border-color: var(--neon-red)" />
-                </div>
-                <div style="display: flex; gap: 15px">
-                    <button type="submit" class="btn" style="
-                                flex: 1;
-                                background: var(--neon-red);
-                                color: white;
-                                border: none;
-                                box-shadow: 0 0 15px var(--neon-red);
-                            ">
-                        DISCONNECT
-                    </button>
-                    <button type="button" class="btn" style="flex: 1" onclick="closeModal('deleteWalletModal')">
-                        CANCEL
-                    </button>
+                <input name="pass" type="password" class="inp" placeholder="Confirm Password" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('deleteWalletModal')">Cancel</button>
+                    <button type="submit" class="btn" style="background: var(--danger); color: white;">Disconnect</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script>
-        // --- GLOBAL STATE (Stable Logic from previous version) ---
-        let charts = {};
+        // --- STATE ---
+        let chartInstance = null;
         let editTarget = null;
         let delTarget = null;
-        const eventSource = new EventSource("/events");
+        let currentViewMode = 'grid'; // 'grid' or 'list'
+        let cachedWallets = []; // Store data for view switching
 
-        // --- CHART SETUP (Neon Style) ---
-        function initCharts() {
-            const opts = {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { display: false },
-                    y: {
-                        display: true,
-                        grid: { color: "rgba(0, 255, 242, 0.05)" },
-                        ticks: {
-                            color: "#8a9dbf",
-                            font: { family: "JetBrains Mono" },
-                        },
-                    },
-                },
-                elements: {
-                    line: { tension: 0.4, borderWidth: 3 },
-                    point: { radius: 0 },
-                },
-            };
-
-            const ctx1 = document
-                .getElementById("mainChart")
-                .getContext("2d");
-            // Neon Gradient fill
-            const grad = ctx1.createLinearGradient(0, 0, 0, 300);
-            grad.addColorStop(0, "rgba(0, 255, 242, 0.4)");
-            grad.addColorStop(1, "rgba(0, 255, 242, 0)");
-
-            charts.main = new Chart(ctx1, {
-                type: "line",
-                data: {
-                    labels: Array(60).fill(""),
-                    datasets: [
-                        {
-                            data: Array(60).fill(0),
-                            borderColor: "#00fff2", // Neon Cyan
-                            backgroundColor: grad,
-                            fill: true,
-                        },
-                    ],
-                },
-                options: opts,
-            });
-
-            // Focus Mode Chart (Pink Accent)
-            const ctx2 = document
-                .getElementById("focusChart")
-                .getContext("2d");
-            const grad2 = ctx2.createLinearGradient(
-                0,
-                0,
-                0,
-                window.innerHeight,
-            );
-            grad2.addColorStop(0, "rgba(255, 0, 212, 0.3)");
-            grad2.addColorStop(1, "rgba(255, 0, 212, 0)");
-
-            charts.focus = new Chart(ctx2, {
-                type: "line",
-                data: {
-                    labels: Array(60).fill(""),
-                    datasets: [
-                        {
-                            data: Array(60).fill(0),
-                            borderColor: "#ff00d4", // Neon Pink
-                            borderWidth: 4,
-                            backgroundColor: grad2,
-                            fill: true,
-                        },
-                    ],
-                },
-                options: {
-                    ...opts,
-                    scales: {
-                        x: { display: false },
-                        y: { display: false },
-                    },
-                },
-            });
-        }
-
-        // --- SMART TABLE UPDATE (Stable No-Flicker Logic) ---
-        function updateTable(wallets) {
-            const tbody = document.getElementById("wallet-tbody");
-            document.getElementById("node-count").innerText =
-                wallets.length + " ONLINE";
-
-            const existingRows = new Set(
-                Array.from(tbody.children).map((r) => r.id),
-            );
-            const incomingIds = new Set();
-
-            wallets.forEach((w) => {
-                const rowId = `w-${w.address}`;
-                incomingIds.add(rowId);
-
-                const isPaused = w.working === false;
-                const statusHtml = isPaused
-                    ? `<span class="badge badge-paused"><span class="dot"></span> PAUSED</span>`
-                    : `<span class="badge badge-active"><span class="dot" style="box-shadow: var(--glow-cyan)"></span> ACTIVE</span>`;
-
-                let row = document.getElementById(rowId);
-
-                if (!row) {
-                    row = document.createElement("tr");
-                    row.id = rowId;
-                    row.className = "grid-row";
-                    row.innerHTML = `
-                        <td class="cell-name" style="font-weight:600; color: var(--text-bright);"></td>
-                        <td class="cell-addr mono-val" style="color: var(--text-dim); font-size: 0.8rem;"></td>
-                        <td class="cell-status"></td>
-                        <td class="cell-blocks mono-val neon-text-gold"></td>
-                        <td class="cell-balance mono-val neon-text-pink"></td>
-                        <td style="text-align: right;">
-                            <div style="display:flex; justify-content:flex-end; gap:8px;">
-                                <button class="btn btn-sm btn-pause" title="Toggle Power"></button>
-                                <button class="btn btn-sm" onclick="setupEdit('${w.address}')"><i class="fas fa-pen"></i></button>
-                                <button class="btn btn-sm btn-danger-hover" onclick="setupDel('${w.address}')"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                }
-
-                // Update content
-                if (
-                    row.querySelector(".cell-name").innerText !==
-                    (w.name || "Unknown Unit")
-                )
-                    row.querySelector(".cell-name").innerText =
-                        w.name || "Unknown Unit";
-
-                if (row.querySelector(".cell-addr").innerText !== w.address)
-                    row.querySelector(".cell-addr").innerText = w.address;
-
-                const currentStatus =
-                    row.querySelector(".cell-status").innerHTML;
-                if (currentStatus !== statusHtml)
-                    row.querySelector(".cell-status").innerHTML =
-                        statusHtml;
-
-                row.querySelector(".cell-blocks").innerText =
-                    w.session_mined;
-                row.querySelector(".cell-balance").innerText =
-                    w.server_balance.toFixed(4);
-
-                const pauseBtn = row.querySelector(".btn-pause");
-                const pauseIcon = isPaused
-                    ? '<i class="fas fa-play" style="color:var(--neon-cyan)"></i>'
-                    : '<i class="fas fa-power-off"></i>';
-                if (pauseBtn.innerHTML !== pauseIcon)
-                    pauseBtn.innerHTML = pauseIcon;
-                pauseBtn.style.borderColor = isPaused
-                    ? "var(--neon-cyan)"
-                    : "var(--neon-pink)";
-                pauseBtn.style.color = isPaused
-                    ? "var(--neon-cyan)"
-                    : "var(--neon-pink)";
-
-                pauseBtn.onclick = () => togglePause(w.address, !isPaused);
-
-                if (isPaused && !row.classList.contains("paused"))
-                    row.classList.add("paused");
-                if (!isPaused && row.classList.contains("paused"))
-                    row.classList.remove("paused");
-            });
-
-            existingRows.forEach((id) => {
-                if (!incomingIds.has(id))
-                    document.getElementById(id).remove();
-            });
-        }
-
-        // --- EVENT HANDLING ---
-        eventSource.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-
-            ["s-hash", "f-hash"].forEach(
-                (id) =>
-                (document.getElementById(id).innerText =
-                    data.hashrate.toFixed(2)),
-            );
-            ["s-balance", "f-balance"].forEach(
-                (id) =>
-                (document.getElementById(id).innerText =
-                    data.total_balance.toFixed(4)),
-            );
-            document.getElementById("s-blocks").innerText =
-                data.total_blocks;
-            document.getElementById("s-uptime").innerText = data.uptime;
-
-            const updateC = (c, val, color) => {
-                const d = c.data.datasets[0].data;
-                d.shift();
-                d.push(val);
-                c.data.datasets[0].borderColor = color; // Dynamic color
-                c.update();
-            };
-            if (charts.main) updateC(charts.main, data.hashrate, "#00fff2");
-            if (charts.focus)
-                updateC(charts.focus, data.hashrate, "#ff00d4");
-
-            if (data.wallets) updateTable(data.wallets);
-            if (data.new_logs)
-                data.new_logs.forEach((l) => addLog(l.message, l.type));
+        // --- INIT ---
+        window.onload = () => {
+            initChart();
+            setupEventSource();
+            // Responsive check
+            if(window.innerWidth <= 1024) document.getElementById('mobile-add-btn').style.display = 'block';
         };
 
-        // --- API ACTIONS (Stable) ---
+        // --- CHART CONFIG ---
+        function initChart() {
+            const ctx = document.getElementById("mainChart").getContext("2d");
+            const grad = ctx.createLinearGradient(0, 0, 0, 400);
+            grad.addColorStop(0, "rgba(99, 102, 241, 0.5)"); // Indigo fade
+            grad.addColorStop(1, "rgba(99, 102, 241, 0)");
+
+            chartInstance = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: Array(60).fill(""),
+                    datasets: [{
+                        data: Array(60).fill(0),
+                        borderColor: "#6366f1",
+                        backgroundColor: grad,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            display: true,
+                            border: { display: false },
+                            grid: { color: "rgba(255, 255, 255, 0.05)" },
+                            ticks: { color: "#94a3b8", font: { family: "JetBrains Mono" } }
+                        }
+                    },
+                    animation: { duration: 0 } // Performance optimization
+                }
+            });
+        }
+
+        // --- VIEW SWITCHING ---
+        function switchTab(tabId) {
+            // Hide all views
+            ['dashboard', 'nodes', 'logs'].forEach(id => {
+                document.getElementById('view-' + id).classList.add('hidden');
+            });
+            // Show selected
+            document.getElementById('view-' + tabId).classList.remove('hidden');
+
+            // Update Nav State
+            document.querySelectorAll('.nav-item, .b-nav-item').forEach(el => el.classList.remove('active'));
+            // Simple logic to highlight both desktop and mobile navs
+            // In a real app we'd use IDs, but this works for this scope
+            event.currentTarget.classList.add('active');
+        }
+
+        function setNodeView(mode) {
+            currentViewMode = mode;
+            document.querySelectorAll('.switch-btn').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            const container = document.getElementById('nodes-container');
+            if(mode === 'list') {
+                container.classList.remove('nodes-grid');
+                container.classList.add('nodes-list');
+            } else {
+                container.classList.add('nodes-grid');
+                container.classList.remove('nodes-list');
+            }
+            renderNodes(cachedWallets); // Re-render with new mode
+        }
+
+        // --- DATA RENDERING ---
+        function renderNodes(wallets) {
+            cachedWallets = wallets;
+            const container = document.getElementById('nodes-container');
+            document.getElementById('node-count').innerText = wallets.length;
+
+            if (currentViewMode === 'grid') {
+                container.innerHTML = wallets.map(w => `
+                    <div class="node-card glass ${!w.working ? 'paused' : ''}">
+                        <div class="nc-header">
+                            <div class="nc-icon"><i class="fas fa-microchip"></i></div>
+                            <div class="nc-badge ${w.working ? 'bg-active' : 'bg-paused'}">
+                                ${w.working ? 'Working' : 'Paused'}
+                            </div>
+                        </div>
+                        <h4 style="margin-bottom:5px; font-weight:600;">${w.name || 'Unnamed Node'}</h4>
+                        <div class="text-mono" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:15px; overflow:hidden; text-overflow:ellipsis;">
+                            ${w.address}
+                        </div>
+                        <div class="nc-body">
+                            <div class="nc-row">
+                                <span class="nc-label">Blocks</span>
+                                <span class="text-mono" style="color:var(--warning)">${w.session_mined}</span>
+                            </div>
+                            <div class="nc-row">
+                                <span class="nc-label">Balance</span>
+                                <span class="text-mono" style="color:var(--secondary)">${w.server_balance.toFixed(4)}</span>
+                            </div>
+                        </div>
+                        <div class="nc-actions">
+                            <button class="btn-card" onclick="togglePause('${w.address}', ${!w.working})">
+                                <i class="fas ${w.working ? 'fa-pause' : 'fa-play'}"></i>
+                            </button>
+                            <button class="btn-card" onclick="setupEdit('${w.address}')"><i class="fas fa-pen"></i></button>
+                            <button class="btn-card danger" onclick="setupDel('${w.address}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                // List View
+                const rows = wallets.map(w => `
+                    <tr>
+                        <td>
+                            <div style="font-weight:600">${w.name || 'Node'}</div>
+                            <div class="text-mono" style="font-size:0.75rem; color:var(--text-muted)">${w.address.substring(0,10)}...</div>
+                        </td>
+                        <td>
+                             <span class="nc-badge ${w.working ? 'bg-active' : 'bg-paused'}" style="font-size:0.65rem">
+                                ${w.working ? 'Active' : 'Paused'}
+                            </span>
+                        </td>
+                        <td class="text-mono">${w.session_mined}</td>
+                        <td class="text-mono" style="color:var(--secondary)">${w.server_balance.toFixed(4)}</td>
+                        <td style="text-align:right;">
+                            <button class="btn-card" onclick="togglePause('${w.address}', ${!w.working})" style="display:inline-block">
+                                <i class="fas ${w.working ? 'fa-pause' : 'fa-play'}"></i>
+                            </button>
+                            <button class="btn-card" onclick="setupEdit('${w.address}')" style="display:inline-block"><i class="fas fa-pen"></i></button>
+                             <button class="btn-card danger" onclick="setupDel('${w.address}')" style="display:inline-block"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                container.innerHTML = `
+                    <div class="list-table-wrap">
+                        <table class="list-table">
+                            <thead><tr><th>Node</th><th>Status</th><th>Blk</th><th>Bal</th><th style="text-align:right">Act</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+            }
+        }
+
+        // --- BACKEND CONNECTION ---
+        function setupEventSource() {
+            const eventSource = new EventSource("/events");
+
+            eventSource.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+
+                // Update Headers
+                ['d-hash', 'f-hash'].forEach(id => document.getElementById(id).innerText = data.hashrate.toFixed(2));
+                ['d-balance', 'f-balance'].forEach(id => document.getElementById(id).innerText = data.total_balance.toFixed(4));
+                document.getElementById('d-blocks').innerText = data.total_blocks;
+
+                // Update Chart
+                if(chartInstance) {
+                    const d = chartInstance.data.datasets[0].data;
+                    d.shift();
+                    d.push(data.hashrate);
+                    chartInstance.update();
+                }
+
+                // Update Nodes
+                if (data.wallets) renderNodes(data.wallets);
+
+                // Update Logs
+                if (data.new_logs) {
+                    data.new_logs.forEach(l => addLog(l.message, l.type));
+                }
+            };
+
+            eventSource.onerror = () => {
+                // Optional: Show offline state
+            };
+        }
+
         async function handleApi(e, endpoint, body) {
             e.preventDefault();
             try {
@@ -1078,24 +742,19 @@
                     body: JSON.stringify(body),
                 });
                 const d = await res.json();
+
                 if (d.success) {
                     closeModal(
-                        endpoint === "add-wallet"
-                            ? "addWalletModal"
-                            : endpoint === "rename-wallet"
-                                ? "editWalletModal"
-                                : "deleteWalletModal",
+                        endpoint === "add-wallet" ? "addWalletModal" :
+                        endpoint === "rename-wallet" ? "editWalletModal" : "deleteWalletModal"
                     );
                     if (e.target) e.target.reset();
-                    addLog(
-                        `API command [${endpoint}] executed.`,
-                        "success",
-                    );
+                    addLog(`Success: ${endpoint}`, 'success');
                 } else {
-                    addLog(`Command failed: ${d.message}`, "error");
+                    addLog(`Error: ${d.message}`, 'error');
                 }
             } catch (err) {
-                addLog("Uplink connection failed.", "error");
+                addLog("Connection failed", 'error');
             }
         }
 
@@ -1103,63 +762,40 @@
             fetch("/api/toggle-wallet", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    address: addr,
-                    working: shouldWork,
-                }),
-            }).catch(() =>
-                addLog("Failed to toggle unit power state.", "error"),
-            );
+                body: JSON.stringify({ address: addr, working: shouldWork }),
+            }).catch(() => addLog("Network Error", "error"));
         }
 
         // --- UI HELPERS ---
-        function addLog(msg, type = "info") {
-            const t = document.getElementById("terminal");
-            const d = document.createElement("div");
-            d.className = `log-entry ${type}`;
-            d.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
-            t.prepend(d);
-            if (t.children.length > 50) t.lastChild.remove();
+        function addLog(msg, type = 'info') {
+            const box = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span class="log-msg ${type}">${msg}</span>`;
+            box.prepend(line);
+            if(box.children.length > 50) box.lastChild.remove();
         }
 
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+        function setupEdit(addr) { editTarget = addr; openModal('editWalletModal'); }
+        function setupDel(addr) { delTarget = addr; openModal('deleteWalletModal'); }
+
         function toggleFocus() {
-            const el = document.getElementById("focus-overlay");
-            el.classList.toggle("active");
-            if (el.classList.contains("active")) {
-                document.documentElement
-                    .requestFullscreen()
-                    .catch(() => { });
-                setTimeout(() => charts.focus.resize(), 50);
+            const el = document.getElementById('focus-view');
+            el.classList.toggle('active');
+            if (el.classList.contains('active')) {
+                document.documentElement.requestFullscreen().catch(() => {});
             } else {
-                document.exitFullscreen().catch(() => { });
+                document.exitFullscreen().catch(() => {});
             }
         }
 
-        function openModal(id) {
-            const m = document.getElementById(id);
-            m.classList.add("open");
-            const input = m.querySelector("input");
-            if (input) input.focus();
-        }
-        function closeModal(id) {
-            document.getElementById(id).classList.remove("open");
-        }
-        function setupEdit(addr) {
-            editTarget = addr;
-            document.getElementById("editNameInp").value = "";
-            openModal("editWalletModal");
-        }
-        function setupDel(addr) {
-            delTarget = addr;
-            openModal("deleteWalletModal");
-        }
+        // Close modal on outside click
         window.onclick = (e) => {
-            if (e.target.classList.contains("modal-wrap"))
-                closeModal(e.target.id);
+            if (e.target.classList.contains('modal-overlay')) closeModal(e.target.id);
         };
-
-        window.onload = initCharts;
     </script>
 </body>
-
 </html>
