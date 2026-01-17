@@ -132,8 +132,9 @@ func handleAddWallet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var req struct {
-		Address  string `json:"address"`
-		Password string `json:"password"`
+		Address    string `json:"address"`
+		PrivateKey string `json:"private_key"` // Необов'язкове поле
+		Password   string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -145,6 +146,7 @@ func handleAddWallet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.Address = strings.TrimSpace(req.Address)
+	req.PrivateKey = strings.TrimSpace(req.PrivateKey)
 	req.Password = strings.TrimSpace(req.Password)
 
 	if len(req.Address) < 20 {
@@ -182,15 +184,24 @@ func handleAddWallet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	dataMutex.Lock()
-	if _, exists := walletDataMap[req.Address]; exists {
+	if existing, exists := walletDataMap[req.Address]; exists {
+		if req.PrivateKey != "" && existing.PrivateKey == "" {
+			existing.PrivateKey = req.PrivateKey
+			dataMutex.Unlock()
+			saveWallets()
+			pushLog("🔑 Ключі оновлено для: "+req.Address[:8]+"...", "success")
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "message": "Приватний ключ додано до існуючого гаманця"})
+			return
+		}
+
 		dataMutex.Unlock()
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "Вже існує"})
 		return
 	}
 
-	// Створюємо новий запис
 	newWallet := &WalletStats{
 		Address:       req.Address,
+		PrivateKey:    req.PrivateKey,
 		Name:          "Worker",
 		Working:       true,
 		SessionMined:  0,
@@ -202,7 +213,12 @@ func handleAddWallet(w http.ResponseWriter, r *http.Request) {
 
 	saveWallets()
 
-	pushLog("➕ Додано: "+req.Address[:8]+"...", "success")
+	msg := "➕ Додано (Тільки для майнингу): "
+	if req.PrivateKey != "" {
+		msg = "➕ Додано (Повний доступ): "
+	}
+	pushLog(msg+req.Address[:8]+"...", "success")
+
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
 

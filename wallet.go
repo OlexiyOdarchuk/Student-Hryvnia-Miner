@@ -49,6 +49,7 @@ func loadWallets() {
 		if _, exists := walletDataMap[cfg.Address]; !exists {
 			walletDataMap[cfg.Address] = &WalletStats{
 				Address:       cfg.Address,
+				PrivateKey:    cfg.PrivateKey,
 				Name:          cfg.Name,
 				Working:       cfg.Working,
 				SessionMined:  0,
@@ -71,9 +72,10 @@ func saveWallets() {
 
 	for _, stats := range walletDataMap {
 		configs = append(configs, WalletConfig{
-			Address: stats.Address,
-			Name:    stats.Name,
-			Working: stats.Working,
+			Address:    stats.Address,
+			Name:       stats.Name,
+			PrivateKey: stats.PrivateKey,
+			Working:    stats.Working,
 		})
 	}
 	dataMutex.RUnlock()
