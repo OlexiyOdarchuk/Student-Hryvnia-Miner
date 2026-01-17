@@ -4,72 +4,25 @@ import (
 	"encoding/json"
 	"log"
 	"os"
-	"strings"
-	"sync"
 )
 
-var walletNames = make(map[string]string)
-var walletNamesMutex sync.RWMutex
-
-func loadWalletsFromEnv() []string {
-	raw := strings.TrimSpace(os.Getenv("WALLETS"))
-	if raw == "" {
-		panic("❌ ENV WALLETS не задано")
-	}
-
-	parts := strings.Split(raw, ",")
-	var res []string
-	for _, w := range parts {
-		w = strings.TrimSpace(w)
-		if len(w) < MinWalletAddressLen {
-			panic("❌ Некоректний гаманець: " + w)
-		}
-		res = append(res, w)
-	}
-
-	if len(res) == 0 {
-		panic("❌ Порожній список гаманців")
-	}
-
-	return res
-}
-
-func contains(arr []string, v string) bool {
-	for _, x := range arr {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
 func getWallets() []string {
-	walletsMutex.RLock()
-	defer walletsMutex.RUnlock()
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
 	cp := make([]string, len(wallets))
 	copy(cp, wallets)
 	return cp
 }
 
-func setWalletName(address, name string) {
-	walletNamesMutex.Lock()
-	defer walletNamesMutex.Unlock()
-	walletNames[address] = name
-}
-
 func getWalletName(address string) string {
-	walletNamesMutex.RLock()
-	defer walletNamesMutex.RUnlock()
-	if name, ok := walletNames[address]; ok && name != "" {
-		return name
-	}
-	return "Безімено"
-}
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
 
-func deleteWalletName(address string) {
-	walletNamesMutex.Lock()
-	defer walletNamesMutex.Unlock()
-	delete(walletNames, address)
+	if stats, ok := walletDataMap[address]; ok && stats.Name != "" {
+		return stats.Name
+	}
+	return "Worker"
 }
 
 func loadWallets() {

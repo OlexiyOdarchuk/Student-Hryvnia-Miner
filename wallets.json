@@ -1,5 +1,10 @@
 [
   {
+    "address": "0418b493fe77252ca3b455f2af416cced53122e237ffeb6ff1b20d14adcad87099bd1604724ec125be57c4d8c2646bd15143f062542be7b9a60fc2e9c071983f92",
+    "name": "П'ятий гаманець",
+    "working": true
+  },
+  {
     "address": "04da38dae03a346dfa1ef21c99e7c1a9006d667b38ff2fe421c9f1a42b4cadf619e9c422f2dc94f7e5254cd32805a293698ad2e42f0b546aef3ea326f433160fe0",
     "name": "Віка",
     "working": false
@@ -22,11 +27,6 @@
   {
     "address": "042ce761607dd12837e8f3608099578d5119680db732af4aadd072f8b9e8019989d2875e5b5ada9b59ad52d38b258ece06827bd5e0738de8c4e52d14502bce9d1d",
     "name": "Четвертий гаманець",
-    "working": true
-  },
-  {
-    "address": "0418b493fe77252ca3b455f2af416cced53122e237ffeb6ff1b20d14adcad87099bd1604724ec125be57c4d8c2646bd15143f062542be7b9a60fc2e9c071983f92",
-    "name": "П'ятий гаманець",
     "working": true
   }
 ]

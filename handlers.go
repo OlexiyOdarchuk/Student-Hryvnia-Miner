@@ -238,8 +238,23 @@ func handleRenameWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setWalletName(req.Address, req.Name)
+	dataMutex.Lock()
+	stats, exists := walletDataMap[req.Address]
+	if exists {
+		stats.Name = req.Name
+	}
+	dataMutex.Unlock()
+
+	if !exists {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Гаманець не знайдено",
+		})
+		return
+	}
+
 	saveWallets()
+
 	pushLog("✏️ Гаманець перейменовано: "+req.Name, "success")
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
