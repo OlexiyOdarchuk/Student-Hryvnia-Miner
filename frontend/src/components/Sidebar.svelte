@@ -70,7 +70,7 @@
         
         <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 12px; align-items: center;">
             <div style="font-size: 0.85rem; color: #64748b; text-align: center;">
-                <div style="margin-bottom: 10px;">S-UAH Miner // Wails Edition</div>
+                <div style="margin-bottom: 10px;">S-UAH Miner // by iShawyha</div>
             </div>
         </div>
     </div>

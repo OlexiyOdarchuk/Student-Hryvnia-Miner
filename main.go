@@ -15,9 +15,9 @@ func main() {
 	app := NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "Student-Hryvnia MINER",
-		Width:  1024,
-		Height: 768,
+		Title:            "Student-Hryvnia MINER",
+		Width:            1024,
+		Height:           768,
 		WindowStartState: options.Maximised,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
