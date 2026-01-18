@@ -71,7 +71,17 @@
         <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 12px; align-items: center;">
             <div style="font-size: 0.85rem; color: #64748b; text-align: center;">
                 <div style="margin-bottom: 10px;">S-UAH Miner // by iShawyha</div>
+                <div style="display: flex; justify-content: center; gap: 15px; font-size: 1.1rem;">
+                    <i class="fab fa-telegram social-icon" style="cursor: pointer; transition: color 0.2s;" on:click={() => BrowserOpenURL('https://t.me/NeShawyha')}></i>
+                    <i class="fab fa-github social-icon" style="cursor: pointer; transition: color 0.2s;" on:click={() => BrowserOpenURL('https://github.com/OlexiyOdarchuk')}></i>
+                </div>
             </div>
         </div>
     </div>
 </nav>
+
+<style>
+    .social-icon:hover {
+        color: var(--primary);
+    }
+</style>

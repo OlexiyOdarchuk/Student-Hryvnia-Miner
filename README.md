@@ -70,6 +70,11 @@ wails build -clean -platform darwin/arm64 -ldflags "-s -w"
 
 Будемо раді вашій допомозі! Ви можете створювати Pull Request або повідомляти про помилки.
 
+## 🔗 Посилання
+
+*   **Telegram**: [@NeShawyha](https://t.me/NeShawyha)
+*   **GitHub**: [OlexiyOdarchuk](https://github.com/OlexiyOdarchuk)
+
 ## 📄 Ліцензія
 
 [GNU License](LICENSE)

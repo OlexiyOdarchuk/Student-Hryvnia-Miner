@@ -54,6 +54,15 @@
             <p>Всі ваші дані зберігаються у файлі <code>storage.bin</code>, зашифрованому алгоритмом AES-GCM. Пароль, який ви створили при першому вході, є ключем до цього файлу. <strong>Не загубіть його!</strong> Відновити доступ без пароля неможливо.</p>
         </div>
 
+        <div class="help-section">
+            <h3><i class="fas fa-link text-primary"></i> Корисні посилання</h3>
+            <p>Ви можете зв'язатися з розробником і переглянути вихідний код проекту:</p>
+            <ul>
+                <li><i class="fab fa-telegram text-cyan"></i> <strong>Telegram:</strong> <a href="https://t.me/NeShawyha">@NeShawyha</a></li>
+                <li><i class="fab fa-github"></i> <strong>GitHub:</strong> <a href="https://github.com/OlexiyOdarchuk">OlexiyOdarchuk</a></li>
+            </ul>
+        </div>
+
     </div>
 </div>
 
@@ -101,4 +110,18 @@
     .text-danger { color: var(--danger); }
     .text-cyan { color: var(--neon-cyan); }
     .text-accent { color: var(--accent); }
+
+    a {
+        color: var(--primary); 
+        text-decoration: none; 
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border-bottom: 1px solid transparent; 
+    }
+
+    a:hover {
+        color: var(--neon-cyan); 
+        text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);  
+        border-bottom-color: var(--neon-cyan); 
+    }
 </style>
