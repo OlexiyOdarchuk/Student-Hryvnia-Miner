@@ -1,16 +1,75 @@
-# README
+# SHMiner
 
-## About
+**SHMiner** — це кросплатформний десктопний додаток для майнінгу цифрової валюти **S-Hryvnia (S-UAH)**. Побудований на базі [Wails](https://wails.io/), він поєднує продуктивність Go на бекенді та реактивність Svelte на фронтенді для забезпечення зручного процесу майнінгу.
 
-This is the official Wails Svelte-TS template.
+![App Icon](build/appicon.png)
 
-## Live Development
+## 🚀 Особливості
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+*   **CPU Майнінг**: Ефективне видобування блоків S-UAH за допомогою центрального процесора вашого комп'ютера.
+*   **Керування гаманцями**: Надійне керування кількома гаманцями.
+*   **Зашифроване сховище**: Усі чутливі дані (гаманці, конфігурація) шифруються локально.
+*   **Статистика в реальному часі**: Моніторинг хешрейту, загальної кількості видобутих блоків та поточного балансу.
+*   **Живі логи**: Перегляд детальних логів процесу (знайдені nonce, відповіді сервера тощо).
+*   **Режим фокусу**: Спрощений інтерфейс для зручного спостереження без зайвих деталей.
+*   **Кросплатформність**: Працює на Windows, Linux та macOS.
 
-## Building
+## 🛠️ Технологічний стек
 
-To build a redistributable, production mode package, use `wails build`.
+*   **Backend**: Go (Golang)
+*   **Frontend**: Svelte, TypeScript, Vite
+*   **Framework**: Wails (v2)
+
+## 📦 Встановлення та збірка
+
+### Попередні вимоги
+
+Переконайтеся, що у вас встановлено:
+*   [Go](https://go.dev/) (v1.21+)
+*   [Node.js](https://nodejs.org/) (v18+)
+*   [Wails CLI](https://wails.io/docs/gettingstarted/installation)
+
+### Розробка
+
+Щоб запустити додаток у режимі розробки (з гарячим перезавантаженням):
+
+```bash
+wails dev
+```
+
+Це запустить додаток та сервер розробки (зазвичай на `http://localhost:34115`).
+
+### Збірка для продакшну
+
+Щоб створити готовий файл або інсталятор для вашої ОС:
+
+```bash
+wails build -clean -platform windows/amd64 -ldflags "-s -w"
+wails build -clean -platform linux/amd64 -ldflags "-s -w"
+wails build -clean -platform darwin/arm64 -ldflags "-s -w"
+```
+
+Готовий бінарний файл буде знаходитися в директорії `build/bin`.
+
+## 🎮 Використання
+
+1.  **Запустіть додаток**: Відкрийте зібраний файл або виконайте `wails dev`.
+2.  **Вхід/Створення пароля**: Встановіть пароль сесії для шифрування локального сховища.
+3.  **Додайте гаманець**: Перейдіть на вкладку **Wallets** і імпортуйте існуючий гаманець (його можна створити в офіційному боті).
+4.  **Почніть майнінг**:
+    *   Переконайтеся, що ваш гаманець вибраний/активний.
+    *   Майнер автоматично підключиться до сервера (`https://s-hryvnia-1.onrender.com`) і почне обчислення.
+5.  **Моніторинг**: Слідкуйте за хешрейтом та видобутими блоками на вкладці **Dashboard** або **Statistics**.
+
+## ⚙️ Конфігурація
+
+Додаток підключається до стандартного сервера: `https://s-hryvnia-1.onrender.com`.
+Налаштування мережі та складності майнінгу обробляються автоматично, але за потреби їх можна змінити для власних вузлів.
+
+## 🤝 Внесок у проект
+
+Будемо раді вашій допомозі! Ви можете створювати Pull Request або повідомляти про помилки.
+
+## 📄 Ліцензія
+
+[GNU License](LICENSE)
