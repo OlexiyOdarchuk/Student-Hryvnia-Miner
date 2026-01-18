@@ -1,101 +1,34 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"math/rand"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	"embed"
 
-	"github.com/joho/godotenv"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
+//go:embed all:frontend/dist
+var assets embed.FS
+
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️ .env не знайдено, використовую system env")
+	app := NewApp()
+
+	err := wails.Run(&options.App{
+		Title:  "shminer",
+		Width:  1024,
+		Height: 768,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		OnStartup:        app.startup,
+		Bind: []interface{}{
+			app,
+		},
+	})
+
+	if err != nil {
+		println("Error:", err.Error())
 	}
-
-	LoadConfig()
-	compileDifficultyBits(Config.Difficulty)
-
-	startTime = time.Now()
-	walletDataMap = make(map[string]*WalletStats)
-
-	loadWallets()
-
-	setupGracefulShutdown()
-
-	go watchEnvFile()
-	go startWebServer()
-	go speedMonitor()
-	go balanceUpdater()
-
-	fmt.Println("==================================================")
-	fmt.Printf("🌐 ВЕБІНТФЕЙС: http://localhost%s\n", Config.ServerPort)
-	fmt.Println("🔨 МАЙНЕР ЗАПУЩЕНО...")
-	fmt.Println("==================================================")
-
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	for {
-		prevHash := getChainLastHash()
-		if prevHash == "" {
-			pushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")
-			time.Sleep(2 * time.Second)
-			continue
-		}
-
-		ws := getWallets()
-		if len(ws) == 0 {
-			pushLog("⚠️ Немає гаманців, очікую .env", "error")
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		currentWallet := ws[rand.Intn(len(ws))]
-
-		dataMutex.Lock()
-		stats, exists := walletDataMap[currentWallet]
-		isWorking := true
-		if exists {
-			isWorking = stats.Working
-		}
-		dataMutex.Unlock()
-
-		if !isWorking {
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-
-		success := mineBlock(prevHash, currentWallet)
-
-		if success {
-			dataMutex.Lock()
-			sessionMined++
-			if ws, ok := walletDataMap[currentWallet]; ok {
-				ws.SessionMined++
-			}
-			dataMutex.Unlock()
-
-			go updateSingleBalance(currentWallet)
-		}
-
-		time.Sleep(MinerSleepInterval)
-	}
-}
-
-func setupGracefulShutdown() {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigChan
-		pushLog(fmt.Sprintf("🛑 Сигнал: %v. Завершення майнера...", sig), "info")
-		fmt.Println("\n==================================================")
-		fmt.Println("🛑 МАЙНЕР ЗУПИНЯЄТЬСЯ...")
-		fmt.Println("==================================================")
-		os.Exit(0)
-	}()
 }

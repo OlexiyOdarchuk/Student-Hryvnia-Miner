@@ -1,9 +1,11 @@
-package main
+package backend
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"strconv"
 	"sync/atomic"
@@ -57,12 +59,11 @@ func checkDifficultyFast(hash [32]byte) bool {
 	return true
 }
 
-func mineBlock(prevHash string, wallet string) bool {
+func MineBlock(prevHash string, wallet string) bool {
 	atomic.StoreInt32(&found, 0)
 
 	timestamp := time.Now().UnixMilli()
 
-	//txPart := []byte(`[{"from":null,"to":"` + wallet + `","amount":1}]`)
 	minerPart := []byte(wallet)
 	rewardPart := []byte("1")
 	tsPart := []byte(strconv.FormatInt(timestamp, 10))
@@ -79,7 +80,6 @@ func mineBlock(prevHash string, wallet string) bool {
 			for atomic.LoadInt32(&found) == 0 {
 				buffer = buffer[:0]
 				buffer = append(buffer, prevHash...)
-				//buffer = append(buffer, txPart...)
 				buffer = strconv.AppendInt(buffer, int64(nonce), 10)
 				buffer = append(buffer, minerPart...)
 				buffer = append(buffer, rewardPart...)
@@ -91,13 +91,13 @@ func mineBlock(prevHash string, wallet string) bool {
 				if checkDifficultyFast(hashArr) {
 					if atomic.CompareAndSwapInt32(&found, 0, 1) {
 						hashStr := hex.EncodeToString(hashArr[:])
-						pushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
+						PushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
 
-						if submitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
+						if SubmitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							atomic.StoreInt32(&successFlag, 1)
-							pushLog("💰 Блок зараховано! (+1 S-UAH)", "success")
+							PushLog("💰 Блок зараховано! (+1 S-UAH)", "success")
 						} else {
-							pushLog("❌ Сервер відхилив блок", "error")
+							PushLog("❌ Сервер відхилив блок", "error")
 						}
 						close(done)
 					}
@@ -110,4 +110,77 @@ func mineBlock(prevHash string, wallet string) bool {
 
 	<-done
 	return atomic.LoadInt32(&successFlag) == 1
+}
+
+func StartMiningLoop(ctx context.Context) {
+	if Config.Difficulty < 1 {
+		Config.Difficulty = 1
+	}
+
+	compileDifficultyBits(Config.Difficulty)
+	startTime = time.Now()
+
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	go StartSpeedMonitor(ctx)
+	go StartBalanceUpdater(ctx)
+	go StartWebServer()
+
+	PushLog("🔨 МАЙНЕР ЗАПУЩЕНО...", "info")
+
+	for {
+		select {
+		case <-ctx.Done():
+			PushLog("🛑 Mining stopped", "info")
+			return
+		default:
+		}
+
+		prevHash := getChainLastHashCached()
+		if prevHash == "" {
+			PushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		ws := GetWallets()
+		if len(ws) == 0 {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		currentWallet := ws[rand.Intn(len(ws))]
+
+		dataMutex.Lock()
+		stats, exists := walletDataMap[currentWallet]
+		isWorking := true
+		if exists {
+			isWorking = stats.Working
+		}
+		dataMutex.Unlock()
+
+		if !isWorking {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		success := MineBlock(prevHash, currentWallet)
+
+		if success {
+			dataMutex.Lock()
+			sessionMined++
+			if ws, ok := walletDataMap[currentWallet]; ok {
+				ws.SessionMined++
+				ws.TotalMined++
+			}
+			dataMutex.Unlock()
+
+			syncStorage()
+			SaveStorage(GetSessionPassword(), CurrentStorage)
+
+			go updateSingleBalance(currentWallet)
+		}
+
+		time.Sleep(MinerSleepInterval)
+	}
 }

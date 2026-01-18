@@ -1,0 +1,15 @@
+{
+  "name": "S-UAH Miner",
+  "description": "Майнер криптовалюти S-UAH",
+  "author": {
+    "name": "iShawyha",
+    "email": "shawyhaf@gmail.com"
+  },
+  "version": "1.0.0",
+  "wailsjsdir": "./frontend",
+  "outputfilename": "SHMiner",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto"
+}

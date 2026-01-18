@@ -1,4 +1,4 @@
-package main
+package backend
 
 import (
 	"bytes"
@@ -85,7 +85,7 @@ func retryWithBackoff(fn func() error) error {
 	return lastErr
 }
 
-func submitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
+func SubmitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
 	payload := map[string]interface{}{
 		"block": map[string]interface{}{
 			"prevHash": prev, "transactions": []map[string]interface{}{{"from": nil, "to": wallet, "amount": 1}},
@@ -111,18 +111,14 @@ func submitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
 	})
 
 	if err != nil {
-		pushLog("❌ Помилка при відправці блоку: "+err.Error(), "error")
+		PushLog("❌ Помилка при відправці блоку: "+err.Error(), "error")
 		return false
 	}
 	return success
 }
 
-func getChainLastHash() string {
-	return getChainLastHashCached()
-}
-
-func getBalance(addr string) int {
-	var balance int
+func GetBalance(addr string) float64 {
+	var balance float64
 	err := retryWithBackoff(func() error {
 		resp, err := httpClient.Get(Config.BaseURL + "/balance/" + addr)
 		if err != nil {
@@ -134,7 +130,7 @@ func getBalance(addr string) int {
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
 		var data struct {
-			Balance int `json:"balance"`
+			Balance float64 `json:"balance"`
 		}
 		if err := json.Unmarshal(body, &data); err != nil {
 			return err
@@ -144,8 +140,32 @@ func getBalance(addr string) int {
 	})
 
 	if err != nil {
-		pushLog("❌ Помилка отримання балансу: "+err.Error(), "error")
+		PushLog("❌ Помилка отримання балансу: "+err.Error(), "error")
 		return 0
 	}
 	return balance
+}
+
+func SendTransaction(from, privateKey, to string, amount float64) (string, error) {
+	payload := map[string]interface{}{
+		"from":       from,
+		"to":         to,
+		"amount":     amount,
+		"privateKey": privateKey,
+	}
+	body, _ := json.Marshal(payload)
+
+	req, _ := http.NewRequest("POST", Config.BaseURL+"/transaction", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
+	return "Transaction sent", nil
 }
