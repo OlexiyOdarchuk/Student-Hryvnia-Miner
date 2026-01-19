@@ -17,6 +17,26 @@
         ClipboardSetText(addr);
         notifications.info("Адреса скопійована: " + addr.substring(0, 10) + "...");
     }
+
+    // Row Pulse Logic
+    let pulsingWallets = {}; // map address -> boolean
+    let lastMined = {}; // map address -> count
+
+    $: if ($stats && $stats.wallets) {
+        $stats.wallets.forEach(w => {
+            const last = lastMined[w.address] || 0;
+            if (w.total_mined > last) {
+                // Only pulse if not first load (or if you want pulse on load, remove check)
+                if (last !== 0 || w.total_mined === 1) {
+                    pulsingWallets[w.address] = true;
+                    setTimeout(() => {
+                        pulsingWallets[w.address] = false;
+                    }, 1000);
+                }
+            }
+            lastMined[w.address] = w.total_mined;
+        });
+    }
 </script>
 
 <div class="content-wrapper">
@@ -44,7 +64,7 @@
                 </thead>
                 <tbody>
                     {#each ($stats.wallets || []) as wallet}
-                    <tr>
+                    <tr class:row-pulse={pulsingWallets[wallet.address]}>
                         <td style="font-weight: 700; color: white;">{wallet.name}</td>
                         <td>
                             <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -117,5 +137,13 @@
     .addr-chip:hover {
         background: rgba(129, 140, 248, 0.2);
         color: white;
+    }
+
+    @keyframes pulse-row {
+        0% { background: rgba(52, 211, 153, 0.15); }
+        100% { background: transparent; }
+    }
+    .row-pulse {
+        animation: pulse-row 1s ease-out;
     }
 </style>

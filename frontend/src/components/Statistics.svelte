@@ -13,11 +13,30 @@
         updateCharts();
     }
 
+    // Row Pulse Logic
+    let pulsingWallets = {}; // map address -> boolean
+    let lastMined = {}; // map address -> count
+
+    $: if ($stats && $stats.wallets) {
+        $stats.wallets.forEach(w => {
+            const last = lastMined[w.address] || 0;
+            if (w.total_mined > last) {
+                if (last !== 0 || w.total_mined === 1) {
+                    pulsingWallets[w.address] = true;
+                    setTimeout(() => {
+                        pulsingWallets[w.address] = false;
+                    }, 1000);
+                }
+            }
+            lastMined[w.address] = w.total_mined;
+        });
+    }
+
     function updateCharts() {
         const wallets = $stats.wallets || [];
         const labels = wallets.map(w => w.name || w.address.substring(0, 8));
         const balances = wallets.map(w => w.server_balance);
-        const blocks = wallets.map(w => w.total_mined);
+        const blocks = wallets.map(w => w.session_mined);
 
         // Update Balance Chart (Pie)
         balanceChart.data.labels = labels;
@@ -59,7 +78,7 @@
             data: {
                 labels: [],
                 datasets: [{
-                    label: 'Загальні блоки',
+                    label: 'Сесійні блоки',
                     data: [],
                     backgroundColor: '#818cf8',
                     borderRadius: 8
@@ -137,7 +156,7 @@
         </div>
         
         <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; height: 100%;">
-            <div class="stat-label" style="margin-bottom: 20px; flex-shrink: 0;">Блоки по гаманцях (Всього)</div>
+            <div class="stat-label" style="margin-bottom: 20px; flex-shrink: 0;">Блоки по гаманцях (Сесійні)</div>
             <div style="flex: 1; position: relative; width: 100%; min-height: 0; overflow: hidden;">
                 <canvas bind:this={blocksCanvas} style="width: 100%; height: 100%; display: block;"></canvas>
             </div>
@@ -160,7 +179,7 @@
                 </thead>
                 <tbody>
                     {#each ($stats.wallets || []) as wallet}
-                    <tr>
+                    <tr class:row-pulse={pulsingWallets[wallet.address]}>
                         <td>{wallet.name}</td>
                         <td>
                             {#if wallet.working}
@@ -188,5 +207,13 @@
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         gap: 24px;
+    }
+
+    @keyframes pulse-row {
+        0% { background: rgba(52, 211, 153, 0.15); }
+        100% { background: transparent; }
+    }
+    .row-pulse {
+        animation: pulse-row 1s ease-out;
     }
 </style>

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { GetConfig, UpdateConfig, ChangePassword } from '../../wailsjs/go/main/App';
+    import { GetConfig, UpdateConfig, ChangePassword, GetSystemInfo } from '../../wailsjs/go/main/App';
 
     let config = {
         base_url: '',
@@ -9,8 +9,11 @@
         max_retries: 0,
         retry_delay_ms: 0,
         balance_freq_s: 0,
-        http_timeout: 0
+        http_timeout: 0,
+        threads: 0
     };
+    
+    let maxCores = 4; // Default safe fallback
     
     let password = '';
     let message = '';
@@ -25,6 +28,12 @@
 
     onMount(async () => {
         config = await GetConfig();
+        try {
+            const info = await GetSystemInfo();
+            if (info && info.cpu_cores) {
+                maxCores = info.cpu_cores;
+            }
+        } catch(e) { console.error(e); }
     });
 
     async function save() {
@@ -83,6 +92,17 @@
                 </div>
             </div>
             
+            <div style="margin-top: 10px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                 <label class="field-label" style="display:flex; justify-content:space-between; margin-bottom: 10px;">
+                    <span>Потоки CPU</span>
+                    <span style="color: var(--primary); font-weight: 700; font-family: var(--font-mono);">{config.threads === 0 ? 'AUTO (' + maxCores + ')' : config.threads}</span>
+                 </label>
+                 <input type="range" class="range-slider" min="0" max={maxCores} step="1" bind:value={config.threads} style="width: 100%;">
+                 <div style="font-size: 0.75rem; color: #64748b; margin-top: 8px;">
+                    0 = Використовувати всі доступні ядра ({maxCores}). Зменшіть, якщо ПК гальмує.
+                 </div>
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                 <div>
                     <label class="field-label">Складність</label>

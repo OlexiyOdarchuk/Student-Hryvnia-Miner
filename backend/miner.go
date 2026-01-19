@@ -68,7 +68,17 @@ func MineBlock(prevHash string, wallet string) bool {
 	rewardPart := []byte("1")
 	tsPart := []byte(strconv.FormatInt(timestamp, 10))
 
-	cores := runtime.NumCPU()
+	cores := Config.Threads
+	maxCores := runtime.NumCPU()
+
+	if cores <= 0 || cores > maxCores {
+		cores = maxCores
+	}
+
+	if cores < 1 {
+		cores = 1
+	}
+
 	done := make(chan struct{})
 	var successFlag int32
 
@@ -178,7 +188,12 @@ func StartMiningLoop(ctx context.Context) {
 			syncStorage()
 			SaveStorage(GetSessionPassword(), CurrentStorage)
 
-			go updateSingleBalance(currentWallet)
+			go func() {
+				updateSingleBalance(currentWallet)
+				BroadcastUpdate()
+			}()
+
+			BroadcastUpdate()
 		}
 
 		time.Sleep(MinerSleepInterval)

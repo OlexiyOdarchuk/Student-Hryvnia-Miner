@@ -20,6 +20,19 @@
     $: statusText = !isOnline ? 'ОФЛАЙН' : (isAnyWorking ? 'ОНЛАЙН' : 'ПРИЗУПИНЕНО');
     $: statusClass = !isOnline ? 'offline' : (isAnyWorking ? '' : 'paused'); // '' is green, 'paused' is yellow
 
+    // Pulse Animation Logic
+    let lastSessionBlocks = 0;
+    let pulseClass = '';
+    $: if ($stats && $stats.session_blocks > lastSessionBlocks) {
+        pulseClass = 'pulse-active';
+        setTimeout(() => pulseClass = '', 1000);
+        lastSessionBlocks = $stats.session_blocks;
+    }
+    // Init lastSessionBlocks to avoid pulse on first load
+    $: if ($stats && lastSessionBlocks === 0 && $stats.session_blocks > 0) {
+        lastSessionBlocks = $stats.session_blocks;
+    }
+
     async function toggleGlobal() {
         // If any is working -> Stop ALL. If none working -> Start ALL.
         const newState = !isAnyWorking;
@@ -188,9 +201,11 @@
             <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--success); margin-bottom: 4px;">{$stats.total_balance.toFixed(2)}</div>
             <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Зароблено</div>
         </div>
-        <div style="padding: 10px; background: rgba(251, 191, 36, 0.05); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.1);">
-            <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--warning); margin-bottom: 4px;">{$stats.session_blocks}</div>
-            <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Блоки</div>
+        <div class="glass-card stat-card" style="border-top-color: var(--warning); transition: transform 0.2s, box-shadow 0.2s;">
+            <div style="padding: 10px; background: rgba(251, 191, 36, 0.05); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.1);">
+                <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--warning); margin-bottom: 4px;">{$stats.session_blocks}</div>
+                <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;">Блоки</div>
+            </div>
         </div>
         <div style="padding: 10px; background: rgba(6, 182, 212, 0.05); border-radius: 12px; border: 1px solid rgba(6, 182, 212, 0.1);">
             <div style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--neon-cyan); margin-bottom: 4px;">{($stats.wallets || []).filter(w => w.working).length}</div>

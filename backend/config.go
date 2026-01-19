@@ -12,6 +12,7 @@ var Config struct {
 	MaxRetries  int
 	RetryDelay  time.Duration
 	BalanceFreq time.Duration
+	Threads     int
 }
 
 func LoadConfig() {
@@ -22,6 +23,7 @@ func LoadConfig() {
 	Config.MaxRetries = DefaultMaxRetries
 	Config.RetryDelay = DefaultRetryDelay
 	Config.BalanceFreq = DefaultBalanceUpdateFreq
+	Config.Threads = 0 // 0 means auto/max
 }
 
 func UpdateConfig(password string, newConf AppConfig) error {

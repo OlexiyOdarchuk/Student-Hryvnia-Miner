@@ -35,4 +35,5 @@ type AppConfig struct {
 	MaxRetries   int    `json:"max_retries"`
 	RetryDelayMs int    `json:"retry_delay_ms"`
 	BalanceFreqS int    `json:"balance_freq_s"`
+	Threads      int    `json:"threads"`
 }

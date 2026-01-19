@@ -22,6 +22,10 @@ export function GetDashboardData() {
   return window['go']['main']['App']['GetDashboardData']();
 }
 
+export function GetSystemInfo() {
+  return window['go']['main']['App']['GetSystemInfo']();
+}
+
 export function GetWalletKey(arg1, arg2) {
   return window['go']['main']['App']['GetWalletKey'](arg1, arg2);
 }

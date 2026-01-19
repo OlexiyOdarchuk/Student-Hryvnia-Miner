@@ -3,7 +3,59 @@ package backend
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
+	"github.com/gorilla/websocket"
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+var clients = make(map[*websocket.Conn]bool)
+var clientsMu sync.Mutex
+
+func BroadcastUpdate() {
+	clientsMu.Lock()
+	defer clientsMu.Unlock()
+	
+	if len(clients) == 0 {
+		return
+	}
+
+	fullData := GetDashboardData()
+	
+	var safeWallets []map[string]interface{}
+	for _, wallet := range fullData.Wallets {
+		safeWallets = append(safeWallets, map[string]interface{}{
+			"address":        wallet.Address,
+			"name":           wallet.Name,
+			"session_mined":  wallet.SessionMined,
+			"total_mined":    wallet.TotalMined,
+			"server_balance": wallet.ServerBalance,
+			"working":        wallet.Working,
+		})
+	}
+
+	response := map[string]interface{}{
+		"hashrate":      fullData.Hashrate,
+		"total_balance": fullData.TotalBalance,
+		"uptime":        fullData.Uptime,
+		"wallets":       safeWallets,
+	}
+
+	msg, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+
+	for client := range clients {
+		err := client.WriteMessage(websocket.TextMessage, msg)
+		if err != nil {
+			client.Close()
+			delete(clients, client)
+		}
+	}
+}
 
 const WebUI = `<!DOCTYPE html>
 <html lang="uk">
@@ -107,6 +159,21 @@ const WebUI = `<!DOCTYPE html>
         tr td:first-child { border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
         tr td:last-child { border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
         
+        /* Pulse Animation */
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); border-color: rgba(251, 191, 36, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(251, 191, 36, 0); border-color: transparent; }
+            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); border-color: transparent; }
+        }
+        
+        @keyframes pulse-row {
+            0% { background: rgba(52, 211, 153, 0.15); }
+            100% { background: rgba(255,255,255,0.03); }
+        }
+
+        .pulse-active { animation: pulse-gold 1s ease-out; }
+        .row-pulse td { animation: pulse-row 1s ease-out; }
+
         .badge { padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px; }
         .badge.active { background: rgba(16, 185, 129, 0.15); color: var(--success); }
         .badge.paused { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
@@ -192,7 +259,7 @@ const WebUI = `<!DOCTYPE html>
                 </div>
             </div>
             <div class="glass-card">
-                <div class="stat-label" style="margin-bottom: 15px;">Блоки (Загальні)</div>
+                <div class="stat-label" style="margin-bottom: 15px;">Блоки (Сесійні)</div>
                 <div class="chart-container">
                     <canvas id="blocksChart"></canvas>
                 </div>
@@ -203,7 +270,10 @@ const WebUI = `<!DOCTYPE html>
         <div class="glass-card">
             <div class="stat-label" style="margin-bottom: 20px;">Продуктивність гаманців</div>
             <div class="table-wrap">
-                <table id="wallet-table"></table>
+                <table id="wallet-table">
+                    <thead><tr><th>Гаманець</th><th>Адреса</th><th>Статус</th><th>С. Блоки</th><th>З. Блоки</th><th>Баланс</th></tr></thead>
+                    <tbody id="wallet-tbody"></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -230,7 +300,10 @@ const WebUI = `<!DOCTYPE html>
     <script>
         // Charts
         let bChart, blChart;
-        
+        let lastSessionBlocks = 0;
+        let lastWalletMined = {}; // Map address -> mined_count
+        let ws;
+
         function initCharts() {
             const ctx1 = document.getElementById('balanceChart').getContext('2d');
             bChart = new Chart(ctx1, {
@@ -271,62 +344,97 @@ const WebUI = `<!DOCTYPE html>
             }
         }
 
-        async function update() {
-            try {
-                const res = await fetch('/api/stats');
-                const data = await res.json();
-                
-                // Calc stats
-                let sessionBlocks = 0, lifetimeBlocks = 0, active = 0;
-                let wNames = [], wBalances = [], wBlocks = [];
-                let html = '<thead><tr><th>Гаманець</th><th>Адреса</th><th>Статус</th><th>С. Блоки</th><th>З. Блоки</th><th>Баланс</th></tr></thead><tbody>';
-                
-                (data.wallets || []).forEach(w => {
-                    if (w.working) active++;
-                    sessionBlocks += w.session_mined;
-                    lifetimeBlocks += w.total_mined;
-                    wNames.push(w.name);
-                    wBalances.push(w.server_balance);
-                    wBlocks.push(w.total_mined);
-                    
-                    const status = w.working ? '<span class="badge active">АКТИВНИЙ</span>' : '<span class="badge paused">ПАУЗА</span>';
-                    html += '<tr><td style="font-weight:700">'+w.name+'</td><td style="font-family:monospace; color:#94a3b8; cursor:pointer" onclick="copyToClipboard(\''+w.address+'\')" title="Скопіювати адресу">'+w.address.substring(0,8)+'... <i class="fas fa-copy" style="font-size:0.8em; margin-left:5px"></i></td><td>'+status+'</td><td>'+w.session_mined+'</td><td>'+w.total_mined+'</td><td class="text-success font-mono">'+w.server_balance.toFixed(2)+' S-UAH</td></tr>';
-                });
-                
-                if((data.wallets||[]).length === 0) html += '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b">Немає гаманців</td></tr>';
-                document.getElementById('wallet-table').innerHTML = html + '</tbody>';
+        function connectWS() {
+            const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(proto + '//' + window.location.host + '/ws');
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    renderData(data);
+                } catch(e) { console.error("Parse error", e); }
+            };
 
-                // Update Text
-                document.getElementById('active-wallets').innerText = active;
-                document.getElementById('sess-blocks').innerText = sessionBlocks;
-                document.getElementById('life-blocks').innerText = lifetimeBlocks;
-                document.getElementById('uptime').innerText = data.uptime;
-                
-                document.getElementById('f-hash').innerText = data.hashrate.toFixed(2);
-                document.getElementById('f-balance').innerText = data.total_balance.toFixed(2);
-                document.getElementById('f-s-blocks').innerText = sessionBlocks;
+            ws.onclose = () => {
+                setTimeout(connectWS, 1000); // Reconnect
+            };
+        }
 
-                // Update Charts
-                if (bChart) {
-                    bChart.data.labels = wNames;
-                    bChart.data.datasets[0].data = wBalances;
-                    bChart.update('none');
+        function renderData(data) {
+            // Calc stats
+            let sessionBlocks = 0, lifetimeBlocks = 0, active = 0;
+            let wNames = [], wBalances = [], wBlocks = [];
+            let rows = '';
+            
+            (data.wallets || []).forEach(w => {
+                if (w.working) active++;
+                sessionBlocks += w.session_mined;
+                lifetimeBlocks += w.total_mined;
+                wNames.push(w.name);
+                wBalances.push(w.server_balance);
+                wBlocks.push(w.session_mined);
+                
+                const status = w.working ? '<span class="badge active">АКТИВНИЙ</span>' : '<span class="badge paused">ПАУЗА</span>';
+                
+                // Check if this wallet mined a new block
+                let rowClass = '';
+                if (lastWalletMined[w.address] !== undefined && w.total_mined > lastWalletMined[w.address]) {
+                    rowClass = 'row-pulse';
+                    setTimeout(() => { 
+                         // Remove pulse class after animation
+                         const el = document.getElementById('row-'+w.address);
+                         if(el) el.classList.remove('row-pulse');
+                    }, 1000);
                 }
-                if (blChart) {
-                    blChart.data.labels = wNames;
-                    blChart.data.datasets[0].data = wBlocks;
-                    blChart.update('none');
-                }
+                lastWalletMined[w.address] = w.total_mined;
 
-            } catch(e) { console.error(e); }
+                rows += '<tr id="row-'+w.address+'" class="'+rowClass+'"><td style="font-weight:700">'+w.name+'</td><td style="font-family:monospace; color:#94a3b8; cursor:pointer" onclick="copyToClipboard(\''+w.address+'\')" title="Скопіювати адресу">'+w.address.substring(0,8)+'... <i class="fas fa-copy" style="font-size:0.8em; margin-left:5px"></i></td><td>'+status+'</td><td>'+w.session_mined+'</td><td>'+w.total_mined+'</td><td class="text-success font-mono">'+w.server_balance.toFixed(2)+' S-UAH</td></tr>';
+            });
+            
+            if((data.wallets||[]).length === 0) rows += '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b">Немає гаманців</td></tr>';
+            document.getElementById('wallet-tbody').innerHTML = rows;
+
+            // Update Text
+            document.getElementById('active-wallets').innerText = active;
+            document.getElementById('sess-blocks').innerText = sessionBlocks;
+            document.getElementById('life-blocks').innerText = lifetimeBlocks;
+            document.getElementById('uptime').innerText = data.uptime;
+            
+            document.getElementById('f-hash').innerText = data.hashrate.toFixed(2);
+            document.getElementById('f-balance').innerText = data.total_balance.toFixed(2);
+            document.getElementById('f-s-blocks').innerText = sessionBlocks;
+
+            lastSessionBlocks = sessionBlocks;
+
+            // Update Charts
+            if (bChart) {
+                bChart.data.labels = wNames;
+                bChart.data.datasets[0].data = wBalances;
+                bChart.update('none');
+            }
+            if (blChart) {
+                blChart.data.labels = wNames;
+                blChart.data.datasets[0].data = wBlocks;
+                blChart.update('none');
+            }
         }
         
-        window.onload = () => { initCharts(); setInterval(update, 1000); update(); };
+        window.onload = () => { initCharts(); connectWS(); };
     </script>
 </body>
 </html>`
 
 func StartWebServer() {
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		clientsMu.Lock()
+		clients[conn] = true
+		clientsMu.Unlock()
+	})
+
     http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
         w.Header().Set("Access-Control-Allow-Origin", "*")

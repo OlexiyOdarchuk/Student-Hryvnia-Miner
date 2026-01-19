@@ -12,6 +12,8 @@ export function GetConfig():Promise<backend.AppConfig>;
 
 export function GetDashboardData():Promise<backend.DashboardData>;
 
+export function GetSystemInfo():Promise<Record<string, any>>;
+
 export function GetWalletKey(arg1:string,arg2:string):Promise<string>;
 
 export function GetWallets():Promise<Array<string>>;

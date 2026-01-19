@@ -8,6 +8,7 @@ export namespace backend {
 	    max_retries: number;
 	    retry_delay_ms: number;
 	    balance_freq_s: number;
+	    threads: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppConfig(source);
@@ -22,6 +23,7 @@ export namespace backend {
 	        this.max_retries = source["max_retries"];
 	        this.retry_delay_ms = source["retry_delay_ms"];
 	        this.balance_freq_s = source["balance_freq_s"];
+	        this.threads = source["threads"];
 	    }
 	}
 	export class LogEntry {

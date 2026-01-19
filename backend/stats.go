@@ -104,6 +104,7 @@ func updateSingleBalance(wallet string) {
 		val.ServerBalance = bal
 	}
 	dataMutex.Unlock()
+	BroadcastUpdate()
 }
 
 func GetDashboardData() DashboardData {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"shminer/backend"
+	stdRuntime "runtime"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -39,7 +40,7 @@ func (a *App) startMining() {
 	go backend.StartMiningLoop(miningCtx)
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(200 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
@@ -183,4 +184,10 @@ func (a *App) ChangePassword(oldPass, newPass string) string {
 		return err.Error()
 	}
 	return ""
+}
+
+func (a *App) GetSystemInfo() map[string]interface{} {
+	return map[string]interface{}{
+		"cpu_cores": stdRuntime.NumCPU(),
+	}
 }
