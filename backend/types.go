@@ -14,11 +14,9 @@ type WalletStats struct {
 	Address       string  `json:"address"`
 	PrivateKey    string  `json:"private_key,omitempty"`
 	Name          string  `json:"name"`
-	Short         string  `json:"short"`
-	SessionMined  int     `json:"session_mined"`	
+	SessionMined  int     `json:"session_mined"`
 	TotalMined    int     `json:"total_mined"`
 	ServerBalance float64 `json:"server_balance"`
-	Status        string  `json:"status"`
 	Working       bool    `json:"working"`
 }
 

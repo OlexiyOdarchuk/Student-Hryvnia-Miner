@@ -46,11 +46,9 @@ export namespace backend {
 	    address: string;
 	    private_key?: string;
 	    name: string;
-	    short: string;
 	    session_mined: number;
 	    total_mined: number;
 	    server_balance: number;
-	    status: string;
 	    working: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -62,11 +60,9 @@ export namespace backend {
 	        this.address = source["address"];
 	        this.private_key = source["private_key"];
 	        this.name = source["name"];
-	        this.short = source["short"];
 	        this.session_mined = source["session_mined"];
 	        this.total_mined = source["total_mined"];
 	        this.server_balance = source["server_balance"];
-	        this.status = source["status"];
 	        this.working = source["working"];
 	    }
 	}

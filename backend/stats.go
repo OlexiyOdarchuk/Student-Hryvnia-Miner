@@ -102,7 +102,6 @@ func updateSingleBalance(wallet string) {
 	dataMutex.Lock()
 	if val, ok := walletDataMap[wallet]; ok {
 		val.ServerBalance = bal
-		val.Status = "✓"
 	}
 	dataMutex.Unlock()
 }

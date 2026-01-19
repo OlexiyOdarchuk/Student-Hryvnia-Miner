@@ -258,6 +258,19 @@ const WebUI = `<!DOCTYPE html>
         }
         function closeFocus() { showView('stats'); }
 
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).catch(err => console.error('Error copying:', err));
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+        }
+
         async function update() {
             try {
                 const res = await fetch('/api/stats');
@@ -277,7 +290,7 @@ const WebUI = `<!DOCTYPE html>
                     wBlocks.push(w.total_mined);
                     
                     const status = w.working ? '<span class="badge active">АКТИВНИЙ</span>' : '<span class="badge paused">ПАУЗА</span>';
-                    html += '<tr><td style="font-weight:700">'+w.name+'</td><td style="font-family:monospace; color:#94a3b8">'+w.address.substring(0,8)+'...</td><td>'+status+'</td><td>'+w.session_mined+'</td><td>'+w.total_mined+'</td><td class="text-success font-mono">'+w.server_balance.toFixed(2)+' S-UAH</td></tr>';
+                    html += '<tr><td style="font-weight:700">'+w.name+'</td><td style="font-family:monospace; color:#94a3b8; cursor:pointer" onclick="copyToClipboard(\''+w.address+'\')" title="Скопіювати адресу">'+w.address.substring(0,8)+'... <i class="fas fa-copy" style="font-size:0.8em; margin-left:5px"></i></td><td>'+status+'</td><td>'+w.session_mined+'</td><td>'+w.total_mined+'</td><td class="text-success font-mono">'+w.server_balance.toFixed(2)+' S-UAH</td></tr>';
                 });
                 
                 if((data.wallets||[]).length === 0) html += '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b">Немає гаманців</td></tr>';
@@ -319,11 +332,24 @@ func StartWebServer() {
         w.Header().Set("Access-Control-Allow-Origin", "*")
         
         fullData := GetDashboardData()
+        
+        var safeWallets []map[string]interface{}
+        for _, wallet := range fullData.Wallets {
+            safeWallets = append(safeWallets, map[string]interface{}{
+                "address":        wallet.Address,
+                "name":           wallet.Name,
+                "session_mined":  wallet.SessionMined,
+                "total_mined":    wallet.TotalMined,
+                "server_balance": wallet.ServerBalance,
+                "working":        wallet.Working,
+            })
+        }
+
         response := map[string]interface{}{
-            "hashrate": fullData.Hashrate,
+            "hashrate":      fullData.Hashrate,
             "total_balance": fullData.TotalBalance,
-            "uptime": fullData.Uptime,
-            "wallets": fullData.Wallets,
+            "uptime":        fullData.Uptime,
+            "wallets":       safeWallets,
         }
         
         json.NewEncoder(w).Encode(response)
