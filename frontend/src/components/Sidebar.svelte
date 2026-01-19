@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { activeTab } from '../stores';
     import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
     import { GetConfig } from '../../wailsjs/go/main/App';

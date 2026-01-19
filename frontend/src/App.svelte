@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte';
     import { activeTab, stats, logs, connected } from './stores';
     import { EventsOn } from '../wailsjs/runtime/runtime';
@@ -38,7 +38,7 @@
         });
         
         // Listeners for UI actions
-        document.addEventListener('open-modal', (e) => {
+        document.addEventListener('open-modal', (e: any) => {
             modalType = e.detail.type || e.detail;
             modalWallet = e.detail.wallet || null;
         });

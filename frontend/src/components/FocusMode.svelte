@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { createEventDispatcher, onMount, onDestroy } from 'svelte';
     import { stats } from '../stores';
     import { WindowFullscreen, WindowUnfullscreen } from '../../wailsjs/runtime/runtime';

@@ -1,10 +1,11 @@
-<script>
+<script lang="ts">
     import { AddWallet, RenameWallet, DeleteWallet, UpdateWalletKey } from '../../wailsjs/go/main/App';
     import { notifications } from '../stores';
+    import type { backend } from '../../wailsjs/go/models';
     
-    export let type = ''; 
-    export let wallet = null;
-    export let onClose;
+    export let type: string = ''; 
+    export let wallet: backend.WalletStats | null = null;
+    export let onClose: () => void;
     
     let name = '';
     let address = '';

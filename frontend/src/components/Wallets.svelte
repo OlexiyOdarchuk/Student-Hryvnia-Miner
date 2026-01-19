@@ -1,18 +1,19 @@
-<script>
+<script lang="ts">
     import { stats } from '../stores';
     import { ToggleWallet } from '../../wailsjs/go/main/App';
     import { ClipboardSetText } from '../../wailsjs/runtime/runtime';
     import { notifications } from '../stores'; // Assuming you use this for feedback
+    import type { backend } from '../../wailsjs/go/models';
 
-    function openModal(type, wallet) {
+    function openModal(type: string, wallet?: backend.WalletStats) {
         document.dispatchEvent(new CustomEvent('open-modal', { detail: { type, wallet } }));
     }
 
-    async function toggle(wallet) {
+    async function toggle(wallet: backend.WalletStats) {
         await ToggleWallet(wallet.address);
     }
 
-    function copyAddress(addr) {
+    function copyAddress(addr: string) {
         ClipboardSetText(addr);
         notifications.info("Адреса скопійована: " + addr.substring(0, 10) + "...");
     }

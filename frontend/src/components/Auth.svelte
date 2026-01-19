@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount, createEventDispatcher } from 'svelte';
     import { IsStorageInitialized, InitStorage, UnlockStorage } from '../../wailsjs/go/main/App';
 

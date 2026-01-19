@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte';
     import { stats } from '../stores';
     import Chart from 'chart.js/auto';

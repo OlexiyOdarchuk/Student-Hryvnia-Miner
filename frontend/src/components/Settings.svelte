@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte';
     import { GetConfig, UpdateConfig, ChangePassword } from '../../wailsjs/go/main/App';
 

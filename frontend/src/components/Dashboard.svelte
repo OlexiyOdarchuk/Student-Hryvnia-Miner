@@ -1,11 +1,11 @@
-<script>
+<script lang="ts">
     import { onMount } from 'svelte';
     import Chart from 'chart.js/auto';
     import { stats, logs, connected, notifications } from '../stores';
     import { SetGlobalMining } from '../../wailsjs/go/main/App';
 
-    let chartCanvas;
-    let chart;
+    let chartCanvas: HTMLCanvasElement;
+    let chart: Chart;
 
     function openFocus() {
         document.dispatchEvent(new CustomEvent('toggle-focus'));

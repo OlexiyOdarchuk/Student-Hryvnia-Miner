@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { notifications } from '../stores';
     import { fly } from 'svelte/transition';
 </script>
