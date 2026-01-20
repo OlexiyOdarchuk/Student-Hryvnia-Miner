@@ -55,7 +55,7 @@
                 <input class="field" placeholder="Ім'я воркера" bind:value={name} required maxlength="50">
                 
                 <label class="field-label">Адреса</label>
-                <input class="field" placeholder="0x..." bind:value={address} required minlength="20">
+                <input class="field" placeholder="hash адреса гаманця" bind:value={address} required>
                 
                 <label class="field-label">
                     Приватний ключ <span class="optional">(Необов'язково)</span>

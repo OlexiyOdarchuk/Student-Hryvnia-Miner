@@ -15,6 +15,7 @@
     import Modals from './components/Modals.svelte';
     import FocusMode from './components/FocusMode.svelte';
     import Toasts from './components/Toasts.svelte';
+    import WindowControls from './components/WindowControls.svelte';
     
     let modalType = null;
     let modalWallet = null;
@@ -69,6 +70,8 @@
         authenticated = true;
     }
 </script>
+
+<WindowControls />
 
 {#if !authenticated}
     <Toasts />

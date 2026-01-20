@@ -26,7 +26,6 @@ const (
 	MegahashDivisor     = 1000000
 )
 
-// Timings
 const (
 	MinerSleepInterval = 170 * time.Millisecond
 )

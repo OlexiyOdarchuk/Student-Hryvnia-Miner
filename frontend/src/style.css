@@ -80,6 +80,7 @@ body::before {
 .sidebar {
     width: 280px; 
     padding: 30px; 
+    padding-top: 50px !important; 
     display: flex; 
     flex-direction: column; 
     gap: 10px;
@@ -96,6 +97,7 @@ body::before {
 .main {
     flex: 1; 
     padding: 30px; 
+    padding-top: 50px !important; 
     /* Use full height and disable outer scroll if internal elements scroll */
     height: 100vh;
     overflow: hidden; 
@@ -151,6 +153,7 @@ body::before {
     background-clip: text;
     -webkit-text-fill-color: transparent;
     text-shadow: 0 0 20px rgba(129, 140, 248, 0.5);
+    /* brand is inside sidebar which is draggable, but explicit drag is fine */
 }
 
 .nav-btn {
@@ -275,6 +278,10 @@ body::before {
     letter-spacing: -0.02em;
 }
 
+.dash-controls {
+    --wails-draggable: no-drag;
+}
+
 .live-badge {
     padding: 8px 16px; 
     border-radius: 30px; 
@@ -288,6 +295,7 @@ body::before {
     gap: 8px; 
     border: 1px solid rgba(16, 185, 129, 0.2);
     transition: all 0.3s;
+    --wails-draggable: no-drag;
 }
 
 .live-badge.offline {
@@ -712,7 +720,11 @@ textarea.field:focus {
 @media (max-width: 1024px) {
     .sidebar { display: none; }
     .mobile-bar { display: flex; }
-    .main { padding: 20px; padding-bottom: 100px; }
+    .main { 
+        padding: 20px; 
+        padding-top: 80px; /* Ensure title bar clearance on mobile */
+        padding-bottom: 100px; 
+    }
     /* ... keep other media queries ... */
 }
 
@@ -860,6 +872,10 @@ textarea.field:focus {
     width: 100%;
     /* Fix for "ugly" on small screens: enforce minimum width and scroll */
     min-width: 600px; 
+}
+
+.sidebar > div:last-child {
+    --wails-draggable: no-drag;
 }
 
 /* Ensure horizontal scroll if window is too small */

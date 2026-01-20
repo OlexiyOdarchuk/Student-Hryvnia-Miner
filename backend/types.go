@@ -5,7 +5,7 @@ type DashboardData struct {
 	SessionBlocks  int           `json:"session_blocks"`
 	LifetimeBlocks int           `json:"lifetime_blocks"`
 	Uptime         string        `json:"uptime"`
-	TotalBalance   float64       `json:"total_balance"` // Changed to float for precision
+	TotalBalance   float64       `json:"total_balance"`
 	Wallets        []WalletStats `json:"wallets"`
 	NewLogs        []LogEntry    `json:"new_logs"`
 }

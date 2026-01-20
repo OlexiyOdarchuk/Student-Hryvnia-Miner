@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-const StorageFile = "storage.bin"
+const StorageFile = "SHMinerSettings.bin"
 
 type StorageData struct {
 	Config  AppConfig     `json:"config"`

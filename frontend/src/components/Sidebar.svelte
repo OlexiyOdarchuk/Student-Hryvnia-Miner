@@ -16,7 +16,7 @@
 </script>
 
 <nav class="sidebar">
-    <div class="brand">
+    <div class="brand" style="--wails-draggable:drag">
         <i class="fas fa-cube" style="color: var(--primary)"></i> S-UAH MINER
     </div>
     

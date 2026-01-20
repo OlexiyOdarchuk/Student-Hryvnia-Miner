@@ -18,6 +18,7 @@ func main() {
 		Title:            "Student-Hryvnia MINER",
 		Width:            1024,
 		Height:           768,
+		Frameless:        true,
 		WindowStartState: options.Maximised,
 		AssetServer: &assetserver.Options{
 			Assets: assets,

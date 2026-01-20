@@ -154,7 +154,7 @@ func GetRecentLogs() []LogEntry {
 	} else {
 		count = LogRingBufferSize
 		start := logRing.pos % LogRingBufferSize
-		for i := 0; i < LogRingBufferSize; i++ {
+		for i := range LogRingBufferSize {
 			idx := (start + i) % LogRingBufferSize
 			logs = append(logs, logRing.data[idx])
 		}

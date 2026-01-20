@@ -43,14 +43,14 @@
 
 <div class="auth-container">
     <div class="glass-card auth-card">
-        <div class="brand" style="justify-content: center; margin-bottom: 30px;">
+        <div class="brand" style="justify-content: center; margin-bottom: 30px; --wails-draggable:drag">
             <i class="fas fa-cube" style="color: var(--primary)"></i> S-UAH MINER
         </div>
 
         {#if loading}
             <div style="text-align: center; color: #94a3b8;">Перевірка сховища...</div>
         {:else}
-            <h2 style="text-align: center; margin-bottom: 20px;">
+            <h2 style="text-align: center; margin-bottom: 20px; --wails-draggable:drag">
                 {isSetup ? 'Початкове налаштування' : 'Вхід адміністратора'}
             </h2>
             
