@@ -8,14 +8,14 @@
     let balanceChart;
     let blocksChart;
 
-    // Reactive update for charts
+    
     $: if ($stats && balanceChart && blocksChart) {
         updateCharts();
     }
 
-    // Row Pulse Logic
-    let pulsingWallets = {}; // map address -> boolean
-    let lastMined = {}; // map address -> count
+    
+    let pulsingWallets = {}; 
+    let lastMined = {}; 
 
     $: if ($stats && $stats.wallets) {
         $stats.wallets.forEach(w => {
@@ -38,19 +38,19 @@
         const balances = wallets.map(w => w.server_balance);
         const blocks = wallets.map(w => w.session_mined);
 
-        // Update Balance Chart (Pie)
+        
         balanceChart.data.labels = labels;
         balanceChart.data.datasets[0].data = balances;
         balanceChart.update();
 
-        // Update Blocks Chart (Bar)
+        
         blocksChart.data.labels = labels;
         blocksChart.data.datasets[0].data = blocks;
         blocksChart.update();
     }
 
     onMount(() => {
-        // Balance Chart
+        
         balanceChart = new Chart(balanceCanvas, {
             type: 'doughnut',
             data: {
@@ -72,7 +72,7 @@
             }
         });
 
-        // Blocks Chart
+        
         blocksChart = new Chart(blocksCanvas, {
             type: 'bar',
             data: {
@@ -104,7 +104,7 @@
             }
         });
 
-        // Initial update
+        
         if ($stats.wallets) updateCharts();
     });
 </script>
@@ -115,7 +115,7 @@
         <div class="page-title">Детальна статистика</div>
     </div>
 
-    <!-- Top Cards (4 Grid) -->
+    
     <div class="grid-4" style="flex-shrink: 0;">
         <div class="glass-card stat-card">
             <i class="fas fa-server stat-icon-bg"></i>
@@ -146,7 +146,7 @@
         </div>
     </div>
 
-    <!-- Charts - This section GROWS (flex: 1) -->
+    
     <div class="chart-grid">
         <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; height: 100%;">
             <div class="stat-label" style="margin-bottom: 20px; flex-shrink: 0;">Розподіл балансу</div>
@@ -163,7 +163,7 @@
         </div>
     </div>
 
-    <!-- Bottom Table -->
+    
     <div class="glass-card" style="padding: 24px; flex-shrink: 0; max-height: 300px; overflow-y: auto;">
         <div class="stat-label" style="margin-bottom: 20px;">Продуктивність гаманців</div>
         <div class="table-wrap">

@@ -23,13 +23,13 @@
     let authenticated = false;
 
     onMount(() => {
-        // Listen for stats
+        
         EventsOn("stats", (data) => {
             stats.set(data);
             connected.set(true);
         });
 
-        // Listen for logs
+        
         EventsOn("log", (log) => {
             logs.update(l => {
                 const newLogs = [...l, log];
@@ -38,7 +38,7 @@
             });
         });
         
-        // Listeners for UI actions
+        
         document.addEventListener('open-modal', (e: any) => {
             modalType = e.detail.type || e.detail;
             modalWallet = e.detail.wallet || null;
@@ -48,7 +48,7 @@
             showFocus = !showFocus;
         });
         
-        // Keyboard shortcuts
+        
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 e.preventDefault();
@@ -78,7 +78,6 @@
     <Auth on:login={handleLogin} />
 {:else}
     <div class="app">
-        <Toasts />
         <Sidebar />
         <main class="main">
             {#if $activeTab === 'dash'}
@@ -106,4 +105,6 @@
     {#if modalType}
         <Modals type={modalType} wallet={modalWallet} onClose={closeModal} />
     {/if}
+
+    <Toasts />
 {/if}

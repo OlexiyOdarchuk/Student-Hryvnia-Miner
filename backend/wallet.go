@@ -1,13 +1,35 @@
 package backend
 
 import (
+	"fmt"
 	"sync"
 )
+
+type WalletExport struct {
+	Name string `json:"name"`
+	Pub  string `json:"pub"`
+	Priv string `json:"priv"`
+}
 
 var (
 	Wallets      []string
 	walletsMutex sync.RWMutex
 )
+
+func ExportWalletJSON(address string) (string, error) {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
+
+	if stats, ok := walletDataMap[address]; ok {
+		w := WalletExport{
+			Name: stats.Name,
+			Pub:  stats.Address,
+			Priv: stats.PrivateKey,
+		}
+		return fmt.Sprintf(`{"name":"%s","pub":"%s","priv":"%s"}`, w.Name, w.Pub, w.Priv), nil
+	}
+	return "", fmt.Errorf("wallet not found")
+}
 
 func GetWallets() []string {
 	dataMutex.RLock()
@@ -18,15 +40,6 @@ func GetWallets() []string {
 	return cp
 }
 
-func getWalletName(address string) string {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
-
-	if stats, ok := walletDataMap[address]; ok && stats.Name != "" {
-		return stats.Name
-	}
-	return "Worker"
-}
 
 func syncStorage() {
 	var list []WalletStats
@@ -42,9 +55,12 @@ func AddWalletSafe(name, address, privateKey string) error {
 	dataMutex.Lock()
 	defer dataMutex.Unlock()
 
-	for _, w := range Wallets {
-		if w == address {
+	for _, w := range walletDataMap {
+		if w.Address == address {
 			return nil
+		}
+		if w.Name == name {
+			return fmt.Errorf("гаманець з назвою '%s' вже існує", name)
 		}
 	}
 
@@ -57,7 +73,7 @@ func AddWalletSafe(name, address, privateKey string) error {
 	}
 
 	syncStorage()
-	return SaveStorage(GetSessionPassword(), CurrentStorage)
+	return SaveStorage(sessionPassword, CurrentStorage)
 }
 
 func DeleteWallet(address string) error {
@@ -74,17 +90,23 @@ func DeleteWallet(address string) error {
 	delete(walletDataMap, address)
 
 	syncStorage()
-	return SaveStorage(GetSessionPassword(), CurrentStorage)
+	return SaveStorage(sessionPassword, CurrentStorage)
 }
 
 func RenameWallet(address, newName string) error {
 	dataMutex.Lock()
 	defer dataMutex.Unlock()
 
+	for addr, w := range walletDataMap {
+		if addr != address && w.Name == newName {
+			return fmt.Errorf("назва '%s' вже використовується", newName)
+		}
+	}
+
 	if stats, ok := walletDataMap[address]; ok {
 		stats.Name = newName
 		syncStorage()
-		return SaveStorage(GetSessionPassword(), CurrentStorage)
+		return SaveStorage(sessionPassword, CurrentStorage)
 	}
 	return nil
 }
@@ -97,7 +119,7 @@ func ToggleWalletMining(address string) bool {
 		stats.Working = !stats.Working
 
 		syncStorage()
-		SaveStorage(GetSessionPassword(), CurrentStorage)
+		SaveStorage(sessionPassword, CurrentStorage)
 
 		return stats.Working
 	}
@@ -113,7 +135,7 @@ func SetAllMining(state bool) {
 	}
 
 	syncStorage()
-	SaveStorage(GetSessionPassword(), CurrentStorage)
+	SaveStorage(sessionPassword, CurrentStorage)
 }
 
 func UpdateWalletKey(address, privateKey string) error {
@@ -123,7 +145,7 @@ func UpdateWalletKey(address, privateKey string) error {
 	if stats, ok := walletDataMap[address]; ok {
 		stats.PrivateKey = privateKey
 		syncStorage()
-		return SaveStorage(GetSessionPassword(), CurrentStorage)
+		return SaveStorage(sessionPassword, CurrentStorage)
 	}
 	return nil
 }

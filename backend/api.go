@@ -145,27 +145,3 @@ func GetBalance(addr string) float64 {
 	}
 	return balance
 }
-
-func SendTransaction(from, privateKey, to string, amount float64) (string, error) {
-	payload := map[string]interface{}{
-		"from":       from,
-		"to":         to,
-		"amount":     amount,
-		"privateKey": privateKey,
-	}
-	body, _ := json.Marshal(payload)
-
-	req, _ := http.NewRequest("POST", Config.BaseURL+"/transaction", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("server returned %d", resp.StatusCode)
-	}
-
-	return "Transaction sent", nil
-}

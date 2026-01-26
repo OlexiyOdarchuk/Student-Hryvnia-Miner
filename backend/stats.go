@@ -15,17 +15,10 @@ var (
 	hashrateHistory   [60]float64
 	hashrateHistPos   int
 	hashrateHistMutex sync.Mutex
+	logSeq            int64
 )
 
 var LogCallback func(LogEntry)
-
-type LogRing struct {
-	data [100]LogEntry
-	pos  int
-	mu   sync.Mutex
-}
-
-var logRing LogRing
 
 func init() {
 	walletDataMap = make(map[string]*WalletStats)
@@ -52,17 +45,13 @@ func StartSpeedMonitor(ctx context.Context) {
 }
 
 func PushLog(msg string, lType string) {
-	logRing.mu.Lock()
-	defer logRing.mu.Unlock()
-
+	id := atomic.AddInt64(&logSeq, 1)
 	entry := LogEntry{
-		ID:      int64(logRing.pos),
+		ID:      id,
 		Time:    time.Now().Format("15:04:05"),
 		Message: msg,
 		Type:    lType,
 	}
-	logRing.data[logRing.pos%LogRingBufferSize] = entry
-	logRing.pos++
 
 	if LogCallback != nil {
 		LogCallback(entry)
@@ -140,24 +129,3 @@ func GetDashboardData() DashboardData {
 	}
 }
 
-func GetRecentLogs() []LogEntry {
-	logRing.mu.Lock()
-	defer logRing.mu.Unlock()
-
-	var logs []LogEntry
-	count := 0
-	if logRing.pos < LogRingBufferSize {
-		count = logRing.pos
-		for i := 0; i < count; i++ {
-			logs = append(logs, logRing.data[i])
-		}
-	} else {
-		count = LogRingBufferSize
-		start := logRing.pos % LogRingBufferSize
-		for i := range LogRingBufferSize {
-			idx := (start + i) % LogRingBufferSize
-			logs = append(logs, logRing.data[idx])
-		}
-	}
-	return logs
-}

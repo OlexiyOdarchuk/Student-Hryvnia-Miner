@@ -14,14 +14,14 @@
         </button>
     </div>
 
-    <!-- Terminal Layout -->
+    
     <div class="term-layout">
         <div class="glass-card no-hover term-window">
             <div id="terminal">
                 <div style="color: var(--neon-cyan); opacity: 0.8; margin-bottom: 10px;">
                     <i class="fas fa-terminal"></i> [СИСТЕМА] Квантовий інтерфейс ініціалізовано...
                 </div>
-                <!-- Reverse logs to show newest at top -->
+                
                 {#each [...$logs].reverse() as log}
                     <div class="log-line">
                         <span class="log-time">[{log.time}]</span>
@@ -42,7 +42,7 @@
                 </div>
                 <div style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.6;">
                     Моніторинг активний. <br>
-                    Розмір буферу: 100 записів.
+                    Логи надходять у реальному часі.
                 </div>
             </div>
         </div>

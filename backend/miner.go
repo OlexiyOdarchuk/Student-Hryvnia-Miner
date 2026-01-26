@@ -128,7 +128,9 @@ func StartMiningLoop(ctx context.Context) {
 	}
 
 	compileDifficultyBits(Config.Difficulty)
+	dataMutex.Lock()
 	startTime = time.Now()
+	dataMutex.Unlock()
 
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -183,10 +185,10 @@ func StartMiningLoop(ctx context.Context) {
 				ws.SessionMined++
 				ws.TotalMined++
 			}
-			dataMutex.Unlock()
 
 			syncStorage()
-			SaveStorage(GetSessionPassword(), CurrentStorage)
+			SaveStorage(sessionPassword, CurrentStorage)
+			dataMutex.Unlock()
 
 			go func() {
 				updateSingleBalance(currentWallet)

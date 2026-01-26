@@ -5,7 +5,7 @@
 
     let selectedAddress: string = "";
     let toAddress: string = "";
-    let amount: number | null = null; // Починаємо з порожнього
+    let amount: number | null = null; 
     let password: string = "";
     let sending: boolean = false;
 
@@ -33,7 +33,7 @@
     }
 
     async function handleSend() {
-        // Валідація
+        
         if (!selectedAddress) {
             notifications.error("Оберіть гаманець для списання коштів");
             return;
@@ -60,7 +60,7 @@
                 throw new Error("Невірний пароль або ключ не знайдено");
             }
 
-            // КРОК 2: Готуємо об'єкт (Важливо: amount як число!)
+            
             const txObject = {
                 from: selectedAddress,
                 to: toAddress.trim(),
@@ -68,15 +68,15 @@
                 fee: 0,
             };
 
-            // КРОК 3: Хешуємо JSON
+            
             const jsonString = JSON.stringify(txObject);
             const hashHex = await sha256(jsonString);
 
-            // КРОК 4: Підписуємо
+            
             const keyPair = ec.keyFromPrivate(privateKey);
             const signature = keyPair.sign(hashHex, "hex").toDER("hex");
 
-            // КРОК 5: Відправляємо
+            
             const payload = { ...txObject, signature };
 
             const response = await fetch(
@@ -88,7 +88,7 @@
                 },
             );
 
-            // Обробка відповіді (іноді текст, іноді JSON)
+            
             const textResp = await response.text();
             let result: any = {};
             try {
@@ -97,7 +97,7 @@
 
             if (response.ok) {
                 notifications.success("Транзакція успішно відправлена! 🚀");
-                // Очистка
+                
                 toAddress = "";
                 amount = null;
                 password = "";
@@ -132,7 +132,7 @@
                         ><i class="fas fa-wallet"></i> Гаманець відправника</label
                     >
                     <div class="wallet-select-grid">
-                        {#each $stats.wallets || [] as wallet}
+                        {#each ($stats.wallets || []).filter((w) => w.private_key) as wallet}
                             <div
                                 class="wallet-select-card"
                                 class:selected={selectedAddress ===
@@ -249,7 +249,7 @@
 </div>
 
 <style>
-    /* LAYOUT */
+    
     .content-wrapper {
         display: flex;
         flex-direction: column;
@@ -271,7 +271,7 @@
         padding-bottom: 40px;
     }
 
-    /* CARDS */
+    
     .glass-card {
         background: rgba(30, 41, 59, 0.6);
         backdrop-filter: blur(20px);
@@ -290,7 +290,7 @@
         color: #818cf8;
     }
 
-    /* FORM FIELDS */
+    
     .field-group {
         margin-bottom: 20px;
     }
@@ -323,7 +323,7 @@
         box-shadow: 0 0 15px rgba(129, 140, 248, 0.15);
     }
 
-    /* INPUT WITH BUTTON (FIXED) */
+    
     .input-wrapper {
         position: relative;
         display: flex;
@@ -331,7 +331,7 @@
     }
     .input-wrapper .field {
         padding-right: 80px;
-    } /* Space for button */
+    } 
 
     .btn-max {
         position: absolute;
@@ -353,7 +353,7 @@
         color: white;
     }
 
-    /* WALLET SELECTION */
+    
     .wallet-select-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -403,7 +403,7 @@
         margin-top: 5px;
     }
 
-    /* BUTTONS */
+    
     .btn {
         border: none;
         border-radius: 12px;
@@ -434,7 +434,7 @@
         margin-top: 10px;
     }
 
-    /* TIPS */
+    
     .tip-card {
         padding: 15px;
         border-radius: 12px;
@@ -473,7 +473,7 @@
         line-height: 1.5;
     }
 
-    /* UTILS */
+    
     .no-spin::-webkit-outer-spin-button,
     .no-spin::-webkit-inner-spin-button {
         -webkit-appearance: none;
@@ -486,6 +486,6 @@
         }
         .tx-sidebar {
             display: none;
-        } /* Hide tips on mobile to save space */
+        } 
     }
 </style>

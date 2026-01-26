@@ -2,8 +2,7 @@
     import { WindowMinimise, WindowToggleMaximise, Quit } from '../../wailsjs/runtime/runtime';
 </script>
 
-<!-- svelte-ignore a11y-click-events-have-key-events -->
-<!-- svelte-ignore a11y-no-static-element-interactions -->
+
 <div class="title-bar" on:dblclick={WindowToggleMaximise}>
     <div class="app-title">
         <i class="fas fa-cube"></i> S-UAH MINER
@@ -52,7 +51,7 @@
     .window-controls {
         display: flex;
         height: 100%;
-        --wails-draggable: no-drag; /* Ensure buttons are clickable */
+        --wails-draggable: no-drag; 
     }
 
     .control-btn {

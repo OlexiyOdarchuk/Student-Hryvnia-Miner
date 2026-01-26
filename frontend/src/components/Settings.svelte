@@ -13,13 +13,13 @@
         threads: 0
     };
     
-    let maxCores = 4; // Default safe fallback
+    let maxCores = 4; 
     
     let password = '';
     let message = '';
     let isError = false;
     
-    // Password change vars
+    
     let oldPass = '';
     let newPass = '';
     let confirmPass = '';
@@ -78,7 +78,7 @@
 
     <div class="glass-card" style="padding: 40px; max-width: 800px; margin: 0 auto; width: 100%; overflow-y: auto;">
         
-        <!-- Config Form -->
+        
         <h3 style="margin-bottom: 20px; color: white;">Конфігурація майнера</h3>
         <form on:submit|preventDefault={save} style="display: grid; gap: 20px; margin-bottom: 40px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -134,7 +134,7 @@
             </button>
         </form>
         
-        <!-- Password Change Form -->
+        
         <h3 style="margin-bottom: 20px; color: white; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px;">Зміна паролю адміністратора</h3>
         <form on:submit|preventDefault={changePass} style="display: grid; gap: 20px;">
             <div>

@@ -1,13 +1,17 @@
 <script lang="ts">
-    import { onMount, createEventDispatcher } from 'svelte';
-    import { IsStorageInitialized, InitStorage, UnlockStorage } from '../../wailsjs/go/main/App';
+    import { onMount, createEventDispatcher } from "svelte";
+    import {
+        IsStorageInitialized,
+        InitStorage,
+        UnlockStorage,
+    } from "../../wailsjs/go/main/App";
 
     const dispatch = createEventDispatcher();
 
     let isSetup = false;
-    let password = '';
-    let confirmPassword = '';
-    let error = '';
+    let password = "";
+    let confirmPassword = "";
+    let error = "";
     let loading = true;
 
     onMount(async () => {
@@ -17,8 +21,8 @@
     });
 
     async function handleSubmit() {
-        error = '';
-        
+        error = "";
+
         if (isSetup) {
             if (password.length < 4) {
                 error = "Пароль надто короткий";
@@ -28,55 +32,83 @@
                 error = "Паролі не співпадають";
                 return;
             }
-            
+
             const err = await InitStorage(password);
             if (err) error = err;
-            else dispatch('login');
-            
+            else dispatch("login");
         } else {
             const err = await UnlockStorage(password);
             if (err) error = err;
-            else dispatch('login');
+            else dispatch("login");
         }
     }
 </script>
 
 <div class="auth-container">
     <div class="glass-card auth-card">
-        <div class="brand" style="justify-content: center; margin-bottom: 30px; --wails-draggable:drag">
+        <div
+            class="brand"
+            style="justify-content: center; margin-bottom: 30px; --wails-draggable:drag"
+        >
             <i class="fas fa-cube" style="color: var(--primary)"></i> S-UAH MINER
         </div>
 
         {#if loading}
-            <div style="text-align: center; color: #94a3b8;">Перевірка сховища...</div>
+            <div style="text-align: center; color: #94a3b8;">
+                Перевірка сховища...
+            </div>
         {:else}
-            <h2 style="text-align: center; margin-bottom: 20px; --wails-draggable:drag">
-                {isSetup ? 'Початкове налаштування' : 'Вхід адміністратора'}
+            <h2
+                style="text-align: center; margin-bottom: 20px; --wails-draggable:drag"
+            >
+                {isSetup ? "Початкове налаштування" : "Вхід адміністратора"}
             </h2>
-            
+
             <form on:submit|preventDefault={handleSubmit}>
                 <label class="field-label">Пароль адміністратора</label>
-                <input type="password" class="field" bind:value={password} placeholder="Введіть пароль" required autofocus>
-                
+                <input
+                    type="password"
+                    class="field"
+                    bind:value={password}
+                    placeholder="Введіть пароль"
+                    required
+                    autofocus
+                />
+
                 {#if isSetup}
                     <label class="field-label">Підтвердження паролю</label>
-                    <input type="password" class="field" bind:value={confirmPassword} placeholder="Повторіть пароль" required>
+                    <input
+                        type="password"
+                        class="field"
+                        bind:value={confirmPassword}
+                        placeholder="Повторіть пароль"
+                        required
+                    />
                 {/if}
-                
+
                 {#if error}
-                    <div style="color: var(--danger); font-size: 0.9rem; margin-bottom: 15px; text-align: center;">
+                    <div
+                        style="color: var(--danger); font-size: 0.9rem; margin-bottom: 15px; text-align: center;"
+                    >
                         {error}
                     </div>
                 {/if}
-                
-                <button type="submit" class="btn btn-primary btn-xl" style="width: 100%;">
-                    {isSetup ? 'Створити сховище' : 'Розблокувати'}
+
+                <button
+                    type="submit"
+                    class="btn btn-primary btn-xl"
+                    style="width: 100%;"
+                >
+                    {isSetup ? "Створити сховище" : "Розблокувати"}
                 </button>
             </form>
-            
+
             {#if isSetup}
-                <div style="margin-top: 20px; font-size: 0.8rem; color: #64748b; text-align: center;">
-                    Цей пароль зашифрує ваші гаманці та налаштування. Не загубіть його.
+                <div
+                    style="margin-top: 20px; font-size: 0.8rem; color: #64748b; text-align: center;"
+                >
+                    Цей пароль зашифрує ваші гаманці та налаштування. Не
+                    загубіть його.
                 </div>
             {/if}
         {/if}
@@ -91,7 +123,7 @@
         height: 100vh;
         width: 100%;
     }
-    
+
     .auth-card {
         width: 100%;
         max-width: 400px;

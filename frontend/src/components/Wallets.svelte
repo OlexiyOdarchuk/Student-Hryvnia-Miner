@@ -2,7 +2,7 @@
     import { stats } from '../stores';
     import { ToggleWallet } from '../../wailsjs/go/main/App';
     import { ClipboardSetText } from '../../wailsjs/runtime/runtime';
-    import { notifications } from '../stores'; // Assuming you use this for feedback
+    import { notifications } from '../stores'; 
     import type { backend } from '../../wailsjs/go/models';
 
     function openModal(type: string, wallet?: backend.WalletStats) {
@@ -18,15 +18,15 @@
         notifications.info("Адреса скопійована: " + addr.substring(0, 10) + "...");
     }
 
-    // Row Pulse Logic
-    let pulsingWallets = {}; // map address -> boolean
-    let lastMined = {}; // map address -> count
+    
+    let pulsingWallets = {}; 
+    let lastMined = {}; 
 
     $: if ($stats && $stats.wallets) {
         $stats.wallets.forEach(w => {
             const last = lastMined[w.address] || 0;
             if (w.total_mined > last) {
-                // Only pulse if not first load (or if you want pulse on load, remove check)
+                
                 if (last !== 0 || w.total_mined === 1) {
                     pulsingWallets[w.address] = true;
                     setTimeout(() => {
@@ -67,7 +67,7 @@
                     <tr class:row-pulse={pulsingWallets[wallet.address]}>
                         <td style="font-weight: 700; color: white;">{wallet.name}</td>
                         <td>
-                            <!-- svelte-ignore a11y-click-events-have-key-events -->
+                            
                             <div class="addr-chip" title="Натисніть щоб скопіювати" on:click={() => copyAddress(wallet.address)} role="button" tabindex="0">
                                 {wallet.address.substring(0, 10)}...{wallet.address.substring(wallet.address.length - 8)}
                                 <i class="fas fa-copy" style="margin-left: 8px; font-size: 0.8em; opacity: 0.7;"></i>
@@ -119,14 +119,14 @@
 <style>
     .table-container {
         flex: 1;
-        overflow: hidden; /* Hide overflow on card */
+        overflow: hidden; 
         display: flex;
         flex-direction: column;
     }
     
     .table-wrap {
         flex: 1;
-        overflow-y: auto; /* Scroll table internally */
+        overflow-y: auto; 
         padding: 20px;
     }
 

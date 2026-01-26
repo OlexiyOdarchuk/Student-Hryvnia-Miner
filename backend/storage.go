@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +25,26 @@ var CurrentStorage StorageData
 var sessionPassword string
 
 func GetSessionPassword() string {
+	dataMutex.RLock()
+	defer dataMutex.RUnlock()
 	return sessionPassword
+}
+
+func ChangePassword(oldPass, newPass string) error {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	if oldPass != sessionPassword {
+		return errors.New("Старий пароль невірний")
+	}
+
+	err := SaveStorage(newPass, CurrentStorage)
+	if err != nil {
+		return err
+	}
+
+	sessionPassword = newPass
+	return nil
 }
 
 func DeriveKey(password string, salt []byte) []byte {
@@ -177,11 +195,6 @@ func applyLoadedData() {
 		newStat.SessionMined = 0
 		walletDataMap[w.Address] = &newStat
 	}
-}
-
-func HashPassword(password string) string {
-	h := sha256.Sum256([]byte(password))
-	return string(h[:])
 }
 
 func StorageExists() bool {

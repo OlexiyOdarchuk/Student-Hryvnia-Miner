@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"shminer/backend"
 	stdRuntime "runtime"
+	"shminer/backend"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -102,6 +103,31 @@ func (a *App) AddWallet(name, address, privateKey string) string {
 	return ""
 }
 
+func (a *App) ImportWalletJSON(jsonContent string) string {
+	var w backend.WalletExport
+	err := json.Unmarshal([]byte(jsonContent), &w)
+	if err != nil {
+		return "Невірний формат JSON"
+	}
+	if w.Name == "" || w.Pub == "" || w.Priv == "" {
+		return "JSON повинен містити поля name, pub, priv"
+	}
+
+	err = backend.AddWalletSafe(w.Name, w.Pub, w.Priv)
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func (a *App) GetWalletJSONSecure(address, password string) (string, error) {
+	if password != backend.GetSessionPassword() {
+		return "", fmt.Errorf("Невірний пароль")
+	}
+
+	return backend.ExportWalletJSON(address)
+}
+
 func (a *App) DeleteWallet(address, password string) string {
 	if password != backend.GetSessionPassword() {
 		return "Невірний пароль"
@@ -113,8 +139,12 @@ func (a *App) DeleteWallet(address, password string) string {
 	return ""
 }
 
-func (a *App) RenameWallet(address, newName string) {
-	backend.RenameWallet(address, newName)
+func (a *App) RenameWallet(address, newName string) string {
+	err := backend.RenameWallet(address, newName)
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 func (a *App) UpdateWalletKey(address, key, password string) string {
@@ -147,19 +177,6 @@ func (a *App) ToggleWallet(address string) bool {
 
 func (a *App) SetGlobalMining(state bool) {
 	backend.SetAllMining(state)
-}
-
-func (a *App) SendTransaction(from, to string, amount float64, password string) string {
-	if password != backend.GetSessionPassword() {
-		return "Невірний пароль"
-	}
-
-	privKey := backend.GetPrivateKey(from)
-	_, err := backend.SendTransaction(from, privKey, to, amount)
-	if err != nil {
-		return err.Error()
-	}
-	return ""
 }
 
 // Settings

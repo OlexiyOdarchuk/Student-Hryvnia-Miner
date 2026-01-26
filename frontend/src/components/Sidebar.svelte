@@ -50,7 +50,7 @@
         <span>Інструкція</span>
     </div>
 
-    <!-- Separator -->
+    
     <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 10px 20px;"></div>
 
     <div class="nav-btn" on:click={openWebMonitor}>

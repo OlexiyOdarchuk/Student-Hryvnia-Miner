@@ -22,7 +22,6 @@ const (
 
 const (
 	HashrateHistorySize = 60
-	LogRingBufferSize   = 100
 	MegahashDivisor     = 1000000
 )
 

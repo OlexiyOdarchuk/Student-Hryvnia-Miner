@@ -24,13 +24,13 @@
     </button>
     
     <div class="focus-container">
-        <!-- Main Ring -->
+        
         <div class="zen-ring">
             <div id="f-hash" class="zen-val">{$stats.hashrate.toFixed(2)}</div>
             <div class="zen-label">MH/s ШВИДКІСТЬ</div>
         </div>
         
-        <!-- Stats Row -->
+        
         <div class="focus-stats">
             <div class="focus-stat-card">
                 <div class="focus-stat-label">Загальний Баланс</div>
@@ -73,13 +73,13 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 8vh; /* Vertical spacing */
+        gap: 8vh; 
         width: 100%;
         height: 100%;
     }
 
     .zen-ring {
-        /* Responsive size based on viewport min dimension */
+        
         width: 50vmin; 
         height: 50vmin;
         max-width: 600px;
@@ -102,7 +102,7 @@
     }
 
     .zen-val {
-        font-size: 14vmin; /* Huge text scaling with ring */
+        font-size: 14vmin; 
         font-weight: 800; 
         font-family: var(--font-mono); 
         line-height: 1;
@@ -155,5 +155,5 @@
         color: #64748b;
     }
     
-    /* Animation Keyframes defined in style.css or globally */
+    
 </style>
