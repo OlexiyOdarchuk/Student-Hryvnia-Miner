@@ -28,8 +28,8 @@
 ### Попередні вимоги
 
 Переконайтеся, що у вас встановлено:
-*   [Go](https://go.dev/) (v1.21+)
-*   [Node.js](https://nodejs.org/) (v18+)
+*   [Go](https://go.dev/) (v1.25.6+)
+*   [Node.js](https://nodejs.org/) (v22+)
 *   [Wails CLI](https://wails.io/docs/gettingstarted/installation)
 
 ### Розробка
