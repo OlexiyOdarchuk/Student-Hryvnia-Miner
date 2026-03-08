@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"shminer/backend/internal/nodeclient"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -87,7 +88,7 @@ func StartBalanceUpdater(ctx context.Context) {
 }
 
 func updateSingleBalance(wallet string) {
-	bal := GetBalance(wallet)
+	bal := nodeclient.GetBalance(wallet)
 	dataMutex.Lock()
 	if val, ok := walletDataMap[wallet]; ok {
 		val.ServerBalance = bal
@@ -128,4 +129,3 @@ func GetDashboardData() DashboardData {
 		NewLogs:        []LogEntry{},
 	}
 }
-

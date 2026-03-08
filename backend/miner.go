@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+	"shminer/backend/internal/nodeclient"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -103,7 +104,7 @@ func MineBlock(prevHash string, wallet string) bool {
 						hashStr := hex.EncodeToString(hashArr[:])
 						PushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
 
-						if SubmitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
+						if nodeclient.SubmitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							atomic.StoreInt32(&successFlag, 1)
 							PushLog("💰 Блок зараховано! (+1 S-UAH)", "success")
 						} else {
@@ -148,7 +149,7 @@ func StartMiningLoop(ctx context.Context) {
 		default:
 		}
 
-		prevHash := getChainLastHashCached()
+		prevHash := nodeclient.GetChainLastHashCached()
 		if prevHash == "" {
 			PushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")
 			time.Sleep(2 * time.Second)
