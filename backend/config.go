@@ -2,6 +2,8 @@ package backend
 
 import (
 	"errors"
+	"shminer/backend/internal/stats"
+	"shminer/backend/types"
 	"time"
 )
 
@@ -16,10 +18,9 @@ var Config struct {
 	Threads     int
 }
 
-
-func UpdateConfig(password string, newConf AppConfig) error {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+func UpdateConfig(password string, newConf types.AppConfig) error {
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
 	if password != sessionPassword {
 		return errors.New("Невірний пароль")

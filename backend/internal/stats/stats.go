@@ -6,6 +6,7 @@ import (
 	"shminer/backend/internal/nodeclient"
 	"shminer/backend/internal/web_dashboard"
 	"shminer/backend/types"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -74,6 +75,30 @@ func StartBalanceUpdater(ctx context.Context) {
 	}
 }
 
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := int(d / time.Hour)
+	m := int((d % time.Hour) / time.Minute)
+	s := int((d % time.Minute) / time.Second)
+
+	res := make([]byte, 0, 8)
+
+	res = appendTwoDigits(res, h)
+	res = append(res, ':')
+	res = appendTwoDigits(res, m)
+	res = append(res, ':')
+	res = appendTwoDigits(res, s)
+
+	return string(res)
+}
+
+func appendTwoDigits(dst []byte, v int) []byte {
+	if v < 10 {
+		dst = append(dst, '0')
+	}
+	return strconv.AppendInt(dst, int64(v), 10)
+}
+
 func updateSingleBalance(wallet string) {
 	bal := nodeclient.GetBalance(wallet)
 	dataMutex.Lock()
@@ -110,7 +135,7 @@ func GetDashboardData() types.DashboardData {
 		Hashrate:       hash,
 		SessionBlocks:  sessionMined,
 		LifetimeBlocks: lifetimeBlocks,
-		Uptime:         backend.formatDuration(time.Since(backend.startTime)),
+		Uptime:         formatDuration(time.Since(backend.startTime)),
 		TotalBalance:   totalBal,
 		Wallets:        wStats,
 		NewLogs:        []types.LogEntry{},

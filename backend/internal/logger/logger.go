@@ -18,9 +18,8 @@ func (h *UIHandler) Handle(ctx context.Context, r slog.Record) error {
 		ID:      atomic.AddInt64(&h.logSeq, 1),
 		Time:    r.Time.Format("15:04:05"),
 		Message: r.Message,
-		Type:    r.Level.String(),
+		Type:    r.Level,
 	}
-
 	if h.LogCallback != nil {
 		h.LogCallback(entry)
 	}

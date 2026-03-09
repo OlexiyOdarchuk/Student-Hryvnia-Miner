@@ -13,31 +13,31 @@ func TestHandle_TableDriven(t *testing.T) {
 	tests := []struct {
 		name         string
 		expectedMsg  string
-		expectedType string
+		expectedType slog.Level
 		logFunc      func(msg string, args ...any)
 	}{
 		{
 			name:         "success",
 			expectedMsg:  "My Info",
-			expectedType: "INFO",
+			expectedType: slog.LevelInfo,
 			logFunc:      slog.Info,
 		},
 		{
 			name:         "success",
 			expectedMsg:  "My Debug",
-			expectedType: "DEBUG",
+			expectedType: slog.LevelDebug,
 			logFunc:      slog.Debug,
 		},
 		{
 			name:         "success",
 			expectedMsg:  "My Warning",
-			expectedType: "WARN",
+			expectedType: slog.LevelWarn,
 			logFunc:      slog.Warn,
 		},
 		{
 			name:         "success",
 			expectedMsg:  "My Error",
-			expectedType: "ERROR",
+			expectedType: slog.LevelError,
 			logFunc:      slog.Error,
 		},
 	}

@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"runtime"
 	"shminer/backend/internal/nodeclient"
+	"shminer/backend/internal/stats"
+	"shminer/backend/internal/web_dashboard"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -102,13 +104,13 @@ func MineBlock(prevHash string, wallet string) bool {
 				if checkDifficultyFast(hashArr) {
 					if atomic.CompareAndSwapInt32(&found, 0, 1) {
 						hashStr := hex.EncodeToString(hashArr[:])
-						PushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
+						stats.PushLog(fmt.Sprintf("🔨 Found nonce: %d", nonce), "info")
 
 						if nodeclient.SubmitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							atomic.StoreInt32(&successFlag, 1)
-							PushLog("💰 Блок зараховано! (+1 S-UAH)", "success")
+							stats.PushLog("💰 Блок зараховано! (+1 S-UAH)", "success")
 						} else {
-							PushLog("❌ Сервер відхилив блок", "error")
+							stats.PushLog("❌ Сервер відхилив блок", "error")
 						}
 						close(done)
 					}
@@ -129,29 +131,29 @@ func StartMiningLoop(ctx context.Context) {
 	}
 
 	compileDifficultyBits(Config.Difficulty)
-	dataMutex.Lock()
+	stats.dataMutex.Lock()
 	startTime = time.Now()
-	dataMutex.Unlock()
+	stats.dataMutex.Unlock()
 
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	go StartSpeedMonitor(ctx)
-	go StartBalanceUpdater(ctx)
-	go StartWebServer()
+	go stats.StartSpeedMonitor(ctx)
+	go stats.StartBalanceUpdater(ctx)
+	go web_dashboard.StartWebServer()
 
-	PushLog("🔨 МАЙНЕР ЗАПУЩЕНО...", "info")
+	stats.PushLog("🔨 МАЙНЕР ЗАПУЩЕНО...", "info")
 
 	for {
 		select {
 		case <-ctx.Done():
-			PushLog("🛑 Mining stopped", "info")
+			stats.PushLog("🛑 Mining stopped", "info")
 			return
 		default:
 		}
 
 		prevHash := nodeclient.GetChainLastHashCached()
 		if prevHash == "" {
-			PushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")
+			stats.PushLog("⚠️ Немає зв'язку з сервером. Рестарт...", "error")
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -164,13 +166,13 @@ func StartMiningLoop(ctx context.Context) {
 
 		currentWallet := ws[rand.Intn(len(ws))]
 
-		dataMutex.Lock()
-		stats, exists := walletDataMap[currentWallet]
+		stats.dataMutex.Lock()
+		stats, exists := stats.walletDataMap[currentWallet]
 		isWorking := true
 		if exists {
 			isWorking = stats.Working
 		}
-		dataMutex.Unlock()
+		stats.dataMutex.Unlock()
 
 		if !isWorking {
 			time.Sleep(500 * time.Millisecond)
@@ -180,23 +182,23 @@ func StartMiningLoop(ctx context.Context) {
 		success := MineBlock(prevHash, currentWallet)
 
 		if success {
-			dataMutex.Lock()
-			sessionMined++
-			if ws, ok := walletDataMap[currentWallet]; ok {
+			stats.dataMutex.Lock()
+			stats.sessionMined++
+			if ws, ok := stats.walletDataMap[currentWallet]; ok {
 				ws.SessionMined++
 				ws.TotalMined++
 			}
 
 			syncStorage()
 			SaveStorage(sessionPassword, CurrentStorage)
-			dataMutex.Unlock()
+			stats.dataMutex.Unlock()
 
 			go func() {
-				updateSingleBalance(currentWallet)
-				BroadcastUpdate()
+				stats.updateSingleBalance(currentWallet)
+				web_dashboard.BroadcastUpdate()
 			}()
 
-			BroadcastUpdate()
+			web_dashboard.BroadcastUpdate()
 		}
 
 		time.Sleep(MinerSleepInterval)

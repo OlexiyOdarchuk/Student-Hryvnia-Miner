@@ -2,6 +2,8 @@ package backend
 
 import (
 	"fmt"
+	"shminer/backend/internal/stats"
+	"shminer/backend/types"
 	"sync"
 )
 
@@ -17,10 +19,10 @@ var (
 )
 
 func ExportWalletJSON(address string) (string, error) {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
+	stats.dataMutex.RLock()
+	defer stats.dataMutex.RUnlock()
 
-	if stats, ok := walletDataMap[address]; ok {
+	if stats, ok := stats.walletDataMap[address]; ok {
 		w := WalletExport{
 			Name: stats.Name,
 			Pub:  stats.Address,
@@ -32,19 +34,18 @@ func ExportWalletJSON(address string) (string, error) {
 }
 
 func GetWallets() []string {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
+	stats.dataMutex.RLock()
+	defer stats.dataMutex.RUnlock()
 
 	cp := make([]string, len(Wallets))
 	copy(cp, Wallets)
 	return cp
 }
 
-
 func syncStorage() {
-	var list []WalletStats
+	var list []types.WalletStats
 	for _, addr := range Wallets {
-		if stats, ok := walletDataMap[addr]; ok {
+		if stats, ok := stats.walletDataMap[addr]; ok {
 			list = append(list, *stats)
 		}
 	}
@@ -52,10 +53,10 @@ func syncStorage() {
 }
 
 func AddWalletSafe(name, address, privateKey string) error {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
-	for _, w := range walletDataMap {
+	for _, w := range stats.walletDataMap {
 		if w.Address == address {
 			return nil
 		}
@@ -65,7 +66,7 @@ func AddWalletSafe(name, address, privateKey string) error {
 	}
 
 	Wallets = append(Wallets, address)
-	walletDataMap[address] = &WalletStats{
+	stats.walletDataMap[address] = &types.WalletStats{
 		Address:    address,
 		Name:       name,
 		PrivateKey: privateKey,
@@ -77,8 +78,8 @@ func AddWalletSafe(name, address, privateKey string) error {
 }
 
 func DeleteWallet(address string) error {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
 	newWallets := []string{}
 	for _, w := range Wallets {
@@ -87,23 +88,23 @@ func DeleteWallet(address string) error {
 		}
 	}
 	Wallets = newWallets
-	delete(walletDataMap, address)
+	delete(stats.walletDataMap, address)
 
 	syncStorage()
 	return SaveStorage(sessionPassword, CurrentStorage)
 }
 
 func RenameWallet(address, newName string) error {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
-	for addr, w := range walletDataMap {
+	for addr, w := range stats.walletDataMap {
 		if addr != address && w.Name == newName {
 			return fmt.Errorf("назва '%s' вже використовується", newName)
 		}
 	}
 
-	if stats, ok := walletDataMap[address]; ok {
+	if stats, ok := stats.walletDataMap[address]; ok {
 		stats.Name = newName
 		syncStorage()
 		return SaveStorage(sessionPassword, CurrentStorage)
@@ -112,10 +113,10 @@ func RenameWallet(address, newName string) error {
 }
 
 func ToggleWalletMining(address string) bool {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
-	if stats, ok := walletDataMap[address]; ok {
+	if stats, ok := stats.walletDataMap[address]; ok {
 		stats.Working = !stats.Working
 
 		syncStorage()
@@ -127,10 +128,10 @@ func ToggleWalletMining(address string) bool {
 }
 
 func SetAllMining(state bool) {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
-	for _, stats := range walletDataMap {
+	for _, stats := range stats.walletDataMap {
 		stats.Working = state
 	}
 
@@ -139,10 +140,10 @@ func SetAllMining(state bool) {
 }
 
 func UpdateWalletKey(address, privateKey string) error {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
-	if stats, ok := walletDataMap[address]; ok {
+	if stats, ok := stats.walletDataMap[address]; ok {
 		stats.PrivateKey = privateKey
 		syncStorage()
 		return SaveStorage(sessionPassword, CurrentStorage)
@@ -151,10 +152,10 @@ func UpdateWalletKey(address, privateKey string) error {
 }
 
 func GetPrivateKey(address string) string {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
+	stats.dataMutex.RLock()
+	defer stats.dataMutex.RUnlock()
 
-	if stats, ok := walletDataMap[address]; ok {
+	if stats, ok := stats.walletDataMap[address]; ok {
 		return stats.PrivateKey
 	}
 	return ""

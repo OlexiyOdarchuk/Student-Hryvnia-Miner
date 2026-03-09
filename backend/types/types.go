@@ -1,5 +1,7 @@
 package types
 
+import "log/slog"
+
 type DashboardData struct {
 	Hashrate       float64       `json:"hashrate"`
 	SessionBlocks  int           `json:"session_blocks"`
@@ -21,10 +23,10 @@ type WalletStats struct {
 }
 
 type LogEntry struct {
-	ID      int64  `json:"id"`
-	Time    string `json:"time"`
-	Message string `json:"message"`
-	Type    string `json:"type"` // "info", "success", "error"
+	ID      int64      `json:"id"`
+	Time    string     `json:"time"`
+	Message string     `json:"message"`
+	Type    slog.Level `json:"type"`
 }
 
 type AppConfig struct {

@@ -203,27 +203,3 @@ func StorageExists() bool {
 	_, err := os.Stat(StorageFile)
 	return !os.IsNotExist(err)
 }
-
-func formatDuration(d time.Duration) string {
-	d = d.Round(time.Second)
-	h := int(d / time.Hour)
-	m := int((d % time.Hour) / time.Minute)
-	s := int((d % time.Minute) / time.Second)
-
-	res := make([]byte, 0, 8)
-
-	res = appendTwoDigits(res, h)
-	res = append(res, ':')
-	res = appendTwoDigits(res, m)
-	res = append(res, ':')
-	res = appendTwoDigits(res, s)
-
-	return string(res)
-}
-
-func appendTwoDigits(dst []byte, v int) []byte {
-	if v < 10 {
-		dst = append(dst, '0')
-	}
-	return strconv.AppendInt(dst, int64(v), 10)
-}
