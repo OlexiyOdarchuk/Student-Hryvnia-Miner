@@ -19,6 +19,23 @@ type ApiClient struct {
 	backoffLimit float64
 }
 
+type Transaction struct {
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Amount int    `json:"amount"`
+}
+
+type Block struct {
+	ID           string      `json:"_id"`
+	PrevHash     string      `json:"prevHash"`
+	Transactions Transaction `json:"transactions"`
+	Nonce        int         `json:"nonce"`
+	Miner        string      `json:"miner"`
+	Reward       int         `json:"reward"`
+	Timestamp    int64       `json:"timestamp"`
+	Hash         string      `json:"hash"`
+}
+
 func NewApiClient(baseUrl string, httpClient *http.Client, retryDelay, backoffLimit time.Duration, retryMax int) *ApiClient {
 	return &ApiClient{
 		baseUrl:      baseUrl,
@@ -29,7 +46,8 @@ func NewApiClient(baseUrl string, httpClient *http.Client, retryDelay, backoffLi
 	}
 }
 
-func (ac *ApiClient) GetChainLastHashCached() (string, error) {
+func (ac *ApiClient) GetChainLastHashCached() string {
+
 	var result string
 	err := ac.retryWithBackoff(func() error {
 		resp, err := ac.httpClient.Get(ac.baseUrl + "/chain")
@@ -37,27 +55,24 @@ func (ac *ApiClient) GetChainLastHashCached() (string, error) {
 			return err
 		}
 		defer resp.Body.Close()
-		body, _ := ioutil.ReadAll(resp.Body)
-		var chain []map[string]interface{}
-		json.Unmarshal(body, &chain)
-		if len(chain) > 0 {
-			result = chain[len(chain)-1]["hash"].(string)
+		var chain Block
+		if err = json.NewDecoder(resp.Body).Decode(&chain); err != nil {
+			return err
 		}
+		result = chain.Hash
 		return nil
 	})
 	if err != nil {
-		return "", err
+		slog.Error("❌ Помилка при отриманні останнього блоку", "err", err)
 	}
-	return result, err
+	return result
 }
 
 func (ac *ApiClient) SubmitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
-	payload := map[string]interface{}{
-		"block": map[string]interface{}{
-			"prevHash": prev, "transactions": []map[string]interface{}{{"from": nil, "to": wallet, "amount": 1}},
-			"nonce": nonce, "miner": wallet, "reward": 1, "timestamp": ts, "hash": hash,
-		},
+	payload := map[string]Block{
+		"block": {PrevHash: prev, Transactions: Transaction{From: "", To: wallet, Amount: 1}, Nonce: nonce, Miner: wallet, Reward: 1, Timestamp: ts, Hash: hash},
 	}
+
 	body, _ := json.Marshal(payload)
 
 	var success bool

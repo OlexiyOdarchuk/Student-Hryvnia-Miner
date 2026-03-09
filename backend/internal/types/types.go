@@ -1,4 +1,4 @@
-package backend
+package types
 
 type DashboardData struct {
 	Hashrate       float64       `json:"hashrate"`

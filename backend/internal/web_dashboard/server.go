@@ -1,30 +1,49 @@
-package backend
+package web_dashboard
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
-	"shminer/backend/assets"
+	"shminer/backend/internal/types"
+	"shminer/backend/internal/web_dashboard/assets"
 	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+type dashboardDataGetter interface {
+	GetDashboardData() types.DashboardData
 }
 
-var clients = make(map[*websocket.Conn]bool)
-var clientsMu sync.Mutex
+type Server struct {
+	port      string // must begin with ":", for example ":8080"
+	dashboard dashboardDataGetter
+	clients   map[*websocket.Conn]bool
+	clientsMu sync.Mutex
+	upgrader  websocket.Upgrader
+}
 
-func BroadcastUpdate() {
-	clientsMu.Lock()
-	defer clientsMu.Unlock()
+func NewServer(port string, dashboard dashboardDataGetter) *Server {
+	return &Server{
+		port:      port,
+		dashboard: dashboard,
+		clients:   make(map[*websocket.Conn]bool),
+		clientsMu: sync.Mutex{},
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool { return true },
+		},
+	}
+}
 
-	if len(clients) == 0 {
+func (s *Server) BroadcastUpdate() {
+	s.clientsMu.Lock()
+	defer s.clientsMu.Unlock()
+
+	if len(s.clients) == 0 {
 		return
 	}
 
-	fullData := GetDashboardData()
+	fullData := s.dashboard.GetDashboardData()
 
 	var safeWallets []map[string]interface{}
 	for _, wallet := range fullData.Wallets {
@@ -50,31 +69,31 @@ func BroadcastUpdate() {
 		return
 	}
 
-	for client := range clients {
+	for client := range s.clients {
 		err := client.WriteMessage(websocket.TextMessage, msg)
 		if err != nil {
 			client.Close()
-			delete(clients, client)
+			delete(s.clients, client)
 		}
 	}
 }
 
-func StartWebServer() {
+func (s *Server) StartWebServer() {
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
+		conn, err := s.upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
 		}
-		clientsMu.Lock()
-		clients[conn] = true
-		clientsMu.Unlock()
+		s.clientsMu.Lock()
+		s.clients[conn] = true
+		s.clientsMu.Unlock()
 	})
 
 	http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
-		fullData := GetDashboardData()
+		fullData := s.dashboard.GetDashboardData()
 
 		var safeWallets []map[string]interface{}
 		for _, wallet := range fullData.Wallets {
@@ -109,9 +128,9 @@ func StartWebServer() {
 	})
 
 	go func() {
-		if err := http.ListenAndServe(Config.ServerPort, nil); err != nil {
-			PushLog("❌ Web server error: "+err.Error(), "error")
+		if err := http.ListenAndServe(s.port, nil); err != nil {
+			slog.Error("❌ Web server error: ", "error", err)
 		}
 	}()
-	PushLog("🌐 API Server running at http://localhost"+Config.ServerPort, "info")
+	slog.Info("🌐 API Server is running", "port", s.port)
 }
