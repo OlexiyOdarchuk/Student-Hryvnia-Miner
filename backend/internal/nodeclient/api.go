@@ -92,7 +92,7 @@ func (ac *ApiClient) SubmitBlock(prev, wallet string, nonce int, ts int64, hash 
 	})
 
 	if err != nil {
-		slog.Error("❌ Помилка при відправці блоку", "error", err) // TODO: оновити логер, щоб slog відповідав за front тоже
+		slog.Error("❌ Помилка при відправці блоку", "error", err)
 		return false
 	}
 	return success

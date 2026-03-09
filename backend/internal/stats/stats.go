@@ -1,8 +1,11 @@
-package backend
+package stats
 
 import (
 	"context"
+	"shminer/backend"
 	"shminer/backend/internal/nodeclient"
+	"shminer/backend/internal/web_dashboard"
+	"shminer/backend/types"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,7 +13,7 @@ import (
 
 var (
 	sessionMined      int
-	walletDataMap     map[string]*WalletStats
+	walletDataMap     map[string]*types.WalletStats
 	dataMutex         sync.RWMutex
 	globalHashrate    atomic.Value
 	hashrateHistory   [60]float64
@@ -19,10 +22,8 @@ var (
 	logSeq            int64
 )
 
-var LogCallback func(LogEntry)
-
 func init() {
-	walletDataMap = make(map[string]*WalletStats)
+	walletDataMap = make(map[string]*types.WalletStats)
 }
 
 func StartSpeedMonitor(ctx context.Context) {
@@ -33,36 +34,22 @@ func StartSpeedMonitor(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			c := atomic.SwapUint64(&hashCount, 0)
-			hashPerSec := float64(c) / MegahashDivisor
+			c := atomic.SwapUint64(&backend.hashCount, 0)
+			hashPerSec := float64(c) / backend.MegahashDivisor
 			globalHashrate.Store(hashPerSec)
 
 			hashrateHistMutex.Lock()
-			hashrateHistory[hashrateHistPos%HashrateHistorySize] = hashPerSec
+			hashrateHistory[hashrateHistPos%backend.HashrateHistorySize] = hashPerSec
 			hashrateHistPos++
 			hashrateHistMutex.Unlock()
 		}
 	}
 }
 
-func PushLog(msg string, lType string) {
-	id := atomic.AddInt64(&logSeq, 1)
-	entry := LogEntry{
-		ID:      id,
-		Time:    time.Now().Format("15:04:05"),
-		Message: msg,
-		Type:    lType,
-	}
-
-	if LogCallback != nil {
-		LogCallback(entry)
-	}
-}
-
 func StartBalanceUpdater(ctx context.Context) {
-	freq := Config.BalanceFreq
+	freq := backend.Config.BalanceFreq
 	if freq <= 0 {
-		freq = DefaultBalanceUpdateFreq
+		freq = backend.DefaultBalanceUpdateFreq
 	}
 
 	ticker := time.NewTicker(freq)
@@ -73,7 +60,7 @@ func StartBalanceUpdater(ctx context.Context) {
 			return
 		case <-ticker.C:
 			var wg sync.WaitGroup
-			wallets := GetWallets()
+			wallets := backend.GetWallets()
 
 			for _, w := range wallets {
 				wg.Add(1)
@@ -94,10 +81,10 @@ func updateSingleBalance(wallet string) {
 		val.ServerBalance = bal
 	}
 	dataMutex.Unlock()
-	BroadcastUpdate()
+	web_dashboard.BroadcastUpdate()
 }
 
-func GetDashboardData() DashboardData {
+func GetDashboardData() types.DashboardData {
 	dataMutex.RLock()
 	defer dataMutex.RUnlock()
 
@@ -109,9 +96,9 @@ func GetDashboardData() DashboardData {
 
 	totalBal := 0.0
 	lifetimeBlocks := 0
-	var wStats []WalletStats
+	var wStats []types.WalletStats
 
-	for _, addr := range Wallets {
+	for _, addr := range backend.Wallets {
 		if s, ok := walletDataMap[addr]; ok {
 			totalBal += s.ServerBalance
 			lifetimeBlocks += s.TotalMined
@@ -119,13 +106,13 @@ func GetDashboardData() DashboardData {
 		}
 	}
 
-	return DashboardData{
+	return types.DashboardData{
 		Hashrate:       hash,
 		SessionBlocks:  sessionMined,
 		LifetimeBlocks: lifetimeBlocks,
-		Uptime:         formatDuration(time.Since(startTime)),
+		Uptime:         backend.formatDuration(time.Since(backend.startTime)),
 		TotalBalance:   totalBal,
 		Wallets:        wStats,
-		NewLogs:        []LogEntry{},
+		NewLogs:        []types.LogEntry{},
 	}
 }

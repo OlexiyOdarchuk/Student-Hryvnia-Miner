@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"shminer/backend/internal/types"
 	"shminer/backend/internal/web_dashboard/assets"
+	"shminer/backend/types"
 	"sync"
 
 	"github.com/gorilla/websocket"

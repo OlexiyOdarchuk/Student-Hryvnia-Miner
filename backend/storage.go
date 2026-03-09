@@ -6,9 +6,11 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
+	"shminer/backend/internal/stats"
+	"shminer/backend/types"
+	"strconv"
 	"time"
 
 	"golang.org/x/crypto/argon2"
@@ -17,22 +19,22 @@ import (
 const StorageFile = "SHMinerSettings.bin"
 
 type StorageData struct {
-	Config  AppConfig     `json:"config"`
-	Wallets []WalletStats `json:"wallets"`
+	Config  types.AppConfig     `json:"config"`
+	Wallets []types.WalletStats `json:"wallets"`
 }
 
 var CurrentStorage StorageData
 var sessionPassword string
 
 func GetSessionPassword() string {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
+	stats.dataMutex.RLock()
+	defer stats.dataMutex.RUnlock()
 	return sessionPassword
 }
 
 func ChangePassword(oldPass, newPass string) error {
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
 	if oldPass != sessionPassword {
 		return errors.New("Старий пароль невірний")
@@ -52,7 +54,7 @@ func DeriveKey(password string, salt []byte) []byte {
 }
 
 func InitStorage(password string) error {
-	defaultConfig := AppConfig{
+	defaultConfig := types.AppConfig{
 		BaseURL:      DefaultBaseURL,
 		ServerPort:   DefaultServerPort,
 		Difficulty:   DefaultDifficulty,
@@ -64,7 +66,7 @@ func InitStorage(password string) error {
 
 	data := StorageData{
 		Config:  defaultConfig,
-		Wallets: []WalletStats{},
+		Wallets: []types.WalletStats{},
 	}
 
 	CurrentStorage = data
@@ -183,17 +185,17 @@ func applyLoadedData() {
 		Config.BalanceFreq = DefaultBalanceUpdateFreq
 	}
 
-	dataMutex.Lock()
-	defer dataMutex.Unlock()
+	stats.dataMutex.Lock()
+	defer stats.dataMutex.Unlock()
 
 	Wallets = []string{}
-	walletDataMap = make(map[string]*WalletStats)
+	stats.walletDataMap = make(map[string]*types.WalletStats)
 
 	for _, w := range CurrentStorage.Wallets {
 		Wallets = append(Wallets, w.Address)
 		newStat := w
 		newStat.SessionMined = 0
-		walletDataMap[w.Address] = &newStat
+		stats.walletDataMap[w.Address] = &newStat
 	}
 }
 
@@ -204,10 +206,24 @@ func StorageExists() bool {
 
 func formatDuration(d time.Duration) string {
 	d = d.Round(time.Second)
-	h := d / time.Hour
-	d -= h * time.Hour
-	m := d / time.Minute
-	d -= m * time.Minute
-	s := d / time.Second
-	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	h := int(d / time.Hour)
+	m := int((d % time.Hour) / time.Minute)
+	s := int((d % time.Minute) / time.Second)
+
+	res := make([]byte, 0, 8)
+
+	res = appendTwoDigits(res, h)
+	res = append(res, ':')
+	res = appendTwoDigits(res, m)
+	res = append(res, ':')
+	res = appendTwoDigits(res, s)
+
+	return string(res)
+}
+
+func appendTwoDigits(dst []byte, v int) []byte {
+	if v < 10 {
+		dst = append(dst, '0')
+	}
+	return strconv.AppendInt(dst, int64(v), 10)
 }

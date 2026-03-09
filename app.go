@@ -6,6 +6,8 @@ import (
 	"fmt"
 	stdRuntime "runtime"
 	"shminer/backend"
+	"shminer/backend/app"
+	"shminer/backend/types"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -24,9 +26,10 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	backend.LogCallback = func(entry backend.LogEntry) {
+	logCallback := func(entry types.LogEntry) {
 		runtime.EventsEmit(ctx, "log", entry)
 	}
+	app.StartApp(ctx, logCallback)
 }
 
 func (a *App) startMining() {
@@ -48,7 +51,7 @@ func (a *App) startMining() {
 			case <-miningCtx.Done():
 				return
 			case <-ticker.C:
-				data := backend.GetDashboardData()
+				data := stats.GetDashboardData()
 				runtime.EventsEmit(a.ctx, "stats", data)
 			}
 		}
@@ -87,8 +90,8 @@ func (a *App) UnlockStorage(password string) string {
 
 // --- Exposed methods ---
 
-func (a *App) GetDashboardData() backend.DashboardData {
-	return backend.GetDashboardData()
+func (a *App) GetDashboardData() types.DashboardData {
+	return stats.GetDashboardData()
 }
 
 func (a *App) GetWallets() []string {
@@ -180,11 +183,11 @@ func (a *App) SetGlobalMining(state bool) {
 }
 
 // Settings
-func (a *App) GetConfig() backend.AppConfig {
+func (a *App) GetConfig() types.AppConfig {
 	return backend.CurrentStorage.Config
 }
 
-func (a *App) UpdateConfig(newConf backend.AppConfig, password string) string {
+func (a *App) UpdateConfig(newConf types.AppConfig, password string) string {
 	if password != backend.GetSessionPassword() {
 		return "Невірний пароль"
 	}
