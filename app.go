@@ -2,14 +2,9 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	stdRuntime "runtime"
-	"shminer/backend"
 	"shminer/backend/app"
-	"shminer/backend/app/config"
-	"shminer/backend/internal/storage"
-	"shminer/backend/internal/wallets"
+	"shminer/backend/config"
 	"shminer/backend/types"
 	"time"
 
@@ -20,19 +15,21 @@ type App struct {
 	ctx           context.Context
 	cancelMining  context.CancelFunc
 	miningStarted bool
+	backendApp    app.Backend
 }
 
 func NewApp() *App {
-	return &App{}
+	return &App{
+		backendApp: app.Init(),
+	}
 }
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-
 	logCallback := func(entry types.LogEntry) {
 		runtime.EventsEmit(ctx, "log", entry)
 	}
-	app.StartApp(ctx, logCallback)
+	a.backendApp.StartApp(logCallback)
 }
 
 func (a *App) startMining() {
@@ -44,7 +41,7 @@ func (a *App) startMining() {
 	a.cancelMining = cancel
 	a.miningStarted = true
 
-	go backend.StartMiningLoop(miningCtx)
+	a.backendApp.StartMining(miningCtx)
 
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond)
@@ -54,7 +51,7 @@ func (a *App) startMining() {
 			case <-miningCtx.Done():
 				return
 			case <-ticker.C:
-				data := stats.GetDashboardData()
+				data := a.backendApp.GetDashboardData()
 				runtime.EventsEmit(a.ctx, "stats", data)
 			}
 		}
@@ -64,18 +61,18 @@ func (a *App) startMining() {
 func (a *App) shutdown(ctx context.Context) {
 	if a.cancelMining != nil {
 		a.cancelMining()
+		a.backendApp.StopMining()
 	}
 }
 
 // --- Auth Methods ---
 
 func (a *App) IsStorageInitialized() bool {
-	return storage.StorageExists()
+	return a.backendApp.IsStorageInitialized()
 }
 
 func (a *App) InitStorage(password string) string {
-	err := storage.InitStorage(password)
-	if err != nil {
+	if err := a.backendApp.InitStorage(password); err != nil {
 		return err.Error()
 	}
 	a.startMining()
@@ -83,8 +80,7 @@ func (a *App) InitStorage(password string) string {
 }
 
 func (a *App) UnlockStorage(password string) string {
-	err := storage.LoadStorage(password)
-	if err != nil {
+	if err := a.backendApp.UnlockStorage(password); err != nil {
 		return "Невірний пароль"
 	}
 	a.startMining()
@@ -94,116 +90,79 @@ func (a *App) UnlockStorage(password string) string {
 // --- Exposed methods ---
 
 func (a *App) GetDashboardData() types.DashboardData {
-	return stats.GetDashboardData()
+	return a.backendApp.GetDashboardData()
 }
 
 func (a *App) GetWallets() []string {
-	return wallets.GetWallets()
+	return a.backendApp.GetWallets()
 }
 
 func (a *App) AddWallet(name, address, privateKey string) string {
-	err := wallets.AddWalletSafe(name, address, privateKey)
-	if err != nil {
+	if err := a.backendApp.AddWallet(name, address, privateKey); err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
 func (a *App) ImportWalletJSON(jsonContent string) string {
-	var w wallets.WalletExport
-	err := json.Unmarshal([]byte(jsonContent), &w)
-	if err != nil {
-		return "Невірний формат JSON"
-	}
-	if w.Name == "" || w.Pub == "" || w.Priv == "" {
-		return "JSON повинен містити поля name, pub, priv"
-	}
-
-	err = wallets.AddWalletSafe(w.Name, w.Pub, w.Priv)
-	if err != nil {
+	if err := a.backendApp.ImportWalletJSON(jsonContent); err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
 func (a *App) GetWalletJSONSecure(address, password string) (string, error) {
-	if password != storage.GetSessionPassword() {
-		return "", fmt.Errorf("Невірний пароль")
-	}
-
-	return wallets.ExportWalletJSON(address)
+	return a.backendApp.GetWalletJSONSecure(address, password)
 }
 
 func (a *App) DeleteWallet(address, password string) string {
-	if password != storage.GetSessionPassword() {
-		return "Невірний пароль"
-	}
-	err := wallets.DeleteWallet(address)
-	if err != nil {
+	if err := a.backendApp.DeleteWallet(address, password); err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
 func (a *App) RenameWallet(address, newName string) string {
-	err := wallets.RenameWallet(address, newName)
-	if err != nil {
+	if err := a.backendApp.RenameWallet(address, newName); err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
 func (a *App) UpdateWalletKey(address, key, password string) string {
-	if password != storage.GetSessionPassword() {
-		return "Невірний пароль"
-	}
-	err := wallets.UpdateWalletKey(address, key)
-	if err != nil {
+	if err := a.backendApp.UpdateWalletKey(address, key, password); err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
 func (a *App) GetWalletKey(address, password string) (string, error) {
-	if password != storage.GetSessionPassword() {
-		return "", fmt.Errorf("Невірний пароль")
-	}
-
-	privKey := wallets.GetPrivateKey(address)
-	if privKey == "" {
-		return "", fmt.Errorf("Приватний ключ не знайдено")
-	}
-
-	return privKey, nil
+	return a.backendApp.GetWalletKey(address, password)
 }
 
 func (a *App) ToggleWallet(address string) bool {
-	return wallets.ToggleWalletMining(address)
+	return a.backendApp.ToggleWallet(address)
 }
 
 func (a *App) SetGlobalMining(state bool) {
-	wallets.SetAllMining(state)
+	_ = a.backendApp.SetGlobalMining(state)
 }
 
 // Settings
-func (a *App) GetConfig() types.AppConfig {
-	return storage.CurrentStorage.Config
+
+func (a *App) GetConfig() config.AppConfig {
+	return a.backendApp.GetConfig()
 }
 
-func (a *App) UpdateConfig(newConf types.AppConfig, password string) string {
-	if password != storage.GetSessionPassword() {
-		return "Невірний пароль"
-	}
-	err := config.UpdateConfig(password, newConf)
-	if err != nil {
+func (a *App) UpdateConfig(newConf config.AppConfig, password string) string {
+	if err := a.backendApp.UpdateConfig(newConf, password); err != nil {
 		return err.Error()
 	}
 	return ""
 }
 
 func (a *App) ChangePassword(oldPass, newPass string) string {
-	err := storage.ChangePassword(oldPass, newPass)
-	if err != nil {
+	if err := a.backendApp.ChangePassword(oldPass, newPass); err != nil {
 		return err.Error()
 	}
 	return ""

@@ -1,60 +1,63 @@
 package config
 
-import (
-	"errors"
-	"shminer/backend/types"
-	"time"
-)
-
-type Storage interface {
-	SaveStorage(password string, data types.StorageData) error
-}
-
 type AppConfig struct {
-	BaseURL      string        `json:"base_url"`
-	ServerPort   string        `json:"server_port"`
-	Difficulty   int           `json:"difficulty"`
-	HTTPTimeout  time.Duration `json:"http_timeout"`
-	MaxRetries   uint16        `json:"max_retries"`
-	RetryDelayMs time.Duration `json:"retry_delay_ms"`
-	BalanceFreqS time.Duration `json:"balance_freq_s"`
-	Threads      uint8         `json:"threads"`
-	storage      Storage
+	BaseURL      string `json:"base_url"`
+	ServerPort   string `json:"server_port"`
+	Difficulty   int    `json:"difficulty"`
+	HTTPTimeout  int    `json:"http_timeout"`
+	MaxRetries   uint16 `json:"max_retries"`
+	RetryDelayMs int    `json:"retry_delay_ms"`
+	BalanceFreqS int    `json:"balance_freq_s"`
+	Threads      uint8  `json:"threads"`
 }
 
-func (c *AppConfig) UpdateConfig(password string, newConf AppConfig) error {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
+var Config = AppConfig{
+	BaseURL:      DefaultBaseURL,
+	ServerPort:   DefaultServerPort,
+	Difficulty:   DefaultDifficulty,
+	HTTPTimeout:  int(DefaultHTTPTimeout.Seconds()),
+	MaxRetries:   DefaultMaxRetries,
+	RetryDelayMs: int(DefaultRetryDelay.Milliseconds()),
+	BalanceFreqS: int(DefaultBalanceUpdateFreq.Seconds()),
+	Threads:      4,
+}
 
-	if password != backend.sessionPassword {
-		return errors.New("Невірний пароль")
+func (c *AppConfig) Update(newConf AppConfig) {
+	if newConf.BaseURL != "" {
+		c.BaseURL = newConf.BaseURL
 	}
 
-	storage.CurrentStorage.Config = newConf
+	if newConf.ServerPort != "" {
+		c.ServerPort = newConf.ServerPort
+	}
 
-	c.BaseURL = newConf.BaseURL
-	c.ServerPort = newConf.ServerPort
-	c.Difficulty = newConf.Difficulty
-	c.MaxRetries = newConf.MaxRetries
-	c.Threads = newConf.Threads
+	if newConf.Difficulty > 0 {
+		c.Difficulty = newConf.Difficulty
+	}
 
 	if newConf.HTTPTimeout > 0 {
 		c.HTTPTimeout = newConf.HTTPTimeout
 	} else {
-		c.HTTPTimeout = DefaultHTTPTimeout
+		c.HTTPTimeout = int(DefaultHTTPTimeout.Seconds())
+	}
+
+	if newConf.MaxRetries > 0 {
+		c.MaxRetries = newConf.MaxRetries
 	}
 
 	if newConf.RetryDelayMs > 0 {
 		c.RetryDelayMs = newConf.RetryDelayMs
 	} else {
-		c.RetryDelayMs = DefaultRetryDelay
+		c.RetryDelayMs = int(DefaultRetryDelay.Milliseconds())
 	}
 
 	if newConf.BalanceFreqS > 0 {
 		c.BalanceFreqS = newConf.BalanceFreqS
 	} else {
-		c.BalanceFreqS = DefaultBalanceUpdateFreq
+		c.BalanceFreqS = int(DefaultBalanceUpdateFreq.Seconds())
 	}
 
-	return c.storage.SaveStorage(password, c.storage.CurrentStorage)
+	if newConf.Threads > 0 {
+		c.Threads = newConf.Threads
+	}
 }

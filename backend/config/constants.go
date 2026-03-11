@@ -10,13 +10,9 @@ const (
 	DefaultMaxRetries        = 3
 	DefaultRetryDelay        = 100 * time.Millisecond
 	DefaultBalanceUpdateFreq = 5 * time.Second
-	DefaultHashCacheTTL      = 300 * time.Millisecond
 )
 
 const (
-	MaxIdleConnections      = 100
-	MaxIdleConnsPerHost     = 10
-	IdleConnTimeout         = 90 * time.Second
 	ExponentialBackoffMaxMs = 30000
 )
 

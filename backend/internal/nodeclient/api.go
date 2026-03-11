@@ -12,6 +12,12 @@ import (
 	"time"
 )
 
+type NodeClient interface {
+	GetChainLastHashCached() string
+	SubmitBlock(prev, wallet string, nonce int, ts int64, hash string) bool
+	GetBalance(addr string) float64
+}
+
 type ApiClient struct {
 	baseUrl      string
 	httpClient   *http.Client
@@ -27,14 +33,14 @@ type Transaction struct {
 }
 
 type Block struct {
-	ID           string      `json:"_id"`
-	PrevHash     string      `json:"prevHash"`
-	Transactions Transaction `json:"transactions"`
-	Nonce        int         `json:"nonce"`
-	Miner        string      `json:"miner"`
-	Reward       int         `json:"reward"`
-	Timestamp    int64       `json:"timestamp"`
-	Hash         string      `json:"hash"`
+	ID           string        `json:"_id"`
+	PrevHash     string        `json:"prevHash"`
+	Transactions []Transaction `json:"transactions"`
+	Nonce        int           `json:"nonce"`
+	Miner        string        `json:"miner"`
+	Reward       int           `json:"reward"`
+	Timestamp    int64         `json:"timestamp"`
+	Hash         string        `json:"hash"`
 }
 
 func NewApiClient(baseUrl string, httpClient *http.Client, retryDelay, backoffLimit time.Duration, retryMax int) *ApiClient {
@@ -56,11 +62,14 @@ func (ac *ApiClient) GetChainLastHashCached() string {
 			return err
 		}
 		defer resp.Body.Close()
-		var chain Block
+		var chain []Block
 		if err = json.NewDecoder(resp.Body).Decode(&chain); err != nil {
 			return err
 		}
-		result = chain.Hash
+		if len(chain) == 0 {
+			return errors.New("chain response empty")
+		}
+		result = chain[len(chain)-1].Hash
 		return nil
 	})
 	if err != nil {
@@ -70,8 +79,30 @@ func (ac *ApiClient) GetChainLastHashCached() string {
 }
 
 func (ac *ApiClient) SubmitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
-	payload := map[string]Block{
-		"block": {PrevHash: prev, Transactions: Transaction{From: "", To: wallet, Amount: 1}, Nonce: nonce, Miner: wallet, Reward: 1, Timestamp: ts, Hash: hash},
+	payload := map[string]struct {
+		PrevHash     string        `json:"prevHash"`
+		Transactions []Transaction `json:"transactions"`
+		Nonce        int           `json:"nonce"`
+		Miner        string        `json:"miner"`
+		Reward       int           `json:"reward"`
+		Timestamp    int64         `json:"timestamp"`
+		Hash         string        `json:"hash"`
+	}{
+		"block": {
+			PrevHash: prev,
+			Transactions: []Transaction{
+				{
+					From:   "",
+					To:     wallet,
+					Amount: 1,
+				},
+			},
+			Nonce:     nonce,
+			Miner:     wallet,
+			Reward:    1,
+			Timestamp: ts,
+			Hash:      hash,
+		},
 	}
 
 	body, _ := json.Marshal(payload)
@@ -85,8 +116,9 @@ func (ac *ApiClient) SubmitBlock(prev, wallet string, nonce int, ts int64, hash 
 			return err
 		}
 		defer resp.Body.Close()
+		body, _ := ioutil.ReadAll(resp.Body)
 		if resp.StatusCode != 200 && resp.StatusCode != 201 {
-			return errors.New("stats " + strconv.Itoa(resp.StatusCode))
+			return errors.New("stats " + strconv.Itoa(resp.StatusCode) + ": " + string(body))
 		}
 		success = true
 		return nil

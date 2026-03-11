@@ -1,4 +1,4 @@
-export namespace backend {
+export namespace config {
 	
 	export class AppConfig {
 	    base_url: string;
@@ -26,6 +26,11 @@ export namespace backend {
 	        this.threads = source["threads"];
 	    }
 	}
+
+}
+
+export namespace types {
+	
 	export class LogEntry {
 	    id: number;
 	    time: string;

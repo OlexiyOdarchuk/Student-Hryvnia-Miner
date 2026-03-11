@@ -151,3 +151,27 @@ func (s *Stats) GetDashboardData() types.DashboardData {
 func (s *Stats) SessionMinedIncrement() {
 	atomic.AddUint32(&s.stats.SessionMined, 1)
 }
+
+func (s *Stats) SetWebDashboard(board WebDashBoard) {
+	s.webDashboard = board
+}
+
+func (s *Stats) HashCountPtr() *atomic.Uint32 {
+	return &s.stats.HashCount
+}
+
+func (s *Stats) SetNodeClient(node NodeClient) {
+	s.nodeClient = node
+}
+
+func (s *Stats) SetStartTime(t time.Time) {
+	s.stats.StartTime = t
+}
+
+func (s *Stats) ResetSessionMined() {
+	atomic.StoreUint32(&s.stats.SessionMined, 0)
+}
+
+func (s *Stats) SetBalanceFreq(freq time.Duration) {
+	s.BalanceFreqS = freq
+}

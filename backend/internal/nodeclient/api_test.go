@@ -21,28 +21,30 @@ func TestGetChainLastHashCached_TableDriven(t *testing.T) {
 		{
 			name:   "Success",
 			status: http.StatusOK,
-			serverResponse: Block{
-				ID:           "69af17ca1fdef3f7c2550d7a",
-				PrevHash:     "000006c0771cc8366bceae66582bcf2dda7f49cd925be29b42236096df2a6696",
-				Transactions: Transaction{},
-				Nonce:        596302,
-				Miner:        "04b22cebe3c0085925e016647ba96e54282763dbcbcc149db52baa3aaef1b76826edcc3feee1eb0ac26acc09d6bc4f3f956ab91f14d2caca25c3402bee8712ab61",
-				Reward:       1,
-				Timestamp:    1773082569970,
-				Hash:         "00000ajlfd2hknfrejngfajrsfo324fljafdsafajfjhbe29b422go34hglj43o2",
+			serverResponse: []Block{
+				{
+					ID:           "69af17ca1fdef3f7c2550d7a",
+					PrevHash:     "000006c0771cc8366bceae66582bcf2dda7f49cd925be29b42236096df2a6696",
+					Transactions: []Transaction{},
+					Nonce:        596302,
+					Miner:        "04b22cebe3c0085925e016647ba96e54282763dbcbcc149db52baa3aaef1b76826edcc3feee1eb0ac26acc09d6bc4f3f956ab91f14d2caca25c3402bee8712ab61",
+					Reward:       1,
+					Timestamp:    1773082569970,
+					Hash:         "00000ajlfd2hknfrejngfajrsfo324fljafdsafajfjhbe29b422go34hglj43o2",
+				},
 			},
 			expectedHash: "00000ajlfd2hknfrejngfajrsfo324fljafdsafajfjhbe29b422go34hglj43o2",
 		},
 		{
 			name:           "Empty Block",
 			status:         http.StatusOK,
-			serverResponse: Block{},
+			serverResponse: []Block{},
 			expectedHash:   "",
 		},
 		{
 			name:           "Err Server error",
 			status:         http.StatusInternalServerError,
-			serverResponse: Block{},
+			serverResponse: nil,
 			expectedHash:   "",
 		},
 		{

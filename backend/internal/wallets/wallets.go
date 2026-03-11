@@ -3,6 +3,7 @@ package wallets
 import (
 	"encoding/json"
 	"errors"
+	"shminer/backend/internal/storage"
 	"shminer/backend/types"
 	"sync"
 )
@@ -14,17 +15,50 @@ type WalletExport struct {
 }
 
 type Storage interface {
-	SaveStorage(password string, data types.StorageData) error
-	GetStorage() types.StorageData
+	SaveStorage(password string, data storage.StorageData) error
+	GetStorage() storage.StorageData
 	UpdateWallets(newWallets []types.WalletStats)
 	GetSessionPassword() string
 }
 type Wallets struct {
 	Wallets       []string
-	walletsMutex  sync.RWMutex
 	mu            *sync.RWMutex
 	walletDataMap map[string]*types.WalletStats
 	storage       Storage
+}
+
+func New(store Storage, mu *sync.RWMutex, walletData map[string]*types.WalletStats) *Wallets {
+	return &Wallets{
+		Wallets:       []string{},
+		mu:            muOrNew(mu),
+		walletDataMap: walletData,
+		storage:       store,
+	}
+}
+
+func muOrNew(mu *sync.RWMutex) *sync.RWMutex {
+	if mu == nil {
+		return &sync.RWMutex{}
+	}
+	return mu
+}
+
+func (w *Wallets) Load(snapshot storage.StorageData) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	for addr := range w.walletDataMap {
+		delete(w.walletDataMap, addr)
+	}
+	w.Wallets = w.Wallets[:0]
+
+	for _, entry := range snapshot.Wallets {
+		walletCopy := entry
+		w.Wallets = append(w.Wallets, walletCopy.Address)
+		w.walletDataMap[walletCopy.Address] = &walletCopy
+	}
+
+	w.storage.UpdateWallets(snapshot.Wallets)
 }
 
 func (w *Wallets) ExportWalletJSON(address string) (string, error) {

@@ -1,7 +1,6 @@
 package types
 
 import (
-	"shminer/backend/config"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,9 +40,4 @@ type Stats struct {
 	HashrateHistMutex sync.Mutex    `json:"hashrate_hist_mutex"`
 	HashCount         atomic.Uint32 `json:"hash_count"`
 	SessionMined      uint32        `json:"session_mined"`
-}
-
-type StorageData struct {
-	Config  *config.AppConfig
-	Wallets []WalletStats
 }

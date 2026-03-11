@@ -8,38 +8,72 @@ import (
 	"errors"
 	"io"
 	"os"
-	"shminer/backend/internal/wallets"
+	"shminer/backend/config"
 	"shminer/backend/types"
 	"sync"
-	"time"
 
 	"golang.org/x/crypto/argon2"
 )
 
 const StorageFile = "SHMinerSettings.bin"
 
-type Storage struct {
-	currentStorage  types.StorageData
+type StorageData struct {
+	Config  config.AppConfig    `json:"config"`
+	Wallets []types.WalletStats `json:"wallets"`
+}
+
+var (
+	CurrentStorage  StorageData
 	sessionPassword string
-	mu              sync.RWMutex
+)
+
+type Storage struct {
+	mu sync.RWMutex
+}
+
+func NewDriver() *Storage {
+	return &Storage{}
 }
 
 func (s *Storage) GetSessionPassword() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.sessionPassword
+	return sessionPassword
+}
+
+func (s *Storage) SaveStorage(password string, data StorageData) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	CurrentStorage = data
+	return SaveStorage(password, data)
+}
+
+func (s *Storage) GetStorage() StorageData {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return CurrentStorage
+}
+
+func (s *Storage) UpdateWallets(newWallets []types.WalletStats) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	CurrentStorage.Wallets = newWallets
+}
+
+func GetStorage() StorageData {
+	return CurrentStorage
+}
+
+func GetSessionPassword() string {
+	return sessionPassword
 }
 
 func ChangePassword(oldPass, newPass string) error {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
-
 	if oldPass != sessionPassword {
 		return errors.New("Старий пароль невірний")
 	}
 
-	err := SaveStorage(newPass, CurrentStorage)
-	if err != nil {
+	if err := SaveStorage(newPass, CurrentStorage); err != nil {
 		return err
 	}
 
@@ -52,18 +86,8 @@ func DeriveKey(password string, salt []byte) []byte {
 }
 
 func InitStorage(password string) error {
-	defaultConfig := types.AppConfig{
-		BaseURL:      DefaultBaseURL,
-		ServerPort:   DefaultServerPort,
-		Difficulty:   DefaultDifficulty,
-		HTTPTimeout:  int(DefaultHTTPTimeout.Seconds()),
-		MaxRetries:   DefaultMaxRetries,
-		RetryDelayMs: int(DefaultRetryDelay.Milliseconds()),
-		BalanceFreqS: int(DefaultBalanceUpdateFreq.Seconds()),
-	}
-
 	data := StorageData{
-		Config:  defaultConfig,
+		Config:  config.Config,
 		Wallets: []types.WalletStats{},
 	}
 
@@ -75,6 +99,7 @@ func InitStorage(password string) error {
 }
 
 func SaveStorage(password string, data StorageData) error {
+	CurrentStorage = data
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -159,57 +184,16 @@ func LoadStorage(password string) error {
 	return nil
 }
 
+func PersistConfig(password string) error {
+	CurrentStorage.Config = config.Config
+	return SaveStorage(password, CurrentStorage)
+}
+
 func applyLoadedData() {
-	config.Config.BaseURL = CurrentStorage.Config.BaseURL
-	config.Config.ServerPort = CurrentStorage.Config.ServerPort
-	config.Config.Difficulty = CurrentStorage.Config.Difficulty
-	config.Config.MaxRetries = CurrentStorage.Config.MaxRetries
-
-	if CurrentStorage.Config.HTTPTimeout > 0 {
-		config.Config.HTTPTimeout = time.Duration(CurrentStorage.Config.HTTPTimeout) * time.Second
-	} else {
-		config.Config.HTTPTimeout = DefaultHTTPTimeout
-	}
-
-	if CurrentStorage.Config.RetryDelayMs > 0 {
-		config.Config.RetryDelay = time.Duration(CurrentStorage.Config.RetryDelayMs) * time.Millisecond
-	} else {
-		config.Config.RetryDelay = DefaultRetryDelay
-	}
-
-	if CurrentStorage.Config.BalanceFreqS > 0 {
-		config.Config.BalanceFreq = time.Duration(CurrentStorage.Config.BalanceFreqS) * time.Second
-	} else {
-		config.Config.BalanceFreq = DefaultBalanceUpdateFreq
-	}
-
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
-
-	wallets.Wallets = []string{}
-	stats.walletDataMap = make(map[string]*types.WalletStats)
-
-	for _, w := range CurrentStorage.Wallets {
-		wallets.Wallets = append(wallets.Wallets, w.Address)
-		newStat := w
-		newStat.SessionMined = 0
-		stats.walletDataMap[w.Address] = &newStat
-	}
+	config.Config = CurrentStorage.Config
 }
 
 func StorageExists() bool {
 	_, err := os.Stat(StorageFile)
 	return !os.IsNotExist(err)
-}
-
-func (s *Storage) GetStorage() types.StorageData {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.currentStorage
-}
-
-func (s *Storage) UpdateWallets(newWallets []types.WalletStats) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.currentStorage.Wallets = newWallets
 }
