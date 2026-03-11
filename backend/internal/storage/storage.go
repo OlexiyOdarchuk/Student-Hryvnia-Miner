@@ -1,4 +1,4 @@
-package backend
+package storage
 
 import (
 	"crypto/aes"
@@ -8,10 +8,9 @@ import (
 	"errors"
 	"io"
 	"os"
-	"shminer/backend/app/config"
-	"shminer/backend/internal/stats"
 	"shminer/backend/internal/wallets"
 	"shminer/backend/types"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/argon2"
@@ -19,18 +18,16 @@ import (
 
 const StorageFile = "SHMinerSettings.bin"
 
-type StorageData struct {
-	Config  types.AppConfig     `json:"config"`
-	Wallets []types.WalletStats `json:"wallets"`
+type Storage struct {
+	currentStorage  types.StorageData
+	sessionPassword string
+	mu              sync.RWMutex
 }
 
-var CurrentStorage StorageData
-var sessionPassword string
-
-func GetSessionPassword() string {
-	stats.dataMutex.RLock()
-	defer stats.dataMutex.RUnlock()
-	return sessionPassword
+func (s *Storage) GetSessionPassword() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.sessionPassword
 }
 
 func ChangePassword(oldPass, newPass string) error {
@@ -203,4 +200,16 @@ func applyLoadedData() {
 func StorageExists() bool {
 	_, err := os.Stat(StorageFile)
 	return !os.IsNotExist(err)
+}
+
+func (s *Storage) GetStorage() types.StorageData {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.currentStorage
+}
+
+func (s *Storage) UpdateWallets(newWallets []types.WalletStats) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.currentStorage.Wallets = newWallets
 }

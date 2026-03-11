@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"os"
-	"shminer/backend/app/config"
+	"shminer/backend/config"
 	"shminer/backend/internal/logger"
 	"shminer/backend/types"
 	"sync"
@@ -22,7 +22,10 @@ type WebDashboardServer interface {
 	StartWebServer()
 }
 
-type Wallet interface{}
+type Wallet interface {
+	GetWallets() []string
+	SyncStorage()
+}
 
 type NodeClient interface {
 	GetChainLastHashCached() string
@@ -49,6 +52,7 @@ type App struct {
 	ctx           context.Context
 	nodeClient    NodeClient
 	minerClient   Miner
+	walletClient  Wallet
 }
 
 func (a *App) StartApp(logCallback func(entry types.LogEntry)) {
@@ -90,7 +94,7 @@ func (a *App) startMiningLoop() {
 			continue
 		}
 
-		ws := GetWallets()
+		ws := a.walletClient.GetWallets()
 		if len(ws) == 0 {
 			time.Sleep(2 * time.Second)
 			continue
@@ -121,7 +125,7 @@ func (a *App) startMiningLoop() {
 				ws.TotalMined++
 			}
 
-			syncStorage()
+			a.walletClient.SyncStorage()
 			SaveStorage(sessionPassword, CurrentStorage)
 			a.mu.Unlock()
 

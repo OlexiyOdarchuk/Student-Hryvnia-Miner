@@ -1,8 +1,8 @@
 package wallets
 
 import (
-	"fmt"
-	"shminer/backend"
+	"encoding/json"
+	"errors"
 	"shminer/backend/types"
 	"sync"
 )
@@ -13,149 +13,158 @@ type WalletExport struct {
 	Priv string `json:"priv"`
 }
 
-var (
-	Wallets      []string
-	walletsMutex sync.RWMutex
-)
+type Storage interface {
+	SaveStorage(password string, data types.StorageData) error
+	GetStorage() types.StorageData
+	UpdateWallets(newWallets []types.WalletStats)
+	GetSessionPassword() string
+}
+type Wallets struct {
+	Wallets       []string
+	walletsMutex  sync.RWMutex
+	mu            *sync.RWMutex
+	walletDataMap map[string]*types.WalletStats
+	storage       Storage
+}
 
-func ExportWalletJSON(address string) (string, error) {
-	stats.dataMutex.RLock()
-	defer stats.dataMutex.RUnlock()
+func (w *Wallets) ExportWalletJSON(address string) (string, error) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 
-	if stats, ok := stats.walletDataMap[address]; ok {
+	if stats, ok := w.walletDataMap[address]; ok {
 		w := WalletExport{
 			Name: stats.Name,
 			Pub:  stats.Address,
 			Priv: stats.PrivateKey,
 		}
-		return fmt.Sprintf(`{"name":"%s","pub":"%s","priv":"%s"}`, w.Name, w.Pub, w.Priv), nil
+		by, _ := json.Marshal(w)
+		return string(by), nil
 	}
-	return "", fmt.Errorf("wallet not found")
+	return "", errors.New("wallet not found")
 }
 
-func GetWallets() []string {
-	stats.dataMutex.RLock()
-	defer stats.dataMutex.RUnlock()
+func (w *Wallets) GetWallets() []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 
-	cp := make([]string, len(Wallets))
-	copy(cp, Wallets)
+	cp := make([]string, len(w.Wallets))
+	copy(cp, w.Wallets)
 	return cp
 }
 
-func syncStorage() {
+func (w *Wallets) SyncStorage() {
 	var list []types.WalletStats
-	for _, addr := range Wallets {
-		if stats, ok := stats.walletDataMap[addr]; ok {
+	for _, addr := range w.Wallets {
+		if stats, ok := w.walletDataMap[addr]; ok {
 			list = append(list, *stats)
 		}
 	}
-	backend.CurrentStorage.Wallets = list
+	w.storage.UpdateWallets(list)
 }
 
-func AddWalletSafe(name, address, privateKey string) error {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
+func (w *Wallets) AddWalletSafe(name, address, privateKey string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	for _, w := range stats.walletDataMap {
+	for _, w := range w.walletDataMap {
 		if w.Address == address {
 			return nil
 		}
 		if w.Name == name {
-			return fmt.Errorf("гаманець з назвою '%s' вже існує", name)
+			return errors.New("wallet already exists")
 		}
 	}
 
-	Wallets = append(Wallets, address)
-	stats.walletDataMap[address] = &types.WalletStats{
+	w.Wallets = append(w.Wallets, address)
+	w.walletDataMap[address] = &types.WalletStats{
 		Address:    address,
 		Name:       name,
 		PrivateKey: privateKey,
 		Working:    true,
 	}
 
-	syncStorage()
-	return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
+	w.SyncStorage()
+	return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
 }
 
-func DeleteWallet(address string) error {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
+func (w *Wallets) DeleteWallet(address string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	newWallets := []string{}
-	for _, w := range Wallets {
+	newWallets := make([]string, 0, 2)
+	for _, w := range w.Wallets {
 		if w != address {
 			newWallets = append(newWallets, w)
 		}
 	}
-	Wallets = newWallets
-	delete(stats.walletDataMap, address)
+	w.Wallets = newWallets
+	delete(w.walletDataMap, address)
 
-	syncStorage()
-	return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
+	w.SyncStorage()
+	return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
 }
 
-func RenameWallet(address, newName string) error {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
+func (w *Wallets) RenameWallet(address, newName string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	for addr, w := range stats.walletDataMap {
+	for addr, w := range w.walletDataMap {
 		if addr != address && w.Name == newName {
-			return fmt.Errorf("назва '%s' вже використовується", newName)
+			return errors.New("wallet already exists")
 		}
 	}
 
-	if stats, ok := stats.walletDataMap[address]; ok {
+	if stats, ok := w.walletDataMap[address]; ok {
 		stats.Name = newName
-		syncStorage()
-		return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
+		w.SyncStorage()
+		return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
 	}
 	return nil
 }
 
-func ToggleWalletMining(address string) bool {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
+func (w *Wallets) ToggleWalletMining(address string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	if stats, ok := stats.walletDataMap[address]; ok {
+	if stats, ok := w.walletDataMap[address]; ok {
 		stats.Working = !stats.Working
 
-		syncStorage()
-		backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
+		w.SyncStorage()
+		w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
 
 		return stats.Working
 	}
 	return false
 }
 
-func SetAllMining(state bool) {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
+func (w *Wallets) SetAllMining(state bool) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	for _, stats := range stats.walletDataMap {
+	for _, stats := range w.walletDataMap {
 		stats.Working = state
 	}
-
-	syncStorage()
-	backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
+	w.SyncStorage()
+	return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
 }
 
-func UpdateWalletKey(address, privateKey string) error {
-	stats.dataMutex.Lock()
-	defer stats.dataMutex.Unlock()
+func (w *Wallets) UpdateWalletKey(address, privateKey string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	if stats, ok := stats.walletDataMap[address]; ok {
+	if stats, ok := w.walletDataMap[address]; ok {
 		stats.PrivateKey = privateKey
-		syncStorage()
-		return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
+		w.SyncStorage()
+		return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
 	}
 	return nil
 }
 
-func GetPrivateKey(address string) string {
-	stats.dataMutex.RLock()
-	defer stats.dataMutex.RUnlock()
+func (w *Wallets) GetPrivateKey(address string) string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 
-	if stats, ok := stats.walletDataMap[address]; ok {
+	if stats, ok := w.walletDataMap[address]; ok {
 		return stats.PrivateKey
 	}
 	return ""

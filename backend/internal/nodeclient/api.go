@@ -3,11 +3,12 @@ package nodeclient
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"log/slog"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -85,7 +86,7 @@ func (ac *ApiClient) SubmitBlock(prev, wallet string, nonce int, ts int64, hash 
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 && resp.StatusCode != 201 {
-			return fmt.Errorf("status %d", resp.StatusCode)
+			return errors.New("stats " + strconv.Itoa(resp.StatusCode))
 		}
 		success = true
 		return nil
@@ -107,7 +108,7 @@ func (ac *ApiClient) GetBalance(addr string) float64 {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
-			return fmt.Errorf("status %d", resp.StatusCode)
+			return errors.New("stats " + strconv.Itoa(resp.StatusCode))
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
 		var data struct {

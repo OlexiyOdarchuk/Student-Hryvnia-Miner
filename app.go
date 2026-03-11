@@ -8,6 +8,7 @@ import (
 	"shminer/backend"
 	"shminer/backend/app"
 	"shminer/backend/app/config"
+	"shminer/backend/internal/storage"
 	"shminer/backend/internal/wallets"
 	"shminer/backend/types"
 	"time"
@@ -69,11 +70,11 @@ func (a *App) shutdown(ctx context.Context) {
 // --- Auth Methods ---
 
 func (a *App) IsStorageInitialized() bool {
-	return backend.StorageExists()
+	return storage.StorageExists()
 }
 
 func (a *App) InitStorage(password string) string {
-	err := backend.InitStorage(password)
+	err := storage.InitStorage(password)
 	if err != nil {
 		return err.Error()
 	}
@@ -82,7 +83,7 @@ func (a *App) InitStorage(password string) string {
 }
 
 func (a *App) UnlockStorage(password string) string {
-	err := backend.LoadStorage(password)
+	err := storage.LoadStorage(password)
 	if err != nil {
 		return "Невірний пароль"
 	}
@@ -126,7 +127,7 @@ func (a *App) ImportWalletJSON(jsonContent string) string {
 }
 
 func (a *App) GetWalletJSONSecure(address, password string) (string, error) {
-	if password != backend.GetSessionPassword() {
+	if password != storage.GetSessionPassword() {
 		return "", fmt.Errorf("Невірний пароль")
 	}
 
@@ -134,7 +135,7 @@ func (a *App) GetWalletJSONSecure(address, password string) (string, error) {
 }
 
 func (a *App) DeleteWallet(address, password string) string {
-	if password != backend.GetSessionPassword() {
+	if password != storage.GetSessionPassword() {
 		return "Невірний пароль"
 	}
 	err := wallets.DeleteWallet(address)
@@ -153,7 +154,7 @@ func (a *App) RenameWallet(address, newName string) string {
 }
 
 func (a *App) UpdateWalletKey(address, key, password string) string {
-	if password != backend.GetSessionPassword() {
+	if password != storage.GetSessionPassword() {
 		return "Невірний пароль"
 	}
 	err := wallets.UpdateWalletKey(address, key)
@@ -164,7 +165,7 @@ func (a *App) UpdateWalletKey(address, key, password string) string {
 }
 
 func (a *App) GetWalletKey(address, password string) (string, error) {
-	if password != backend.GetSessionPassword() {
+	if password != storage.GetSessionPassword() {
 		return "", fmt.Errorf("Невірний пароль")
 	}
 
@@ -186,11 +187,11 @@ func (a *App) SetGlobalMining(state bool) {
 
 // Settings
 func (a *App) GetConfig() types.AppConfig {
-	return backend.CurrentStorage.Config
+	return storage.CurrentStorage.Config
 }
 
 func (a *App) UpdateConfig(newConf types.AppConfig, password string) string {
-	if password != backend.GetSessionPassword() {
+	if password != storage.GetSessionPassword() {
 		return "Невірний пароль"
 	}
 	err := config.UpdateConfig(password, newConf)
@@ -201,7 +202,7 @@ func (a *App) UpdateConfig(newConf types.AppConfig, password string) string {
 }
 
 func (a *App) ChangePassword(oldPass, newPass string) string {
-	err := backend.ChangePassword(oldPass, newPass)
+	err := storage.ChangePassword(oldPass, newPass)
 	if err != nil {
 		return err.Error()
 	}
