@@ -11,6 +11,7 @@ import (
 
 const MegahashDivisor = 1000000
 
+//go:generate mockgen -source=stats.go -destination=mocks_test.go -package=stats
 type NodeClient interface {
 	GetBalance(addr string) float64
 }
@@ -24,16 +25,16 @@ type WebDashBoard interface {
 }
 type Stats struct {
 	stats         *types.Stats
-	walletDataMap map[string]types.WalletStats
-	mu            sync.RWMutex
+	walletDataMap map[string]*types.WalletStats
+	mu            *sync.RWMutex
 	nodeClient    NodeClient
 	webDashboard  WebDashBoard
 	wallets       Wallets
 	BalanceFreqS  time.Duration
 }
 
-func InitStats(stats *types.Stats, node NodeClient) *Stats {
-	return &Stats{stats: stats, nodeClient: node}
+func InitStats(stats *types.Stats, walletDataMap map[string]*types.WalletStats, mu *sync.RWMutex, node NodeClient, board WebDashBoard, wallets Wallets, balanceFreqS time.Duration) *Stats {
+	return &Stats{stats: stats, walletDataMap: walletDataMap, mu: mu, nodeClient: node, webDashboard: board, wallets: wallets, BalanceFreqS: balanceFreqS}
 }
 
 func (s *Stats) StartSpeedMonitor(ctx context.Context) {
@@ -132,7 +133,7 @@ func (s *Stats) GetDashboardData() types.DashboardData {
 		if ws, ok := s.walletDataMap[addr]; ok {
 			totalBal += ws.ServerBalance
 			lifetimeBlocks += ws.TotalMined
-			wStats = append(wStats, ws)
+			wStats = append(wStats, *ws)
 		}
 	}
 

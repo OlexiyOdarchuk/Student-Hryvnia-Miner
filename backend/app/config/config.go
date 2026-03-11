@@ -11,7 +11,7 @@ import (
 type AppConfig struct {
 	BaseURL      string        `json:"base_url"`
 	ServerPort   string        `json:"server_port"`
-	Difficulty   uint16        `json:"difficulty"`
+	Difficulty   int           `json:"difficulty"`
 	HTTPTimeout  uint32        `json:"http_timeout"`
 	MaxRetries   uint16        `json:"max_retries"`
 	RetryDelayMs uint32        `json:"retry_delay_ms"`

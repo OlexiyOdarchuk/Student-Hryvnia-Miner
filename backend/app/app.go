@@ -14,13 +14,15 @@ import (
 
 type Miner interface {
 	MineBlock(prevHash string, wallet string) bool
-	CompileDifficultyBits(bits uint16)
+	CompileDifficultyBits(bits int)
 }
 
 type WebDashboardServer interface {
 	BroadcastUpdate()
 	StartWebServer()
 }
+
+type Wallet interface{}
 
 type NodeClient interface {
 	GetChainLastHashCached() string
@@ -121,14 +123,14 @@ func (a *App) startMiningLoop() {
 
 			syncStorage()
 			SaveStorage(sessionPassword, CurrentStorage)
-			a.Unlock()
+			a.mu.Unlock()
 
 			go func() {
-				walletStats.updateSingleBalance(currentWallet)
-				web_dashboard.BroadcastUpdate()
+				a.stats.UpdateSingleBalance(currentWallet)
+				a.webDashboard.BroadcastUpdate()
 			}()
 
-			web_dashboard.BroadcastUpdate()
+			a.webDashboard.BroadcastUpdate()
 		}
 
 		time.Sleep(config.MinerSleepInterval)

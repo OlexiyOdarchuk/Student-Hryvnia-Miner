@@ -3,6 +3,7 @@ module shminer
 go 1.25.6
 
 require (
+	github.com/golang/mock v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/stretchr/testify v1.11.1
 	github.com/wailsapp/wails/v2 v2.11.0
