@@ -1,4 +1,4 @@
-package backend
+package config
 
 import "time"
 
@@ -18,11 +18,6 @@ const (
 	MaxIdleConnsPerHost     = 10
 	IdleConnTimeout         = 90 * time.Second
 	ExponentialBackoffMaxMs = 30000
-)
-
-const (
-	HashrateHistorySize = 60
-	MegahashDivisor     = 1000000
 )
 
 const (

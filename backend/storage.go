@@ -8,9 +8,10 @@ import (
 	"errors"
 	"io"
 	"os"
+	"shminer/backend/app/config"
 	"shminer/backend/internal/stats"
+	"shminer/backend/internal/wallets"
 	"shminer/backend/types"
-	"strconv"
 	"time"
 
 	"golang.org/x/crypto/argon2"
@@ -162,37 +163,37 @@ func LoadStorage(password string) error {
 }
 
 func applyLoadedData() {
-	Config.BaseURL = CurrentStorage.Config.BaseURL
-	Config.ServerPort = CurrentStorage.Config.ServerPort
-	Config.Difficulty = CurrentStorage.Config.Difficulty
-	Config.MaxRetries = CurrentStorage.Config.MaxRetries
+	config.Config.BaseURL = CurrentStorage.Config.BaseURL
+	config.Config.ServerPort = CurrentStorage.Config.ServerPort
+	config.Config.Difficulty = CurrentStorage.Config.Difficulty
+	config.Config.MaxRetries = CurrentStorage.Config.MaxRetries
 
 	if CurrentStorage.Config.HTTPTimeout > 0 {
-		Config.HTTPTimeout = time.Duration(CurrentStorage.Config.HTTPTimeout) * time.Second
+		config.Config.HTTPTimeout = time.Duration(CurrentStorage.Config.HTTPTimeout) * time.Second
 	} else {
-		Config.HTTPTimeout = DefaultHTTPTimeout
+		config.Config.HTTPTimeout = DefaultHTTPTimeout
 	}
 
 	if CurrentStorage.Config.RetryDelayMs > 0 {
-		Config.RetryDelay = time.Duration(CurrentStorage.Config.RetryDelayMs) * time.Millisecond
+		config.Config.RetryDelay = time.Duration(CurrentStorage.Config.RetryDelayMs) * time.Millisecond
 	} else {
-		Config.RetryDelay = DefaultRetryDelay
+		config.Config.RetryDelay = DefaultRetryDelay
 	}
 
 	if CurrentStorage.Config.BalanceFreqS > 0 {
-		Config.BalanceFreq = time.Duration(CurrentStorage.Config.BalanceFreqS) * time.Second
+		config.Config.BalanceFreq = time.Duration(CurrentStorage.Config.BalanceFreqS) * time.Second
 	} else {
-		Config.BalanceFreq = DefaultBalanceUpdateFreq
+		config.Config.BalanceFreq = DefaultBalanceUpdateFreq
 	}
 
 	stats.dataMutex.Lock()
 	defer stats.dataMutex.Unlock()
 
-	Wallets = []string{}
+	wallets.Wallets = []string{}
 	stats.walletDataMap = make(map[string]*types.WalletStats)
 
 	for _, w := range CurrentStorage.Wallets {
-		Wallets = append(Wallets, w.Address)
+		wallets.Wallets = append(wallets.Wallets, w.Address)
 		newStat := w
 		newStat.SessionMined = 0
 		stats.walletDataMap[w.Address] = &newStat

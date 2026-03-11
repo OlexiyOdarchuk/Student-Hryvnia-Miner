@@ -2,9 +2,6 @@ package stats
 
 import (
 	"context"
-	"shminer/backend"
-	"shminer/backend/internal/nodeclient"
-	"shminer/backend/internal/web_dashboard"
 	"shminer/backend/types"
 	"strconv"
 	"sync"
@@ -12,22 +9,34 @@ import (
 	"time"
 )
 
-var (
-	sessionMined      int
-	walletDataMap     map[string]*types.WalletStats
-	dataMutex         sync.RWMutex
-	globalHashrate    atomic.Value
-	hashrateHistory   [60]float64
-	hashrateHistPos   int
-	hashrateHistMutex sync.Mutex
-	logSeq            int64
-)
+const MegahashDivisor = 1000000
 
-func init() {
-	walletDataMap = make(map[string]*types.WalletStats)
+type NodeClient interface {
+	GetBalance(addr string) float64
 }
 
-func StartSpeedMonitor(ctx context.Context) {
+type Wallets interface {
+	GetWallets() []string
+}
+
+type WebDashBoard interface {
+	BroadcastUpdate()
+}
+type Stats struct {
+	stats         *types.Stats
+	walletDataMap map[string]types.WalletStats
+	mu            sync.RWMutex
+	nodeClient    NodeClient
+	webDashboard  WebDashBoard
+	wallets       Wallets
+	BalanceFreqS  time.Duration
+}
+
+func InitStats(stats *types.Stats, node NodeClient) *Stats {
+	return &Stats{stats: stats, nodeClient: node}
+}
+
+func (s *Stats) StartSpeedMonitor(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -35,23 +44,19 @@ func StartSpeedMonitor(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			c := atomic.SwapUint64(&backend.hashCount, 0)
-			hashPerSec := float64(c) / backend.MegahashDivisor
-			globalHashrate.Store(hashPerSec)
+			c := s.stats.HashCount.Swap(0)
+			hashPerSec := float64(c) / MegahashDivisor
+			s.stats.GlobalHashrate.Store(hashPerSec)
 
-			hashrateHistMutex.Lock()
-			hashrateHistory[hashrateHistPos%backend.HashrateHistorySize] = hashPerSec
-			hashrateHistPos++
-			hashrateHistMutex.Unlock()
+			s.stats.HashrateHistMutex.Lock()
+			s.stats.HashrateHistory[s.stats.HashrateHistPos%len(s.stats.HashrateHistory)] = hashPerSec
+			s.stats.HashrateHistPos++
+			s.stats.HashrateHistMutex.Unlock()
 		}
 	}
 }
-
-func StartBalanceUpdater(ctx context.Context) {
-	freq := backend.Config.BalanceFreq
-	if freq <= 0 {
-		freq = backend.DefaultBalanceUpdateFreq
-	}
+func (s *Stats) StartBalanceUpdater(ctx context.Context) {
+	freq := s.BalanceFreqS
 
 	ticker := time.NewTicker(freq)
 	defer ticker.Stop()
@@ -61,13 +66,13 @@ func StartBalanceUpdater(ctx context.Context) {
 			return
 		case <-ticker.C:
 			var wg sync.WaitGroup
-			wallets := backend.GetWallets()
+			wallets := s.wallets.GetWallets()
 
 			for _, w := range wallets {
 				wg.Add(1)
 				go func(wallet string) {
 					defer wg.Done()
-					updateSingleBalance(wallet)
+					s.UpdateSingleBalance(wallet)
 				}(w)
 			}
 			wg.Wait()
@@ -75,69 +80,73 @@ func StartBalanceUpdater(ctx context.Context) {
 	}
 }
 
-func formatDuration(d time.Duration) string {
+func (s *Stats) formatDuration(d time.Duration) string {
 	d = d.Round(time.Second)
-	h := int(d / time.Hour)
-	m := int((d % time.Hour) / time.Minute)
-	s := int((d % time.Minute) / time.Second)
+	hour := int(d / time.Hour)
+	minutes := int((d % time.Hour) / time.Minute)
+	sec := int((d % time.Minute) / time.Second)
 
 	res := make([]byte, 0, 8)
 
-	res = appendTwoDigits(res, h)
+	res = s.appendTwoDigits(res, hour)
 	res = append(res, ':')
-	res = appendTwoDigits(res, m)
+	res = s.appendTwoDigits(res, minutes)
 	res = append(res, ':')
-	res = appendTwoDigits(res, s)
+	res = s.appendTwoDigits(res, sec)
 
 	return string(res)
 }
 
-func appendTwoDigits(dst []byte, v int) []byte {
+func (s *Stats) appendTwoDigits(dst []byte, v int) []byte {
 	if v < 10 {
 		dst = append(dst, '0')
 	}
 	return strconv.AppendInt(dst, int64(v), 10)
 }
 
-func updateSingleBalance(wallet string) {
-	bal := nodeclient.GetBalance(wallet)
-	dataMutex.Lock()
-	if val, ok := walletDataMap[wallet]; ok {
+func (s *Stats) UpdateSingleBalance(wallet string) {
+	bal := s.nodeClient.GetBalance(wallet)
+	s.mu.Lock()
+	if val, ok := s.walletDataMap[wallet]; ok {
 		val.ServerBalance = bal
 	}
-	dataMutex.Unlock()
-	web_dashboard.BroadcastUpdate()
+	s.mu.Unlock()
+	s.webDashboard.BroadcastUpdate()
 }
 
-func GetDashboardData() types.DashboardData {
-	dataMutex.RLock()
-	defer dataMutex.RUnlock()
+func (s *Stats) GetDashboardData() types.DashboardData {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-	hashVal := globalHashrate.Load()
+	hashVal := s.stats.GlobalHashrate.Load()
 	var hash float64
 	if hashVal != nil {
 		hash = hashVal.(float64)
 	}
 
 	totalBal := 0.0
-	lifetimeBlocks := 0
+	var lifetimeBlocks uint32
 	var wStats []types.WalletStats
 
-	for _, addr := range backend.Wallets {
-		if s, ok := walletDataMap[addr]; ok {
-			totalBal += s.ServerBalance
-			lifetimeBlocks += s.TotalMined
-			wStats = append(wStats, *s)
+	for _, addr := range s.wallets.GetWallets() {
+		if ws, ok := s.walletDataMap[addr]; ok {
+			totalBal += ws.ServerBalance
+			lifetimeBlocks += ws.TotalMined
+			wStats = append(wStats, ws)
 		}
 	}
 
 	return types.DashboardData{
 		Hashrate:       hash,
-		SessionBlocks:  sessionMined,
+		SessionBlocks:  s.stats.SessionMined,
 		LifetimeBlocks: lifetimeBlocks,
-		Uptime:         formatDuration(time.Since(backend.startTime)),
+		Uptime:         s.formatDuration(time.Since(s.stats.StartTime)),
 		TotalBalance:   totalBal,
 		Wallets:        wStats,
 		NewLogs:        []types.LogEntry{},
 	}
+}
+
+func (s *Stats) SessionMinedIncrement() {
+	atomic.AddUint32(&s.stats.SessionMined, 1)
 }

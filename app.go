@@ -7,6 +7,8 @@ import (
 	stdRuntime "runtime"
 	"shminer/backend"
 	"shminer/backend/app"
+	"shminer/backend/app/config"
+	"shminer/backend/internal/wallets"
 	"shminer/backend/types"
 	"time"
 
@@ -95,11 +97,11 @@ func (a *App) GetDashboardData() types.DashboardData {
 }
 
 func (a *App) GetWallets() []string {
-	return backend.GetWallets()
+	return wallets.GetWallets()
 }
 
 func (a *App) AddWallet(name, address, privateKey string) string {
-	err := backend.AddWalletSafe(name, address, privateKey)
+	err := wallets.AddWalletSafe(name, address, privateKey)
 	if err != nil {
 		return err.Error()
 	}
@@ -107,7 +109,7 @@ func (a *App) AddWallet(name, address, privateKey string) string {
 }
 
 func (a *App) ImportWalletJSON(jsonContent string) string {
-	var w backend.WalletExport
+	var w wallets.WalletExport
 	err := json.Unmarshal([]byte(jsonContent), &w)
 	if err != nil {
 		return "Невірний формат JSON"
@@ -116,7 +118,7 @@ func (a *App) ImportWalletJSON(jsonContent string) string {
 		return "JSON повинен містити поля name, pub, priv"
 	}
 
-	err = backend.AddWalletSafe(w.Name, w.Pub, w.Priv)
+	err = wallets.AddWalletSafe(w.Name, w.Pub, w.Priv)
 	if err != nil {
 		return err.Error()
 	}
@@ -128,14 +130,14 @@ func (a *App) GetWalletJSONSecure(address, password string) (string, error) {
 		return "", fmt.Errorf("Невірний пароль")
 	}
 
-	return backend.ExportWalletJSON(address)
+	return wallets.ExportWalletJSON(address)
 }
 
 func (a *App) DeleteWallet(address, password string) string {
 	if password != backend.GetSessionPassword() {
 		return "Невірний пароль"
 	}
-	err := backend.DeleteWallet(address)
+	err := wallets.DeleteWallet(address)
 	if err != nil {
 		return err.Error()
 	}
@@ -143,7 +145,7 @@ func (a *App) DeleteWallet(address, password string) string {
 }
 
 func (a *App) RenameWallet(address, newName string) string {
-	err := backend.RenameWallet(address, newName)
+	err := wallets.RenameWallet(address, newName)
 	if err != nil {
 		return err.Error()
 	}
@@ -154,7 +156,7 @@ func (a *App) UpdateWalletKey(address, key, password string) string {
 	if password != backend.GetSessionPassword() {
 		return "Невірний пароль"
 	}
-	err := backend.UpdateWalletKey(address, key)
+	err := wallets.UpdateWalletKey(address, key)
 	if err != nil {
 		return err.Error()
 	}
@@ -166,7 +168,7 @@ func (a *App) GetWalletKey(address, password string) (string, error) {
 		return "", fmt.Errorf("Невірний пароль")
 	}
 
-	privKey := backend.GetPrivateKey(address)
+	privKey := wallets.GetPrivateKey(address)
 	if privKey == "" {
 		return "", fmt.Errorf("Приватний ключ не знайдено")
 	}
@@ -175,11 +177,11 @@ func (a *App) GetWalletKey(address, password string) (string, error) {
 }
 
 func (a *App) ToggleWallet(address string) bool {
-	return backend.ToggleWalletMining(address)
+	return wallets.ToggleWalletMining(address)
 }
 
 func (a *App) SetGlobalMining(state bool) {
-	backend.SetAllMining(state)
+	wallets.SetAllMining(state)
 }
 
 // Settings
@@ -191,7 +193,7 @@ func (a *App) UpdateConfig(newConf types.AppConfig, password string) string {
 	if password != backend.GetSessionPassword() {
 		return "Невірний пароль"
 	}
-	err := backend.UpdateConfig(password, newConf)
+	err := config.UpdateConfig(password, newConf)
 	if err != nil {
 		return err.Error()
 	}

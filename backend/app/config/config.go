@@ -1,32 +1,33 @@
-package backend
+package config
 
 import (
 	"errors"
+	"shminer/backend"
 	"shminer/backend/internal/stats"
 	"shminer/backend/types"
 	"time"
 )
 
-var Config struct {
-	BaseURL     string
-	ServerPort  string
-	Difficulty  int
-	HTTPTimeout time.Duration
-	MaxRetries  int
-	RetryDelay  time.Duration
-	BalanceFreq time.Duration
-	Threads     int
+type AppConfig struct {
+	BaseURL      string        `json:"base_url"`
+	ServerPort   string        `json:"server_port"`
+	Difficulty   uint16        `json:"difficulty"`
+	HTTPTimeout  uint32        `json:"http_timeout"`
+	MaxRetries   uint16        `json:"max_retries"`
+	RetryDelayMs uint32        `json:"retry_delay_ms"`
+	BalanceFreqS time.Duration `json:"balance_freq_s"`
+	Threads      uint8         `json:"threads"`
 }
 
-func UpdateConfig(password string, newConf types.AppConfig) error {
+func (c *AppConfig) UpdateConfig(password string, newConf types.AppConfig) error {
 	stats.dataMutex.Lock()
 	defer stats.dataMutex.Unlock()
 
-	if password != sessionPassword {
+	if password != backend.sessionPassword {
 		return errors.New("Невірний пароль")
 	}
 
-	CurrentStorage.Config = newConf
+	backend.CurrentStorage.Config = newConf
 
 	Config.BaseURL = newConf.BaseURL
 	Config.ServerPort = newConf.ServerPort
@@ -52,5 +53,5 @@ func UpdateConfig(password string, newConf types.AppConfig) error {
 		Config.BalanceFreq = DefaultBalanceUpdateFreq
 	}
 
-	return SaveStorage(password, CurrentStorage)
+	return backend.SaveStorage(password, backend.CurrentStorage)
 }

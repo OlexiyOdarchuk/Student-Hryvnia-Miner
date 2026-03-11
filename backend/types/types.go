@@ -1,11 +1,15 @@
 package types
 
-import "log/slog"
+import (
+	"sync"
+	"sync/atomic"
+	"time"
+)
 
 type DashboardData struct {
 	Hashrate       float64       `json:"hashrate"`
-	SessionBlocks  int           `json:"session_blocks"`
-	LifetimeBlocks int           `json:"lifetime_blocks"`
+	SessionBlocks  uint32        `json:"session_blocks"`
+	LifetimeBlocks uint32        `json:"lifetime_blocks"`
 	Uptime         string        `json:"uptime"`
 	TotalBalance   float64       `json:"total_balance"`
 	Wallets        []WalletStats `json:"wallets"`
@@ -16,26 +20,24 @@ type WalletStats struct {
 	Address       string  `json:"address"`
 	PrivateKey    string  `json:"private_key,omitempty"`
 	Name          string  `json:"name"`
-	SessionMined  int     `json:"session_mined"`
-	TotalMined    int     `json:"total_mined"`
+	SessionMined  uint32  `json:"session_mined"`
+	TotalMined    uint32  `json:"total_mined"`
 	ServerBalance float64 `json:"server_balance"`
 	Working       bool    `json:"working"`
 }
 
 type LogEntry struct {
-	ID      int64      `json:"id"`
-	Time    string     `json:"time"`
-	Message string     `json:"message"`
-	Type    slog.Level `json:"type"`
+	ID      int64  `json:"id"`
+	Time    string `json:"time"`
+	Message string `json:"message"`
+	Type    string `json:"type"`
 }
-
-type AppConfig struct {
-	BaseURL      string `json:"base_url"`
-	ServerPort   string `json:"server_port"`
-	Difficulty   int    `json:"difficulty"`
-	HTTPTimeout  int    `json:"http_timeout"`
-	MaxRetries   int    `json:"max_retries"`
-	RetryDelayMs int    `json:"retry_delay_ms"`
-	BalanceFreqS int    `json:"balance_freq_s"`
-	Threads      int    `json:"threads"`
+type Stats struct {
+	StartTime         time.Time     `json:"start_time"`
+	GlobalHashrate    atomic.Value  `json:"global_hashrate"`
+	HashrateHistory   [60]float64   `json:"hashrate_history"`
+	HashrateHistPos   int           `json:"hashrate_hist_pos"`
+	HashrateHistMutex sync.Mutex    `json:"hashrate_hist_mutex"`
+	HashCount         atomic.Uint32 `json:"hash_count"`
+	SessionMined      uint32        `json:"session_mined"`
 }

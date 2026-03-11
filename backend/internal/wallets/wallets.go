@@ -1,8 +1,8 @@
-package backend
+package wallets
 
 import (
 	"fmt"
-	"shminer/backend/internal/stats"
+	"shminer/backend"
 	"shminer/backend/types"
 	"sync"
 )
@@ -49,7 +49,7 @@ func syncStorage() {
 			list = append(list, *stats)
 		}
 	}
-	CurrentStorage.Wallets = list
+	backend.CurrentStorage.Wallets = list
 }
 
 func AddWalletSafe(name, address, privateKey string) error {
@@ -74,7 +74,7 @@ func AddWalletSafe(name, address, privateKey string) error {
 	}
 
 	syncStorage()
-	return SaveStorage(sessionPassword, CurrentStorage)
+	return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
 }
 
 func DeleteWallet(address string) error {
@@ -91,7 +91,7 @@ func DeleteWallet(address string) error {
 	delete(stats.walletDataMap, address)
 
 	syncStorage()
-	return SaveStorage(sessionPassword, CurrentStorage)
+	return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
 }
 
 func RenameWallet(address, newName string) error {
@@ -107,7 +107,7 @@ func RenameWallet(address, newName string) error {
 	if stats, ok := stats.walletDataMap[address]; ok {
 		stats.Name = newName
 		syncStorage()
-		return SaveStorage(sessionPassword, CurrentStorage)
+		return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
 	}
 	return nil
 }
@@ -120,7 +120,7 @@ func ToggleWalletMining(address string) bool {
 		stats.Working = !stats.Working
 
 		syncStorage()
-		SaveStorage(sessionPassword, CurrentStorage)
+		backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
 
 		return stats.Working
 	}
@@ -136,7 +136,7 @@ func SetAllMining(state bool) {
 	}
 
 	syncStorage()
-	SaveStorage(sessionPassword, CurrentStorage)
+	backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
 }
 
 func UpdateWalletKey(address, privateKey string) error {
@@ -146,7 +146,7 @@ func UpdateWalletKey(address, privateKey string) error {
 	if stats, ok := stats.walletDataMap[address]; ok {
 		stats.PrivateKey = privateKey
 		syncStorage()
-		return SaveStorage(sessionPassword, CurrentStorage)
+		return backend.SaveStorage(backend.sessionPassword, backend.CurrentStorage)
 	}
 	return nil
 }

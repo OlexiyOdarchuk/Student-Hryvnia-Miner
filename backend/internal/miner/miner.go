@@ -1,4 +1,4 @@
-package backend
+package miner
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+	"shminer/backend/app/config"
 	"shminer/backend/internal/nodeclient"
 	"shminer/backend/internal/stats"
 	"shminer/backend/internal/web_dashboard"
@@ -15,28 +16,17 @@ import (
 	"time"
 )
 
-var (
-	hashCount uint64
-	found     int32
-	startTime time.Time
+type Miner struct {
+	hashCount *atomic.Uint32
+	found     atomic.Bool
+}
 
-	diffBytes  int
-	diffNibble uint8
+var (
+	diffBytes  uint16
+	diffNibble uint16
 )
 
-func compileDifficultyBits(bits int) {
-	if bits <= 0 {
-		diffBytes = 0
-		diffNibble = 0
-		return
-	}
-
-	if bits >= 256 {
-		diffBytes = 32
-		diffNibble = 0
-		return
-	}
-
+func (m *Miner) CompileDifficultyBits(bits uint16) {
 	diffBytes = bits / 8
 	remBits := bits % 8
 
@@ -62,8 +52,8 @@ func checkDifficultyFast(hash [32]byte) bool {
 	return true
 }
 
-func MineBlock(prevHash string, wallet string) bool {
-	atomic.StoreInt32(&found, 0)
+func (m *Miner) MineBlock(prevHash string, wallet string) bool {
+	m.found.Store(false)
 
 	timestamp := time.Now().UnixMilli()
 
@@ -71,7 +61,7 @@ func MineBlock(prevHash string, wallet string) bool {
 	rewardPart := []byte("1")
 	tsPart := []byte(strconv.FormatInt(timestamp, 10))
 
-	cores := Config.Threads
+	cores := config.Config.Threads
 	maxCores := runtime.NumCPU()
 
 	if cores <= 0 || cores > maxCores {
@@ -126,11 +116,11 @@ func MineBlock(prevHash string, wallet string) bool {
 }
 
 func StartMiningLoop(ctx context.Context) {
-	if Config.Difficulty < 1 {
-		Config.Difficulty = 1
+	if config.Config.Difficulty < 1 {
+		config.Config.Difficulty = 1
 	}
 
-	compileDifficultyBits(Config.Difficulty)
+	compileDifficultyBits(config.Config.Difficulty)
 	stats.dataMutex.Lock()
 	startTime = time.Now()
 	stats.dataMutex.Unlock()
