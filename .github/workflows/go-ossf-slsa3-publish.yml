@@ -1,0 +1,117 @@
+name: SLSA Wails releaser
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "wails.json"
+
+permissions: read-all
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: get-version
+        run: |
+          VERSION=$(jq -r '.version' wails.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Create tag
+        run: |
+          VERSION=${{ steps.get-version.outputs.version }}
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+          echo "Tag v$VERSION already exists"
+          else
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          fi
+
+  test-and-build:
+    needs: version-check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [windows, linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25.6
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Wails project
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+          wails build -clean -trimpath -ldflags "-s -w"
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: wails-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: build/bin/*
+
+  release:
+    needs: [version-check, test-and-build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version-check.outputs.version }}
+          name: "Release v${{ needs.version-check.outputs.version }}"
+          body: |
+            🎉 Автоматичний реліз Wails
+            Версія: v${{ needs.version-check.outputs.version }}
+
+            У цьому релізі доступні бінарники для:
+            - Windows amd64
+            - Windows arm64
+            - Linux amd64
+            - Linux arm64
+            - macOS amd64/arm64
+
+          files: ./dist/**
+
+  slsa-sign:
+    needs: release
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v1.4.0
+    with:
+      go-version: 1.25.6
+      config-file: .slsa-goreleaser.yml
