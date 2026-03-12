@@ -87,7 +87,7 @@
                     <input class="field" bind:value={config.base_url} required>
                 </div>
                 <div>
-                    <label class="field-label">Локальний API порт</label>
+                    <label class="field-label">Локальний порт монітору</label>
                     <input class="field" bind:value={config.server_port} required>
                 </div>
             </div>
