@@ -198,7 +198,7 @@ func (a *App) runMiningLoop(ctx context.Context) {
 			a.walletMu.Unlock()
 
 			a.walletService.SyncStorage()
-			storage.SaveStorage(storage.GetSessionPassword(), storage.GetStorage())
+			a.storageDriver.SaveStorage(a.storageDriver.GetSessionPassword(), a.storageDriver.GetStorage())
 
 			go func(wallet string) {
 				a.statsService.UpdateSingleBalance(wallet)
@@ -213,11 +213,11 @@ func (a *App) runMiningLoop(ctx context.Context) {
 }
 
 func (a *App) IsStorageInitialized() bool {
-	return storage.StorageExists()
+	return a.storageDriver.CheckExists()
 }
 
 func (a *App) InitStorage(password string) error {
-	if err := storage.InitStorage(password); err != nil {
+	if err := a.storageDriver.InitStorage(password); err != nil {
 		return err
 	}
 	a.syncWalletSnapshot()
@@ -225,7 +225,7 @@ func (a *App) InitStorage(password string) error {
 }
 
 func (a *App) UnlockStorage(password string) error {
-	if err := storage.LoadStorage(password); err != nil {
+	if err := a.storageDriver.LoadStorage(password); err != nil {
 		return err
 	}
 	a.syncWalletSnapshot()
@@ -233,7 +233,7 @@ func (a *App) UnlockStorage(password string) error {
 }
 
 func (a *App) syncWalletSnapshot() {
-	snapshot := storage.GetStorage()
+	snapshot := a.storageDriver.GetStorage()
 	a.walletService.Load(snapshot)
 }
 
@@ -313,7 +313,7 @@ func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {
 		return err
 	}
 	config.Config.Update(newConf)
-	if err := storage.PersistConfig(password); err != nil {
+	if err := a.storageDriver.PersistConfig(password); err != nil {
 		return err
 	}
 	a.applyConfig()
@@ -321,11 +321,11 @@ func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {
 }
 
 func (a *App) ChangePassword(oldPass, newPass string) error {
-	return storage.ChangePassword(oldPass, newPass)
+	return a.storageDriver.ChangePassword(oldPass, newPass)
 }
 
 func (a *App) verifyPassword(password string) error {
-	if password != storage.GetSessionPassword() {
+	if password != a.storageDriver.GetSessionPassword() {
 		return errors.New("Невірний пароль")
 	}
 	return nil

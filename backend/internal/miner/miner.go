@@ -88,7 +88,7 @@ func (m *Miner) MineBlock(prevHash string, wallet string) bool {
 				if m.checkDifficultyFast(hashArr) {
 					if m.found.CompareAndSwap(false, true) {
 						hashStr := hex.EncodeToString(hashArr[:])
-						slog.Info("🔨 Found nonce", "nonce", nonce, "hash", hashStr)
+						slog.Info("🔨 Found nonce", "nonce", nonce, "hash", hashStr, "wallet", wallet, "prevHash", prevHash)
 
 						if m.nodeClient.SubmitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
 							atomic.StoreInt32(&successFlag, 1)

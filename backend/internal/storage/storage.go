@@ -17,18 +17,10 @@ import (
 
 const StorageFile = "SHMinerSettings.bin"
 
-type StorageData struct {
-	Config  config.AppConfig    `json:"config"`
-	Wallets []types.WalletStats `json:"wallets"`
-}
-
-var (
-	CurrentStorage  StorageData
-	sessionPassword string
-)
-
 type Storage struct {
-	mu sync.RWMutex
+	mu              sync.RWMutex
+	currentStorage  types.StorageData
+	sessionPassword string
 }
 
 func NewDriver() *Storage {
@@ -38,68 +30,55 @@ func NewDriver() *Storage {
 func (s *Storage) GetSessionPassword() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return sessionPassword
+	return s.sessionPassword
 }
 
-func (s *Storage) SaveStorage(password string, data StorageData) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	CurrentStorage = data
-	return SaveStorage(password, data)
-}
-
-func (s *Storage) GetStorage() StorageData {
+func (s *Storage) GetStorage() types.StorageData {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return CurrentStorage
+	return s.currentStorage
 }
 
 func (s *Storage) UpdateWallets(newWallets []types.WalletStats) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	CurrentStorage.Wallets = newWallets
+	s.currentStorage.Wallets = newWallets
 }
 
-func GetStorage() StorageData {
-	return CurrentStorage
-}
-
-func GetSessionPassword() string {
-	return sessionPassword
-}
-
-func ChangePassword(oldPass, newPass string) error {
-	if oldPass != sessionPassword {
+func (s *Storage) ChangePassword(oldPass, newPass string) error {
+	if oldPass != s.sessionPassword {
 		return errors.New("Старий пароль невірний")
 	}
 
-	if err := SaveStorage(newPass, CurrentStorage); err != nil {
+	if err := s.SaveStorage(newPass, s.currentStorage); err != nil {
 		return err
 	}
 
-	sessionPassword = newPass
+	s.sessionPassword = newPass
 	return nil
 }
 
-func DeriveKey(password string, salt []byte) []byte {
+func (s *Storage) DeriveKey(password string, salt []byte) []byte {
 	return argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
 }
 
-func InitStorage(password string) error {
-	data := StorageData{
+func (s *Storage) InitStorage(password string) error {
+	data := types.StorageData{
 		Config:  config.Config,
 		Wallets: []types.WalletStats{},
 	}
 
-	CurrentStorage = data
-	sessionPassword = password
-	applyLoadedData()
+	s.currentStorage = data
+	s.sessionPassword = password
+	s.applyLoadedData()
 
-	return SaveStorage(password, data)
+	return s.SaveStorage(password, data)
 }
 
-func SaveStorage(password string, data StorageData) error {
-	CurrentStorage = data
+func (s *Storage) SaveStorage(password string, data types.StorageData) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.currentStorage = data
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -110,7 +89,7 @@ func SaveStorage(password string, data StorageData) error {
 		return err
 	}
 
-	key := DeriveKey(password, salt)
+	key := s.DeriveKey(password, salt)
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
@@ -133,7 +112,7 @@ func SaveStorage(password string, data StorageData) error {
 	return os.WriteFile(StorageFile, finalData, 0644)
 }
 
-func LoadStorage(password string) error {
+func (s *Storage) LoadStorage(password string) error {
 	fileData, err := os.ReadFile(StorageFile)
 	if os.IsNotExist(err) {
 		return errors.New("not_found")
@@ -149,7 +128,7 @@ func LoadStorage(password string) error {
 	salt := fileData[:16]
 	ciphertext := fileData[16:]
 
-	key := DeriveKey(password, salt)
+	key := s.DeriveKey(password, salt)
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
@@ -171,29 +150,29 @@ func LoadStorage(password string) error {
 		return errors.New("Невірний пароль")
 	}
 
-	var data StorageData
+	var data types.StorageData
 	if err := json.Unmarshal(plaintext, &data); err != nil {
 		return err
 	}
 
-	CurrentStorage = data
-	sessionPassword = password
+	s.currentStorage = data
+	s.sessionPassword = password
 
-	applyLoadedData()
+	s.applyLoadedData()
 
 	return nil
 }
 
-func PersistConfig(password string) error {
-	CurrentStorage.Config = config.Config
-	return SaveStorage(password, CurrentStorage)
+func (s *Storage) PersistConfig(password string) error {
+	s.currentStorage.Config = config.Config
+	return s.SaveStorage(password, s.currentStorage)
 }
 
-func applyLoadedData() {
-	config.Config = CurrentStorage.Config
+func (s *Storage) applyLoadedData() {
+	config.Config = s.currentStorage.Config
 }
 
-func StorageExists() bool {
+func (s *Storage) CheckExists() bool {
 	_, err := os.Stat(StorageFile)
 	return !os.IsNotExist(err)
 }
