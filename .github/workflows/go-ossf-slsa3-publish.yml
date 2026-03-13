@@ -76,9 +76,9 @@ jobs:
           
           cd build/bin/
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            mv SHMiner.exe SHMiner-${{ matrix.goarch }}.exe
+            mv SHMiner.exe SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.exe
           else
-            mv SHMiner SHMiner-${{ matrix.goarch }}
+            mv SHMiner SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}
           fi
 
       - name: Upload Artifacts

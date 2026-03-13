@@ -3,21 +3,37 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"os"
 	stdRuntime "runtime"
 	"shminer/backend/app"
 	"shminer/backend/config"
 	"shminer/backend/types"
 	"time"
 
+	_ "embed"
+
+	"github.com/creativeprojects/go-selfupdate"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+//go:embed wails.json
+var wailsConfig []byte
 
 type App struct {
 	ctx           context.Context
 	cancelMining  context.CancelFunc
 	miningStarted bool
 	backendApp    app.Backend
+}
+
+type UpdateResult struct {
+	Found   bool   `json:"found"`
+	Version string `json:"version"`
+	Body    string `json:"body"`
 }
 
 func NewApp() *App {
@@ -32,6 +48,15 @@ func (a *App) startup(ctx context.Context) {
 		runtime.EventsEmit(ctx, "log", entry)
 	}
 	a.backendApp.StartApp(logCallback)
+
+	go func() {
+		msg, err := a.CheckAndApplyUpdate()
+		if err != nil {
+			slog.Error("Update error", "err", err)
+		} else {
+			slog.Info(msg)
+		}
+	}()
 }
 
 func (a *App) startMining() {
@@ -74,10 +99,10 @@ func (a *App) GenerateKeyPair() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	privBytes := privKey.Serialize()
 	pubBytes := privKey.PubKey().SerializeUncompressed()
-	
+
 	return map[string]string{
 		"public":  hex.EncodeToString(pubBytes),
 		"private": hex.EncodeToString(privBytes),
@@ -197,4 +222,52 @@ func (a *App) GetSystemInfo() map[string]interface{} {
 	return map[string]interface{}{
 		"cpu_cores": stdRuntime.NumCPU(),
 	}
+}
+
+func (a *App) CheckAndApplyUpdate() (string, error) {
+	var version struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(wailsConfig, &version); err != nil {
+		return "", errors.New("error reading wails.json: " + err.Error())
+	}
+
+	currentVersion := version.Version
+	if currentVersion[0] != 'v' {
+		currentVersion = "v" + currentVersion
+	}
+
+	updater, err := selfupdate.NewUpdater(selfupdate.Config{})
+	if err != nil {
+		return "", err
+	}
+
+	repo := "OlexiyOdarchuk/Student-Hryvnia-Miner"
+
+	latest, found, err := updater.DetectLatest(context.Background(), selfupdate.ParseSlug(repo))
+	if err != nil {
+		return "", errors.New("update search error: " + err.Error())
+	}
+
+	if !found || latest.LessOrEqual(currentVersion) {
+		slog.Debug("Version update", "found", found, "latest", latest)
+		return "You have the latest version. No update is needed", nil
+	}
+
+	runtime.EventsEmit(a.ctx, "update_available", UpdateResult{
+		Found:   true,
+		Version: latest.Version(),
+		Body:    latest.ReleaseNotes,
+	})
+
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	if err := updater.UpdateTo(context.Background(), latest, exe); err != nil {
+		return "", errors.New("error during update: " + err.Error())
+	}
+
+	return "The update was successful. Please restart the app.", nil
 }
