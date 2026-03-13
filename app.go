@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	stdRuntime "runtime"
 	"shminer/backend/app"
 	"shminer/backend/config"
 	"shminer/backend/types"
 	"time"
 
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -66,6 +68,29 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 // --- Auth Methods ---
+
+func (a *App) GenerateKeyPair() (map[string]string, error) {
+	privKey, err := secp256k1.GeneratePrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	
+	privBytes := privKey.Serialize()
+	pubBytes := privKey.PubKey().SerializeUncompressed()
+	
+	return map[string]string{
+		"public":  hex.EncodeToString(pubBytes),
+		"private": hex.EncodeToString(privBytes),
+	}, nil
+}
+
+func (a *App) SendTransaction(from, to, password string, amount int) string {
+	err := a.backendApp.SendTransaction(from, to, password, amount)
+	if err != nil {
+		return err.Error()
+	}
+	return ""
+}
 
 func (a *App) IsStorageInitialized() bool {
 	return a.backendApp.IsStorageInitialized()

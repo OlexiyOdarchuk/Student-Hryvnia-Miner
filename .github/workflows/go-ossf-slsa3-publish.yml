@@ -1,0 +1,114 @@
+name: SLSA Wails releaser
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "wails.json"
+
+permissions:
+  contents: write
+
+jobs:
+  version-check:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: get-version
+        run: |
+          VERSION=$(jq -r '.version' wails.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  build:
+    needs: version-check
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-22.04
+            goos: windows
+            goarch: arm64
+          - os: ubuntu-22.04
+            goos: windows
+            goarch: amd64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25.6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install Frontend Deps
+        run: npm ci --prefix frontend
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install Linux Deps
+        if: matrix.goos == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libgtk-3-dev \
+            libwebkit2gtk-4.0-dev \
+            libglib2.0-dev \
+            pkg-config
+
+      - name: Build Project
+        shell: bash
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+          wails build -clean -trimpath -ldflags "-s -w"
+          
+          cd build/bin/
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            mv SHMiner.exe SHMiner-${{ matrix.goarch }}.exe
+          else
+            mv SHMiner SHMiner-${{ matrix.goarch }}
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: build/bin/*
+
+  release:
+    needs: [version-check, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version-check.outputs.version }}
+          make_latest: true
+          draft: false
+          name: "Release v${{ needs.version-check.outputs.version }}"
+          body: |
+            🎉 Автоматичний реліз SHMiner
+            Версія: v${{ needs.version-check.outputs.version }}
+            
+            У цьому релізі доступні бінарники для:
+            - Windows amd64/arm64
+            - Linux amd64
+          files: ./dist/**

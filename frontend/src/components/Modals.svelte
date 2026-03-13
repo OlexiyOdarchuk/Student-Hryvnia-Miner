@@ -1,14 +1,11 @@
 <script lang="ts">
-    import { AddWallet, RenameWallet, DeleteWallet, UpdateWalletKey, ImportWalletJSON, GetWalletJSONSecure, GetWalletKey } from '../../wailsjs/go/main/App';
+    import { AddWallet, RenameWallet, DeleteWallet, UpdateWalletKey, ImportWalletJSON, GetWalletJSONSecure, GetWalletKey, GenerateKeyPair } from '../../wailsjs/go/main/App';
     import { ClipboardSetText } from '../../wailsjs/runtime/runtime';
     import { notifications } from '../stores';
-    import type { backend } from '../../wailsjs/go/models';
-    import { ec as EC } from "elliptic";
-
-    const ec = new EC("secp256k1");
+    import type { types } from '../../wailsjs/go/models';
     
     export let type: string = ''; 
-    export let wallet: backend.WalletStats | null = null;
+    export let wallet: types.WalletStats | null = null;
     export let onClose: () => void;
     
     let name = '';
@@ -28,9 +25,9 @@
         if (type === 'add') {
             if (addTab === 'create') {
                 try {
-                    const keyPair = ec.genKeyPair();
-                    const pub = keyPair.getPublic('hex');
-                    const priv = keyPair.getPrivate('hex');
+                    const keys = await GenerateKeyPair();
+                    const pub = keys["public"];
+                    const priv = keys["private"];
 
                     const err = await AddWallet(name, pub, priv);
                     if (err) notifications.error(err);

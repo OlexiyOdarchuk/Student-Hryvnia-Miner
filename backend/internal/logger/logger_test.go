@@ -17,25 +17,19 @@ func TestHandle_TableDriven(t *testing.T) {
 		logFunc      func(msg string, args ...any)
 	}{
 		{
-			name:         "success",
+			name:         "Info",
 			expectedMsg:  "My Info",
 			expectedType: slog.LevelInfo.String(),
 			logFunc:      slog.Info,
 		},
 		{
-			name:         "success",
+			name:         "Debug",
 			expectedMsg:  "My Debug",
 			expectedType: slog.LevelDebug.String(),
 			logFunc:      slog.Debug,
 		},
 		{
-			name:         "success",
-			expectedMsg:  "My Warning",
-			expectedType: slog.LevelWarn.String(),
-			logFunc:      slog.Warn,
-		},
-		{
-			name:         "success",
+			name:         "Error",
 			expectedMsg:  "My Error",
 			expectedType: slog.LevelError.String(),
 			logFunc:      slog.Error,

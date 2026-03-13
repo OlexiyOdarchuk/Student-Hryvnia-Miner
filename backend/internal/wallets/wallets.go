@@ -3,7 +3,6 @@ package wallets
 import (
 	"encoding/json"
 	"errors"
-	"shminer/backend/internal/storage"
 	"shminer/backend/types"
 	"sync"
 )
@@ -14,9 +13,10 @@ type WalletExport struct {
 	Priv string `json:"priv"`
 }
 
+//go:generate mockgen -source=wallets.go -destination=mocks_test.go -package=wallets
 type Storage interface {
-	SaveStorage(password string, data storage.StorageData) error
-	GetStorage() storage.StorageData
+	SaveStorage(password string, data types.StorageData) error
+	GetStorage() types.StorageData
 	UpdateWallets(newWallets []types.WalletStats)
 	GetSessionPassword() string
 }
@@ -43,7 +43,7 @@ func muOrNew(mu *sync.RWMutex) *sync.RWMutex {
 	return mu
 }
 
-func (w *Wallets) Load(snapshot storage.StorageData) {
+func (w *Wallets) Load(snapshot types.StorageData) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

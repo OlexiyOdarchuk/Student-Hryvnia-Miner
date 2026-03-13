@@ -1,22 +1,12 @@
 <script lang="ts">
     import { stats, notifications } from "../stores";
-    import { ec as EC } from "elliptic";
-    import { GetWalletKey } from "../../wailsjs/go/main/App";
+    import { SendTransaction } from "../../wailsjs/go/main/App";
 
     let selectedAddress: string = "";
     let toAddress: string = "";
     let amount: number | null = null; 
     let password: string = "";
     let sending: boolean = false;
-
-    const ec = new EC("secp256k1");
-
-    async function sha256(message: string): Promise<string> {
-        const msgBuffer = new TextEncoder().encode(message);
-        const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-    }
 
     function selectWallet(wallet: any) {
         selectedAddress = wallet.address;
@@ -54,60 +44,19 @@
         sending = true;
 
         try {
-            const privateKey = await GetWalletKey(selectedAddress, password);
-
-            if (!privateKey) {
-                throw new Error("Невірний пароль або ключ не знайдено");
+            const err = await SendTransaction(selectedAddress, toAddress.trim(), password, Number(amount));
+            if (err) {
+                 throw new Error(err);
             }
 
+            notifications.success("Транзакція успішно відправлена! 🚀");
+            toAddress = "";
+            amount = null;
+            password = "";
             
-            const txObject = {
-                from: selectedAddress,
-                to: toAddress.trim(),
-                amount: Number(amount),
-                fee: 0,
-            };
-
-            
-            const jsonString = JSON.stringify(txObject);
-            const hashHex = await sha256(jsonString);
-
-            
-            const keyPair = ec.keyFromPrivate(privateKey);
-            const signature = keyPair.sign(hashHex, "hex").toDER("hex");
-
-            
-            const payload = { ...txObject, signature };
-
-            const response = await fetch(
-                "https://s-hryvnia-1.onrender.com/transaction",
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                },
-            );
-
-            
-            const textResp = await response.text();
-            let result: any = {};
-            try {
-                result = JSON.parse(textResp);
-            } catch (e) {}
-
-            if (response.ok) {
-                notifications.success("Транзакція успішно відправлена! 🚀");
-                
-                toAddress = "";
-                amount = null;
-                password = "";
-            } else {
-                const errorMsg = result.message || result.error || textResp;
-                throw new Error(errorMsg || "Сервер відхилив транзакцію");
-            }
         } catch (e: any) {
             console.error(e);
-            notifications.error("Помилка: " + e.message || e);
+            notifications.error("Помилка: " + (e.message || e));
         } finally {
             sending = false;
         }

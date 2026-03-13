@@ -14,6 +14,10 @@ export function DeleteWallet(arg1, arg2) {
   return window['go']['main']['App']['DeleteWallet'](arg1, arg2);
 }
 
+export function GenerateKeyPair() {
+  return window['go']['main']['App']['GenerateKeyPair']();
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
@@ -52,6 +56,10 @@ export function IsStorageInitialized() {
 
 export function RenameWallet(arg1, arg2) {
   return window['go']['main']['App']['RenameWallet'](arg1, arg2);
+}
+
+export function SendTransaction(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SendTransaction'](arg1, arg2, arg3, arg4);
 }
 
 export function SetGlobalMining(arg1) {

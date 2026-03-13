@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"shminer/backend/types"
 	"testing"
 	"time"
 
@@ -141,5 +142,78 @@ func TestRetryLogic(t *testing.T) {
 	}
 	if attempts != 3 {
 		assert.Error(t, fmt.Errorf("expected %d, got %d", expectedAttempts, attempts), "expected 3, got %d", attempts)
+	}
+}
+
+func TestSendTransaction_TableDriven(t *testing.T) {
+	tests := []struct {
+		name           string
+		status         int
+		serverResponse interface{}
+		expectError    bool
+	}{
+		{
+			name:           "Success",
+			status:         http.StatusOK,
+			serverResponse: map[string]string{"message": "Transaction accepted"},
+			expectError:    false,
+		},
+		{
+			name:           "Success Created",
+			status:         http.StatusCreated,
+			serverResponse: map[string]string{"message": "Transaction created"},
+			expectError:    false,
+		},
+		{
+			name:           "Server Error Valid JSON Message",
+			status:         http.StatusBadRequest,
+			serverResponse: map[string]string{"message": "Invalid signature"},
+			expectError:    true,
+		},
+		{
+			name:           "Server Error Valid JSON Error",
+			status:         http.StatusInternalServerError,
+			serverResponse: map[string]string{"error": "Internal Error"},
+			expectError:    true,
+		},
+		{
+			name:           "Server Error Invalid JSON",
+			status:         http.StatusBadGateway,
+			serverResponse: "Plain text error message",
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.status)
+
+				if str, ok := tt.serverResponse.(string); ok {
+					w.Write([]byte(str))
+				} else {
+					json.NewEncoder(w).Encode(tt.serverResponse)
+				}
+			}))
+			defer server.Close()
+
+			client := NewApiClient(server.URL, http.DefaultClient, 1*time.Millisecond, 2*time.Millisecond, 1)
+
+			tx := types.TxPayload{
+				From:      "addr1",
+				To:        "addr2",
+				Amount:    100,
+				Fee:       0,
+				Signature: "dummy_sig",
+			}
+
+			err := client.SendTransaction(tx)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
 	}
 }

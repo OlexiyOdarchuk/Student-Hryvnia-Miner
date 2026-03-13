@@ -9,6 +9,8 @@ export function ChangePassword(arg1:string,arg2:string):Promise<string>;
 
 export function DeleteWallet(arg1:string,arg2:string):Promise<string>;
 
+export function GenerateKeyPair():Promise<Record<string, string>>;
+
 export function GetConfig():Promise<config.AppConfig>;
 
 export function GetDashboardData():Promise<types.DashboardData>;
@@ -28,6 +30,8 @@ export function InitStorage(arg1:string):Promise<string>;
 export function IsStorageInitialized():Promise<boolean>;
 
 export function RenameWallet(arg1:string,arg2:string):Promise<string>;
+
+export function SendTransaction(arg1:string,arg2:string,arg3:string,arg4:number):Promise<string>;
 
 export function SetGlobalMining(arg1:boolean):Promise<void>;
 

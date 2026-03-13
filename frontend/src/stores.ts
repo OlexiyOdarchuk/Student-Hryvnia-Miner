@@ -1,9 +1,9 @@
 import { writable } from 'svelte/store';
-import { backend } from '../wailsjs/go/models';
+import { types } from '../wailsjs/go/models';
 
 export const activeTab = writable<string>('dash');
 
-export const stats = writable<backend.DashboardData>({
+export const stats = writable<types.DashboardData>({
     hashrate: 0,
     session_blocks: 0,
     lifetime_blocks: 0,
@@ -11,9 +11,9 @@ export const stats = writable<backend.DashboardData>({
     total_balance: 0,
     wallets: [],
     new_logs: []
-} as backend.DashboardData);
+} as types.DashboardData);
 
-export const logs = writable<backend.LogEntry[]>([]);
+export const logs = writable<types.LogEntry[]>([]);
 export const connected = writable<boolean>(false);
 
 export interface Notification {

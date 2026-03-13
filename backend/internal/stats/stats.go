@@ -37,7 +37,8 @@ func InitStats(stats *types.Stats, walletDataMap map[string]*types.WalletStats, 
 	return &Stats{stats: stats, walletDataMap: walletDataMap, mu: mu, nodeClient: node, webDashboard: board, wallets: wallets, BalanceFreqS: balanceFreqS}
 }
 
-func (s *Stats) StartSpeedMonitor(ctx context.Context) {
+func (s *Stats) StartSpeedMonitor(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -56,7 +57,8 @@ func (s *Stats) StartSpeedMonitor(ctx context.Context) {
 		}
 	}
 }
-func (s *Stats) StartBalanceUpdater(ctx context.Context) {
+func (s *Stats) StartBalanceUpdater(ctx context.Context, globalWG *sync.WaitGroup) {
+	defer globalWG.Done()
 	freq := s.BalanceFreqS
 
 	ticker := time.NewTicker(freq)

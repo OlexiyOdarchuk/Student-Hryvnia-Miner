@@ -454,21 +454,21 @@ body::before {
     transform: translateX(5px);
 }
 
-.log-row-mini.success { 
+.log-row-mini.INFO {
     border-color: var(--success); 
     background: rgba(16, 185, 129, 0.08); 
 }
 
-.log-row-mini.success:hover {
+.log-row-mini.INFO:hover {
     background: rgba(16, 185, 129, 0.12);
 }
 
-.log-row-mini.error { 
+.log-row-mini.ERROR {
     border-color: var(--danger); 
     background: rgba(239, 68, 68, 0.08); 
 }
 
-.log-row-mini.error:hover {
+.log-row-mini.ERROR:hover {
     background: rgba(239, 68, 68, 0.12);
 }
 

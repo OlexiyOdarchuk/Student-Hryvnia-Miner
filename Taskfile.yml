@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list-all
+
+  dev:
+    desc: Run application in dev mode
+    cmds:
+      - 'wails dev'
+
+  build:
+    desc: Build miner for your system
+    cmds:
+      - 'wails build -clean -trimpath -ldflags "-s -w"'
+
+  build-front:
+    desc: Build Svelte
+    dir: frontend
+    cmds:
+      - 'npm run build'
+
+  test:
+    desc: Run tests
+    cmds:
+      - 'go test ./...'
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - 'go fmt ./...'
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - 'go vet ./...'
+
+  check:
+    desc: Run format, vet, test
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
+
+  pull:
+    desc: Download all dependencies
+    cmds:
+      - 'go mod download'
+      - 'cd frontend && npm i && cd ..'

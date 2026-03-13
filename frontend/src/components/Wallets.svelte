@@ -3,13 +3,13 @@
     import { ToggleWallet } from '../../wailsjs/go/main/App';
     import { ClipboardSetText } from '../../wailsjs/runtime/runtime';
     import { notifications } from '../stores'; 
-    import type { backend } from '../../wailsjs/go/models';
+    import type { types } from '../../wailsjs/go/models';
 
-    function openModal(type: string, wallet?: backend.WalletStats) {
+    function openModal(type: string, wallet?: types.WalletStats) {
         document.dispatchEvent(new CustomEvent('open-modal', { detail: { type, wallet } }));
     }
 
-    async function toggle(wallet: backend.WalletStats) {
+    async function toggle(wallet: types.WalletStats) {
         await ToggleWallet(wallet.address);
     }
 

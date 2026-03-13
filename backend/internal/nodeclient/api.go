@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"shminer/backend/types"
 	"strconv"
 	"time"
 )
@@ -16,6 +17,7 @@ type NodeClient interface {
 	GetChainLastHashCached() string
 	SubmitBlock(prev, wallet string, nonce int, ts int64, hash string) bool
 	GetBalance(addr string) float64
+	SendTransaction(tx types.TxPayload) error
 }
 
 type ApiClient struct {
@@ -158,6 +160,45 @@ func (ac *ApiClient) GetBalance(addr string) float64 {
 		return 0
 	}
 	return balance
+}
+
+func (ac *ApiClient) SendTransaction(tx types.TxPayload) error {
+	finalPayload, err := json.Marshal(tx)
+	if err != nil {
+		return err
+	}
+
+	return ac.retryWithBackoff(func() error {
+		req, err := http.NewRequest("POST", ac.baseUrl+"/transaction", bytes.NewBuffer(finalPayload))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := ac.httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+			body, _ := ioutil.ReadAll(resp.Body)
+			var errResp struct {
+				Message string `json:"message"`
+				Error   string `json:"error"`
+			}
+			if json.Unmarshal(body, &errResp) == nil {
+				if errResp.Message != "" {
+					return errors.New(errResp.Message)
+				}
+				if errResp.Error != "" {
+					return errors.New(errResp.Error)
+				}
+			}
+			return errors.New("Server rejected the transaction: " + string(body))
+		}
+		return nil
+	})
 }
 
 func (ac *ApiClient) exponentialBackoff(attempt int) time.Duration {

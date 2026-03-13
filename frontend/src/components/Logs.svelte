@@ -25,7 +25,7 @@
                 {#each [...$logs].reverse() as log}
                     <div class="log-line">
                         <span class="log-time">[{log.time}]</span>
-                        <span style={log.type === 'error' ? 'color: var(--danger)' : log.type === 'success' ? 'color: var(--success)' : ''}>{log.message}</span>
+                        <span style={log.type === 'ERROR' ? 'color: var(--danger)' : log.type === 'INFO' ? 'color: var(--success)' : ''}>{log.message}</span>
                     </div>
                 {/each}
             </div>

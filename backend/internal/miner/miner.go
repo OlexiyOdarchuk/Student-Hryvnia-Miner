@@ -22,6 +22,7 @@ type Miner struct {
 	diffNibble uint8
 	nodeClient NodeClient
 	threads    int
+	rewardPart []byte
 }
 
 func InitMiner(hashCount *atomic.Uint32, nodeClient NodeClient, threads int) *Miner {
@@ -32,6 +33,7 @@ func InitMiner(hashCount *atomic.Uint32, nodeClient NodeClient, threads int) *Mi
 		diffNibble: 0,
 		nodeClient: nodeClient,
 		threads:    threads,
+		rewardPart: []byte("1"),
 	}
 }
 
@@ -51,9 +53,7 @@ func (m *Miner) MineBlock(prevHash string, wallet string) bool {
 
 	timestamp := time.Now().UnixMilli()
 
-	minerPart := []byte(wallet)
-	rewardPart := []byte("1")
-	tsPart := []byte(strconv.FormatInt(timestamp, 10))
+	tsPart := strconv.FormatInt(timestamp, 10)
 
 	cores := m.threads
 	maxCores := runtime.NumCPU()
@@ -65,12 +65,11 @@ func (m *Miner) MineBlock(prevHash string, wallet string) bool {
 	if cores < 1 {
 		cores = 1
 	}
-
 	done := make(chan struct{})
-	var successFlag int32
+	var successFlag atomic.Bool
 
 	for i := range cores {
-		go func(workerID int) {
+		go func(workerID, cores int) {
 			buffer := make([]byte, 0, 512)
 			nonce := workerID
 
@@ -78,8 +77,8 @@ func (m *Miner) MineBlock(prevHash string, wallet string) bool {
 				buffer = buffer[:0]
 				buffer = append(buffer, prevHash...)
 				buffer = strconv.AppendInt(buffer, int64(nonce), 10)
-				buffer = append(buffer, minerPart...)
-				buffer = append(buffer, rewardPart...)
+				buffer = append(buffer, wallet...)
+				buffer = append(buffer, m.rewardPart...)
 				buffer = append(buffer, tsPart...)
 
 				hashArr := sha256.Sum256(buffer)
@@ -88,13 +87,13 @@ func (m *Miner) MineBlock(prevHash string, wallet string) bool {
 				if m.checkDifficultyFast(hashArr) {
 					if m.found.CompareAndSwap(false, true) {
 						hashStr := hex.EncodeToString(hashArr[:])
-						slog.Info("🔨 Found nonce", "nonce", nonce, "hash", hashStr)
+						slog.Debug("🔨 Found nonce", "nonce", nonce, "hash", hashStr, "wallet", wallet, "prevHash", prevHash)
 
 						if m.nodeClient.SubmitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
-							atomic.StoreInt32(&successFlag, 1)
-							slog.Info("💰 Блок зараховано! (+1 S-UAH)")
+							successFlag.Store(true)
+							slog.Info("💰 Block credited! (+1 S-UAH)")
 						} else {
-							slog.Error("❌ Сервер відхилив блок")
+							slog.Error("❌ Server rejected block")
 						}
 						close(done)
 					}
@@ -102,11 +101,11 @@ func (m *Miner) MineBlock(prevHash string, wallet string) bool {
 				}
 				nonce += cores
 			}
-		}(i)
+		}(i, cores)
 	}
 
 	<-done
-	return atomic.LoadInt32(&successFlag) == 1
+	return successFlag.Load()
 }
 
 func (m *Miner) checkDifficultyFast(hash [32]byte) bool {

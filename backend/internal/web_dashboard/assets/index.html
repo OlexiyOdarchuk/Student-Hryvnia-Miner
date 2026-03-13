@@ -295,33 +295,96 @@
         function renderData(data) {
             let sessionBlocks = 0, lifetimeBlocks = 0, active = 0;
             let wNames = [], wBalances = [], wBlocks = [];
-            let rows = '';
             
-            (data.wallets || []).forEach(w => {
+            const wallets = data.wallets || [];
+            const tbody = document.getElementById('wallet-tbody');
+            tbody.innerHTML = '';
+            
+            wallets.forEach(w => {
                 if (w.working) active++;
                 sessionBlocks += w.session_mined;
                 lifetimeBlocks += w.total_mined;
                 wNames.push(w.name);
                 wBalances.push(w.server_balance);
                 wBlocks.push(w.session_mined);
-                
-                const status = w.working ? '<span class="badge active">АКТИВНИЙ</span>' : '<span class="badge paused">ПАУЗА</span>';
-                
+
+                const tr = document.createElement('tr');
+                const rowId = 'row-' + String(w.address);
+                tr.id = rowId;
+
                 let rowClass = '';
                 if (lastWalletMined[w.address] !== undefined && w.total_mined > lastWalletMined[w.address]) {
                     rowClass = 'row-pulse';
                     setTimeout(() => { 
-                         const el = document.getElementById('row-'+w.address);
+                         const el = document.getElementById(rowId);
                          if(el) el.classList.remove('row-pulse');
                     }, 1000);
                 }
+                if (rowClass) {
+                    tr.className = rowClass;
+                }
                 lastWalletMined[w.address] = w.total_mined;
 
-                rows += '<tr id="row-'+w.address+'" class="'+rowClass+'"><td style="font-weight:700">'+w.name+'</td><td style="font-family:monospace; color:#94a3b8; cursor:pointer" onclick="copyToClipboard(\"' + w.address + '\")" title="Скопіювати адресу">'+w.address.substring(0,8)+'... <i class="fas fa-copy" style="font-size:0.8em; margin-left:5px"></i></td><td>'+status+'</td><td>'+w.session_mined+'</td><td>'+w.total_mined+'</td><td class="text-success font-mono">'+w.server_balance.toFixed(2)+' S-UAH</td></tr>';
+                // Name cell
+                const nameTd = document.createElement('td');
+                nameTd.style.fontWeight = '700';
+                nameTd.textContent = w.name;
+                tr.appendChild(nameTd);
+
+                // Address cell with copy functionality
+                const addrTd = document.createElement('td');
+                addrTd.style.fontFamily = 'monospace';
+                addrTd.style.color = '#94a3b8';
+                addrTd.style.cursor = 'pointer';
+                addrTd.title = 'Скопіювати адресу';
+                addrTd.addEventListener('click', () => copyToClipboard(String(w.address)));
+                const addrText = document.createTextNode(String(w.address).substring(0, 8) + '... ');
+                addrTd.appendChild(addrText);
+                const copyIcon = document.createElement('i');
+                copyIcon.className = 'fas fa-copy';
+                copyIcon.style.fontSize = '0.8em';
+                copyIcon.style.marginLeft = '5px';
+                addrTd.appendChild(copyIcon);
+                tr.appendChild(addrTd);
+
+                // Status cell
+                const statusTd = document.createElement('td');
+                const statusSpan = document.createElement('span');
+                statusSpan.className = w.working ? 'badge active' : 'badge paused';
+                statusSpan.textContent = w.working ? 'АКТИВНИЙ' : 'ПАУЗА';
+                statusTd.appendChild(statusSpan);
+                tr.appendChild(statusTd);
+
+                // Session mined cell
+                const sessTd = document.createElement('td');
+                sessTd.textContent = String(w.session_mined);
+                tr.appendChild(sessTd);
+
+                // Total mined cell
+                const totalTd = document.createElement('td');
+                totalTd.textContent = String(w.total_mined);
+                tr.appendChild(totalTd);
+
+                // Balance cell
+                const balanceTd = document.createElement('td');
+                balanceTd.className = 'text-success font-mono';
+                balanceTd.textContent = w.server_balance.toFixed(2) + ' S-UAH';
+                tr.appendChild(balanceTd);
+
+                tbody.appendChild(tr);
             });
             
-            if((data.wallets||[]).length === 0) rows += '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b">Немає гаманців</td></tr>';
-            document.getElementById('wallet-tbody').innerHTML = rows;
+            if (wallets.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 6;
+                td.style.textAlign = 'center';
+                td.style.padding = '20px';
+                td.style.color = '#64748b';
+                td.textContent = 'Немає гаманців';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            }
 
             document.getElementById('active-wallets').innerText = active;
             document.getElementById('sess-blocks').innerText = sessionBlocks;
