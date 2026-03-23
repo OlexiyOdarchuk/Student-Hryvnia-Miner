@@ -10,6 +10,10 @@ export function ChangePassword(arg1, arg2) {
   return window['go']['main']['App']['ChangePassword'](arg1, arg2);
 }
 
+export function CheckAndApplyUpdate() {
+  return window['go']['main']['App']['CheckAndApplyUpdate']();
+}
+
 export function DeleteWallet(arg1, arg2) {
   return window['go']['main']['App']['DeleteWallet'](arg1, arg2);
 }

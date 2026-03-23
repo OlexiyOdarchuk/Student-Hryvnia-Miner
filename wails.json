@@ -5,7 +5,7 @@
     "name": "iShawyha",
     "email": "shawyhaf@gmail.com"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "wailsjsdir": "./frontend",
   "outputfilename": "SHMiner",
   "frontend:install": "npm install",

@@ -1,6 +1,6 @@
 module shminer
 
-go 1.25.6
+go 1.26.1
 
 require (
 	github.com/creativeprojects/go-selfupdate v1.5.2

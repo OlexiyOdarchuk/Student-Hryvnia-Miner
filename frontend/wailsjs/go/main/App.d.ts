@@ -7,6 +7,8 @@ export function AddWallet(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function ChangePassword(arg1:string,arg2:string):Promise<string>;
 
+export function CheckAndApplyUpdate():Promise<string>;
+
 export function DeleteWallet(arg1:string,arg2:string):Promise<string>;
 
 export function GenerateKeyPair():Promise<Record<string, string>>;
