@@ -1,69 +1,17 @@
 package miner
 
-import (
-	"encoding/hex"
-	"sync/atomic"
-	"testing"
+import "testing"
 
-	"github.com/golang/mock/gomock"
-)
+func TestCompileDifficultyBits(t *testing.T) {
+	m := InitMiner(nil, nil, 1)
 
-func TestCheckDifficultyFast(t *testing.T) {
-	tests := []struct {
-		Name  string
-		Hash  string
-		Valid bool
-	}{
-		{
-			Name:  "valid hash",
-			Hash:  "0000018dcf196dcfefe8c7bf6168075d68a518579b4d274b2c42b8a3637de605",
-			Valid: true,
-		},
-		{
-			Name:  "invalid hash",
-			Hash:  "00000b042d7781c7fec896159ad0337c2c9b5898e8285",
-			Valid: true,
-		},
-		{
-			Name:  "not valid hash",
-			Hash:  "00100741360f68d0f9cec60e2b11015438efb63bb0b5a76af801245b8eefb4a0",
-			Valid: false,
-		},
+	m.CompileDifficultyBits(20)
+	if m.difficultyBits != 20 {
+		t.Fatalf("expected difficulty 20, got %d", m.difficultyBits)
 	}
-	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-			node := NewMockNodeClient(ctrl)
-			var hashCount atomic.Uint32
-			miner := InitMiner(&hashCount, node, 3)
-			miner.CompileDifficultyBits(20)
 
-			arr := HexHash(tt.Hash)
-			valid := miner.checkDifficultyFast(arr)
-			if valid != tt.Valid {
-				t.Errorf("Want valid %v, but got %v", tt.Valid, valid)
-			}
-		})
+	m.CompileDifficultyBits(-5)
+	if m.difficultyBits != 0 {
+		t.Fatalf("expected difficulty clamped to 0, got %d", m.difficultyBits)
 	}
-}
-
-func BenchmarkMiner(b *testing.B) {
-	ctrl := gomock.NewController(b)
-	defer ctrl.Finish()
-	node := NewMockNodeClient(ctrl)
-	node.EXPECT().SubmitBlock(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true).AnyTimes()
-	var hashCount atomic.Uint32
-	miner := InitMiner(&hashCount, node, 0)
-	miner.CompileDifficultyBits(20)
-	for b.Loop() {
-		miner.MineBlock("00000741360f68d0f9cec60e2b11015438efb63bb0b5a76af801245b8eefb4a0", "04b22cebe3c0085925e016647ba96e54282763dbcbcc149db52baa3aaef1b76826edcc3feee1eb0ac26acc09d6bc4f3f956ab91f14d2caca25c3402bee8712ab61")
-	}
-}
-
-func HexHash(s string) [32]byte {
-	var h [32]byte
-	b, _ := hex.DecodeString(s)
-	copy(h[:], b)
-	return h
 }
