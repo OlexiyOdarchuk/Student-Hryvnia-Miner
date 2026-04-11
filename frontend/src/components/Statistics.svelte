@@ -7,12 +7,7 @@
     let blocksCanvas;
     let balanceChart;
     let blocksChart;
-
-    
-    $: if ($stats && balanceChart && blocksChart) {
-        updateCharts();
-    }
-
+    let chartInterval;
     
     let pulsingWallets = {}; 
     let lastMined = {}; 
@@ -33,7 +28,12 @@
     }
 
     function updateCharts() {
-        const wallets = $stats.wallets || [];
+        let currentStats;
+        stats.subscribe(v => currentStats = v)();
+        
+        if (!currentStats || !balanceChart || !blocksChart) return;
+        
+        const wallets = currentStats.wallets || [];
         const labels = wallets.map(w => w.name || w.address.substring(0, 8));
         const balances = wallets.map(w => w.server_balance);
         const blocks = wallets.map(w => w.session_mined);
@@ -105,7 +105,15 @@
         });
 
         
-        if ($stats.wallets) updateCharts();
+        updateCharts();
+        
+        chartInterval = setInterval(() => {
+            updateCharts();
+        }, 1000);
+        
+        return () => {
+            if (chartInterval) clearInterval(chartInterval);
+        };
     });
 </script>
 

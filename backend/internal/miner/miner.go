@@ -16,19 +16,17 @@ type NodeClient interface {
 }
 
 type Miner struct {
-	hashCount  *atomic.Uint32
-	found      atomic.Bool
-	diffBytes  int
-	diffNibble uint8
-	nodeClient NodeClient
-	threads    int
 	rewardPart []byte
+	nodeClient NodeClient
+	hashCount  *atomic.Uint32
+	diffBytes  int
+	threads    int
+	diffNibble uint8
 }
 
 func InitMiner(hashCount *atomic.Uint32, nodeClient NodeClient, threads int) *Miner {
 	return &Miner{
 		hashCount:  hashCount,
-		found:      atomic.Bool{},
 		diffBytes:  0,
 		diffNibble: 0,
 		nodeClient: nodeClient,
@@ -48,54 +46,61 @@ func (m *Miner) CompileDifficultyBits(bits int) {
 	}
 }
 
-func (m *Miner) MineBlock(prevHash string, wallet string) bool {
-	m.found.Store(false)
-
+func (m *Miner) MineBlock(prevHash string, wallet string) (string, int, int64) {
 	timestamp := time.Now().UnixMilli()
-
 	tsPart := strconv.FormatInt(timestamp, 10)
 
 	cores := m.threads
 	maxCores := runtime.NumCPU()
-
 	if cores <= 0 || cores > maxCores {
 		cores = maxCores
 	}
-
 	if cores < 1 {
 		cores = 1
 	}
-	done := make(chan struct{})
-	var successFlag atomic.Bool
+	
+	done := make(chan struct{}, 1)
+	stopFlag := new(atomic.Bool)
+	var blockHash string
+	var foundNonce int
+
+	prefix := []byte(prevHash)
+	suffix := make([]byte, 0, len(wallet)+len(m.rewardPart)+len(tsPart))
+	suffix = append(suffix, wallet...)
+	suffix = append(suffix, m.rewardPart...)
+	suffix = append(suffix, tsPart...)
 
 	for i := range cores {
 		go func(workerID, cores int) {
 			buffer := make([]byte, 0, 512)
 			nonce := workerID
+			var localCount uint32 = 0
 
-			for !m.found.Load() {
+			for {
+				if localCount >= 2048 {
+					m.hashCount.Add(localCount)
+					localCount = 0
+					if stopFlag.Load() {
+						return
+					}
+				}
+				localCount++
+
 				buffer = buffer[:0]
-				buffer = append(buffer, prevHash...)
+				buffer = append(buffer, prefix...)
 				buffer = strconv.AppendInt(buffer, int64(nonce), 10)
-				buffer = append(buffer, wallet...)
-				buffer = append(buffer, m.rewardPart...)
-				buffer = append(buffer, tsPart...)
+				buffer = append(buffer, suffix...)
 
 				hashArr := sha256.Sum256(buffer)
-				m.hashCount.Add(1)
 
 				if m.checkDifficultyFast(hashArr) {
-					if m.found.CompareAndSwap(false, true) {
+					if stopFlag.CompareAndSwap(false, true) {
+						m.hashCount.Add(localCount)
 						hashStr := hex.EncodeToString(hashArr[:])
 						slog.Debug("🔨 Found nonce", "nonce", nonce, "hash", hashStr, "wallet", wallet, "prevHash", prevHash)
-
-						if m.nodeClient.SubmitBlock(prevHash, wallet, nonce, timestamp, hashStr) {
-							successFlag.Store(true)
-							slog.Info("💰 Block credited! (+1 S-UAH)")
-						} else {
-							slog.Error("❌ Server rejected block")
-						}
-						close(done)
+						blockHash = hashStr
+						foundNonce = nonce
+						done <- struct{}{}
 					}
 					return
 				}
@@ -105,7 +110,8 @@ func (m *Miner) MineBlock(prevHash string, wallet string) bool {
 	}
 
 	<-done
-	return successFlag.Load()
+	stopFlag.Store(true)
+	return blockHash, foundNonce, timestamp
 }
 
 func (m *Miner) checkDifficultyFast(hash [32]byte) bool {

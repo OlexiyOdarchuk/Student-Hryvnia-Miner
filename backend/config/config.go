@@ -5,9 +5,9 @@ type AppConfig struct {
 	ServerPort   string `json:"server_port"`
 	Difficulty   int    `json:"difficulty"`
 	HTTPTimeout  int    `json:"http_timeout"`
-	MaxRetries   uint16 `json:"max_retries"`
 	RetryDelayMs int    `json:"retry_delay_ms"`
 	BalanceFreqS int    `json:"balance_freq_s"`
+	MaxRetries   uint16 `json:"max_retries"`
 	Threads      uint8  `json:"threads"`
 }
 

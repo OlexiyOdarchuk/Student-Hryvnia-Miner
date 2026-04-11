@@ -26,14 +26,14 @@ var wailsConfig []byte
 type App struct {
 	ctx           context.Context
 	cancelMining  context.CancelFunc
-	miningStarted bool
 	backendApp    app.Backend
+	miningStarted bool
 }
 
 type UpdateResult struct {
-	Found   bool   `json:"found"`
 	Version string `json:"version"`
 	Body    string `json:"body"`
+	Found   bool   `json:"found"`
 }
 
 func NewApp() *App {

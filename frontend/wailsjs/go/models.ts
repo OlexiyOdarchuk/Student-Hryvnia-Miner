@@ -5,9 +5,9 @@ export namespace config {
 	    server_port: string;
 	    difficulty: number;
 	    http_timeout: number;
-	    max_retries: number;
 	    retry_delay_ms: number;
 	    balance_freq_s: number;
+	    max_retries: number;
 	    threads: number;
 	
 	    static createFrom(source: any = {}) {
@@ -20,9 +20,9 @@ export namespace config {
 	        this.server_port = source["server_port"];
 	        this.difficulty = source["difficulty"];
 	        this.http_timeout = source["http_timeout"];
-	        this.max_retries = source["max_retries"];
 	        this.retry_delay_ms = source["retry_delay_ms"];
 	        this.balance_freq_s = source["balance_freq_s"];
+	        this.max_retries = source["max_retries"];
 	        this.threads = source["threads"];
 	    }
 	}
@@ -31,6 +31,30 @@ export namespace config {
 
 export namespace types {
 	
+	export class WalletStats {
+	    server_balance: number;
+	    address: string;
+	    private_key?: string;
+	    name: string;
+	    session_mined: number;
+	    total_mined: number;
+	    working: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WalletStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.server_balance = source["server_balance"];
+	        this.address = source["address"];
+	        this.private_key = source["private_key"];
+	        this.name = source["name"];
+	        this.session_mined = source["session_mined"];
+	        this.total_mined = source["total_mined"];
+	        this.working = source["working"];
+	    }
+	}
 	export class LogEntry {
 	    id: number;
 	    time: string;
@@ -49,38 +73,14 @@ export namespace types {
 	        this.type = source["type"];
 	    }
 	}
-	export class WalletStats {
-	    address: string;
-	    private_key?: string;
-	    name: string;
-	    session_mined: number;
-	    total_mined: number;
-	    server_balance: number;
-	    working: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new WalletStats(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.address = source["address"];
-	        this.private_key = source["private_key"];
-	        this.name = source["name"];
-	        this.session_mined = source["session_mined"];
-	        this.total_mined = source["total_mined"];
-	        this.server_balance = source["server_balance"];
-	        this.working = source["working"];
-	    }
-	}
 	export class DashboardData {
+	    new_logs: LogEntry[];
+	    wallets: WalletStats[];
 	    hashrate: number;
+	    total_balance: number;
 	    session_blocks: number;
 	    lifetime_blocks: number;
 	    uptime: string;
-	    total_balance: number;
-	    wallets: WalletStats[];
-	    new_logs: LogEntry[];
 	
 	    static createFrom(source: any = {}) {
 	        return new DashboardData(source);
@@ -88,13 +88,13 @@ export namespace types {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.new_logs = this.convertValues(source["new_logs"], LogEntry);
+	        this.wallets = this.convertValues(source["wallets"], WalletStats);
 	        this.hashrate = source["hashrate"];
+	        this.total_balance = source["total_balance"];
 	        this.session_blocks = source["session_blocks"];
 	        this.lifetime_blocks = source["lifetime_blocks"];
 	        this.uptime = source["uptime"];
-	        this.total_balance = source["total_balance"];
-	        this.wallets = this.convertValues(source["wallets"], WalletStats);
-	        this.new_logs = this.convertValues(source["new_logs"], LogEntry);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

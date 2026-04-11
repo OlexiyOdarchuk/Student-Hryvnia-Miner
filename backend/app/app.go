@@ -166,16 +166,70 @@ func (a *App) runMiningLoop(ctx context.Context) {
 
 	slog.Info("🔨 Miner started...")
 
+	var cachedPrevHash string
+	failCh := make(chan struct{}, 10)
+
+	type submitPayload struct {
+		prev   string
+		wallet string
+		nonce  int
+		ts     int64
+		hash   string
+	}
+	submitCh := make(chan submitPayload, 50)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case sub := <-submitCh:
+				if a.nodeClient.SubmitBlock(sub.prev, sub.wallet, sub.nonce, sub.ts, sub.hash) {
+					slog.Info("💰 Block credited! (+1 S-UAH)")
+					a.walletMu.Lock()
+					a.statsService.SessionMinedIncrement()
+					if ws, ok := a.walletDataMap[sub.wallet]; ok {
+						ws.SessionMined++
+						ws.TotalMined++
+					}
+					a.walletMu.Unlock()
+
+					select {
+					case a.storageBuffer <- struct{}{}:
+					default:
+					}
+					a.webDashboard.BroadcastUpdate()
+				} else {
+					slog.Error("❌ Server rejected block")
+					failCh <- struct{}{}
+				clearLoop:
+					for {
+						select {
+						case <-submitCh:
+						default:
+							break clearLoop
+						}
+					}
+				}
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("🛑 Mining stopped")
 			return
+		case <-failCh:
+			cachedPrevHash = ""
 		default:
 		}
 
-		prevHash := a.nodeClient.GetChainLastHashCached()
-		if prevHash == "" {
+		if cachedPrevHash == "" {
+			cachedPrevHash = a.nodeClient.GetChainLastHashCached()
+		}
+
+		if cachedPrevHash == "" {
 			slog.Error("⚠️ No connection to the server. Restarting miner...")
 			time.Sleep(2 * time.Second)
 			continue
@@ -202,27 +256,17 @@ func (a *App) runMiningLoop(ctx context.Context) {
 			continue
 		}
 
-		success := a.minerClient.MineBlock(prevHash, currentWallet)
+		newHash, nonce, ts := a.minerClient.MineBlock(cachedPrevHash, currentWallet)
 
-		if success {
-			a.walletMu.Lock()
-			a.statsService.SessionMinedIncrement()
-			if ws, ok := a.walletDataMap[currentWallet]; ok {
-				ws.SessionMined++
-				ws.TotalMined++
-			}
-			a.walletMu.Unlock()
-
-			select {
-			case a.storageBuffer <- struct{}{}:
-			default:
-				slog.Error("❌ Storage buffer full, dropping data")
-			}
-
-			a.webDashboard.BroadcastUpdate()
+		submitCh <- submitPayload{
+			prev:   cachedPrevHash,
+			wallet: currentWallet,
+			nonce:  nonce,
+			ts:     ts,
+			hash:   newHash,
 		}
 
-		time.Sleep(config.MinerSleepInterval)
+		cachedPrevHash = newHash
 	}
 }
 

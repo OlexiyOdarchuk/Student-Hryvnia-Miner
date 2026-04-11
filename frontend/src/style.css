@@ -98,9 +98,9 @@ body::before {
     flex: 1; 
     padding: 30px; 
     padding-top: 50px !important; 
-    /* Use full height and disable outer scroll if internal elements scroll */
     height: 100vh;
-    overflow: hidden; 
+    overflow-y: auto; 
+    overflow-x: hidden;
     display: flex; 
     flex-direction: column; 
 }
@@ -867,24 +867,23 @@ textarea.field:focus {
 .content-wrapper {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: auto; /* Allow height to expand */
+    min-height: 100%;
     gap: 30px;
     width: 100%;
-    /* Fix for "ugly" on small screens: enforce minimum width and scroll */
-    min-width: 600px; 
 }
 
 .sidebar > div:last-child {
     --wails-draggable: no-drag;
 }
 
-/* Ensure horizontal scroll if window is too small */
+/* Allow vertical scroll, hide horizontal */
 .main {
     flex: 1; 
     padding: 30px; 
     height: 100vh;
-    overflow-y: hidden;
-    overflow-x: auto; /* Enable horizontal scroll */
+    overflow-y: auto;
+    overflow-x: hidden;
     display: flex; 
     flex-direction: column; 
 }
@@ -895,7 +894,7 @@ textarea.field:focus {
     grid-template-columns: 2fr 1fr;
     gap: 30px;
     flex: 1; /* Grow to fill space */
-    min-height: 0; /* Prevent overflow issue */
+    min-height: 350px; /* Give it a min-height so chart doesn't collapse */
 }
 
 @media (max-width: 1000px) {
