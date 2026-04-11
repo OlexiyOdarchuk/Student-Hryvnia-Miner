@@ -9,6 +9,7 @@
         max_retries: 0,
         retry_delay_ms: 0,
         balance_freq_s: 0,
+        block_check_freq_ms: 0,
         http_timeout: 0,
         threads: 0
     };
@@ -103,18 +104,26 @@
                  </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
                     <label class="field-label">Складність</label>
                     <input type="number" class="field" bind:value={config.difficulty} required>
                 </div>
                 <div>
-                    <label class="field-label">Макс. спроб</label>
+                    <label class="field-label">Макс. спроб (API)</label>
                     <input type="number" class="field" bind:value={config.max_retries} required>
                 </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
-                    <label class="field-label">Затримка (мс)</label>
+                    <label class="field-label">Затримка повторних запитів API (мс)</label>
                     <input type="number" class="field" bind:value={config.retry_delay_ms} required>
+                </div>
+                <div>
+                    <label class="field-label">Синхр. блоків (мс)</label>
+                    <input type="number" class="field" bind:value={config.block_check_freq_ms} required>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-top: -15px; margin-bottom: 20px;">Частота перевірки статусу мережі</div>
                 </div>
             </div>
             

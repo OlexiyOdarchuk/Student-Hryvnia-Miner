@@ -1,6 +1,7 @@
 package miner
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
@@ -46,19 +47,25 @@ func (m *Miner) CompileDifficultyBits(bits int) {
 	}
 }
 
-func (m *Miner) MineBlock(prevHash string, wallet string) (string, int, int64) {
+func (m *Miner) MineBlock(ctx context.Context, prevHash string, wallet string) (string, int, int64) {
 	timestamp := time.Now().UnixMilli()
 	tsPart := strconv.FormatInt(timestamp, 10)
 
 	cores := m.threads
 	maxCores := runtime.NumCPU()
-	if cores <= 0 || cores > maxCores {
+	if cores <= 0 {
+		if maxCores > 2 {
+			cores = maxCores - 1
+		} else {
+			cores = maxCores
+		}
+	} else if cores > maxCores {
 		cores = maxCores
 	}
 	if cores < 1 {
 		cores = 1
 	}
-	
+
 	done := make(chan struct{}, 1)
 	stopFlag := new(atomic.Bool)
 	var blockHash string
@@ -82,6 +89,12 @@ func (m *Miner) MineBlock(prevHash string, wallet string) (string, int, int64) {
 					localCount = 0
 					if stopFlag.Load() {
 						return
+					}
+					select {
+					case <-ctx.Done():
+						stopFlag.Store(true)
+						return
+					default:
 					}
 				}
 				localCount++
@@ -109,7 +122,10 @@ func (m *Miner) MineBlock(prevHash string, wallet string) (string, int, int64) {
 		}(i, cores)
 	}
 
-	<-done
+	select {
+	case <-done:
+	case <-ctx.Done():
+	}
 	stopFlag.Store(true)
 	return blockHash, foundNonce, timestamp
 }

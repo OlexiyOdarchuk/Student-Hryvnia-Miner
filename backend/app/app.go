@@ -40,6 +40,7 @@ type App struct {
 	walletMu      *sync.RWMutex
 	walletDataMap map[string]*types.WalletStats
 
+	parentCtx context.Context
 	miningCtx context.Context
 	cancel    context.CancelFunc
 	mu        sync.Mutex
@@ -109,6 +110,7 @@ func (a *App) StartMining(ctx context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	a.parentCtx = ctx
 	miningCtx, cancel := context.WithCancel(ctx)
 	a.miningCtx = miningCtx
 	a.cancel = cancel
@@ -243,20 +245,64 @@ func (a *App) runMiningLoop(ctx context.Context) {
 
 		currentWallet := ws[rnd.Intn(len(ws))]
 
-		a.walletMu.Lock()
+		a.walletMu.RLock()
 		walletStats, exists := a.walletDataMap[currentWallet]
 		isWorking := true
 		if exists {
 			isWorking = walletStats.Working
 		}
-		a.walletMu.Unlock()
+		a.walletMu.RUnlock()
 
 		if !isWorking {
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
-		newHash, nonce, ts := a.minerClient.MineBlock(cachedPrevHash, currentWallet)
+		blockCtx, cancelBlock := context.WithCancel(ctx)
+		go func(hashToTrack string) {
+			checkFreq := time.Duration(cfg.BlockCheckFreqMs) * time.Millisecond
+			if checkFreq < 1000*time.Millisecond {
+				checkFreq = 5000 * time.Millisecond
+			}
+			ticker := time.NewTicker(checkFreq)
+			fastTicker := time.NewTicker(200 * time.Millisecond)
+			defer ticker.Stop()
+			defer fastTicker.Stop()
+
+			for {
+				select {
+				case <-blockCtx.Done():
+					return
+				case <-fastTicker.C:
+					a.walletMu.RLock()
+					ws, ok := a.walletDataMap[currentWallet]
+					stillWorking := ok && ws.Working
+					a.walletMu.RUnlock()
+					if !stillWorking {
+						cancelBlock()
+						return
+					}
+				case <-ticker.C:
+					latestHash := a.nodeClient.GetChainLastHashCached()
+					if latestHash != "" && latestHash != hashToTrack {
+						slog.Info("⚠️ Block updated by network. Restarting...")
+						select {
+						case failCh <- struct{}{}:
+						default:
+						}
+						cancelBlock()
+						return
+					}
+				}
+			}
+		}(cachedPrevHash)
+
+		newHash, nonce, ts := a.minerClient.MineBlock(blockCtx, cachedPrevHash, currentWallet)
+		cancelBlock()
+
+		if newHash == "" {
+			continue
+		}
 
 		submitCh <- submitPayload{
 			prev:   cachedPrevHash,
@@ -374,7 +420,21 @@ func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {
 	if err := a.storageDriver.PersistConfig(password); err != nil {
 		return err
 	}
-	a.applyConfig()
+	
+	a.mu.Lock()
+	wasMining := a.miningCtx != nil
+	pCtx := a.parentCtx
+	a.mu.Unlock()
+
+	if wasMining {
+		a.StopMining()
+		a.StartMining(pCtx)
+	} else {
+		a.mu.Lock()
+		a.applyConfig()
+		a.mu.Unlock()
+	}
+	
 	return nil
 }
 

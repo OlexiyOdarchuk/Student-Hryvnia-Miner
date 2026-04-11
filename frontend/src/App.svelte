@@ -30,12 +30,21 @@
         });
 
         
+        let logBuffer = [];
+        let logTimer = null;
         EventsOn("log", (log) => {
-            logs.update(l => {
-                const newLogs = [...l, log];
-                if (newLogs.length > 100) return newLogs.slice(newLogs.length - 100);
-                return newLogs;
-            });
+            logBuffer.push(log);
+            if (!logTimer) {
+                logTimer = setTimeout(() => {
+                    logs.update(l => {
+                        const newLogs = [...l, ...logBuffer];
+                        logBuffer = [];
+                        if (newLogs.length > 100) return newLogs.slice(newLogs.length - 100);
+                        return newLogs;
+                    });
+                    logTimer = null;
+                }, 250);
+            }
         });
         
         
