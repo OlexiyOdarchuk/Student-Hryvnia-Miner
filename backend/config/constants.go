@@ -16,3 +16,7 @@ const (
 const (
 	ExponentialBackoffMaxMs = 30000
 )
+
+const (
+	TelemetryProxyURL = "https://s-uah-miner-telemetry.ishawyha.workers.dev"
+)

@@ -71,7 +71,7 @@ func (a *App) startMining() {
 	a.backendApp.StartMining(miningCtx)
 
 	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
+		ticker := time.NewTicker(1000 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
@@ -222,6 +222,10 @@ func (a *App) GetSystemInfo() map[string]interface{} {
 	return map[string]interface{}{
 		"cpu_cores": stdRuntime.NumCPU(),
 	}
+}
+
+func (a *App) SendMessageToDeveloper(contact, message string) {
+	a.backendApp.SendMessageToDeveloper(contact, message)
 }
 
 func (a *App) CheckAndApplyUpdate() (string, error) {

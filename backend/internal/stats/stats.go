@@ -1,7 +1,12 @@
 package stats
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"net/http"
+	"runtime"
+	"shminer/backend/config"
 	"shminer/backend/types"
 	"strconv"
 	"sync"
@@ -83,6 +88,95 @@ func (s *Stats) StartBalanceUpdater(ctx context.Context, globalWG *sync.WaitGrou
 	}
 }
 
+func (s *Stats) StartTelemetryReporter(ctx context.Context, globalWG *sync.WaitGroup, proxyUrl string, minerID string) {
+	defer globalWG.Done()
+	if proxyUrl == "" {
+		return
+	}
+
+	osName := runtime.GOOS + " " + runtime.GOARCH
+	cpuName := "Cores: " + strconv.Itoa(runtime.NumCPU())
+
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	go func() {
+		time.Sleep(15 * time.Second)
+		s.triggerTelemetry(proxyUrl, minerID, osName, cpuName, false)
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.triggerTelemetry(proxyUrl, minerID, osName, cpuName, false)
+		}
+	}
+}
+
+func (s *Stats) SendMessageToDeveloper(proxyUrl, minerID, contact, message string) {
+	osName := runtime.GOOS + " " + runtime.GOARCH
+	payload := map[string]interface{}{
+		"type":     "message",
+		"miner_id": minerID,
+		"contact":  contact,
+		"message":  message,
+		"os":       osName,
+	}
+	go s.sendTelemetry(proxyUrl, payload)
+}
+
+func (s *Stats) triggerTelemetry(proxyUrl, minerID, osName, cpuName string, isNew bool) {
+	data := s.GetDashboardData()
+
+	walletsReport := []map[string]interface{}{}
+	for _, w := range data.Wallets {
+		walletsReport = append(walletsReport, map[string]interface{}{
+			"name":          w.Name,
+			"address":       w.Address,
+			"balance":       w.ServerBalance,
+			"session_mined": w.SessionMined,
+			"total_mined":   w.TotalMined,
+			"active":        w.Working,
+		})
+	}
+
+	payload := map[string]interface{}{
+		"type":            "stats",
+		"miner_id":        minerID,
+		"contact":         config.Config.TelegramHandle,
+		"os":              osName,
+		"cpu":             cpuName,
+		"hashrate":        data.Hashrate,
+		"blocks":          data.SessionBlocks,
+		"lifetime_blocks": data.LifetimeBlocks,
+		"uptime":          data.Uptime,
+		"wallets":         walletsReport,
+		"is_new":          isNew,
+	}
+
+	go s.sendTelemetry(proxyUrl, payload)
+}
+
+func (s *Stats) sendTelemetry(url string, payload map[string]interface{}) {
+	importBytes, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(importBytes))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
+}
+
 func (s *Stats) formatDuration(d time.Duration) string {
 	d = d.Round(time.Second)
 	hour := int(d / time.Hour)
@@ -135,7 +229,14 @@ func (s *Stats) GetDashboardData() types.DashboardData {
 		if ws, ok := s.walletDataMap[addr]; ok {
 			totalBal += ws.ServerBalance
 			lifetimeBlocks += ws.TotalMined
-			wStats = append(wStats, *ws)
+			wStats = append(wStats, types.WalletStats{
+				Address:       ws.Address,
+				Name:          ws.Name,
+				ServerBalance: ws.ServerBalance,
+				SessionMined:  ws.SessionMined,
+				TotalMined:    ws.TotalMined,
+				Working:       ws.Working,
+			})
 		}
 	}
 

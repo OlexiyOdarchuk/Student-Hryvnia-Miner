@@ -1,6 +1,8 @@
 package config
 
 type AppConfig struct {
+	MinerID          string `json:"miner_id"`
+	TelegramHandle   string `json:"telegram_handle"`
 	BaseURL          string `json:"base_url"`
 	ServerPort       string `json:"server_port"`
 	Difficulty       int    `json:"difficulty"`
@@ -21,10 +23,18 @@ var Config = AppConfig{
 	RetryDelayMs:     int(DefaultRetryDelay.Milliseconds()),
 	BalanceFreqS:     int(DefaultBalanceUpdateFreq.Seconds()),
 	BlockCheckFreqMs: DefaultBlockCheckFreqMs,
-	Threads:          0,
+	Threads:          4,
 }
 
 func (c *AppConfig) Update(newConf AppConfig) {
+	if newConf.MinerID != "" {
+		c.MinerID = newConf.MinerID
+	}
+
+	if newConf.TelegramHandle != "" {
+		c.TelegramHandle = newConf.TelegramHandle
+	}
+
 	if newConf.BaseURL != "" {
 		c.BaseURL = newConf.BaseURL
 	}

@@ -1,6 +1,8 @@
 export namespace config {
 	
 	export class AppConfig {
+	    miner_id: string;
+	    telegram_handle: string;
 	    base_url: string;
 	    server_port: string;
 	    difficulty: number;
@@ -17,6 +19,8 @@ export namespace config {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.miner_id = source["miner_id"];
+	        this.telegram_handle = source["telegram_handle"];
 	        this.base_url = source["base_url"];
 	        this.server_port = source["server_port"];
 	        this.difficulty = source["difficulty"];

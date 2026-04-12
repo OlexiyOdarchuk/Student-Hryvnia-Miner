@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"shminer/backend/config"
 	"shminer/backend/types"
 	"sync"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -63,8 +65,12 @@ func (s *Storage) DeriveKey(password string, salt []byte) []byte {
 }
 
 func (s *Storage) InitStorage(password string) error {
+	minerID := uuid.New().String()
+	conf := config.Config
+	conf.MinerID = minerID
+
 	data := types.StorageData{
-		Config:  config.Config,
+		Config:  conf,
 		Wallets: []types.WalletStats{},
 	}
 
@@ -72,7 +78,11 @@ func (s *Storage) InitStorage(password string) error {
 	s.sessionPassword = password
 	s.applyLoadedData()
 
-	return s.SaveStorage(password, data)
+	err := s.SaveStorage(password, data)
+	if err == nil {
+		slog.Info("🆕 New miner registered", "id", minerID)
+	}
+	return err
 }
 
 func (s *Storage) SaveStorage(password string, data types.StorageData) error {
@@ -169,6 +179,9 @@ func (s *Storage) PersistConfig(password string) error {
 }
 
 func (s *Storage) applyLoadedData() {
+	if s.currentStorage.Config.MinerID == "" {
+		s.currentStorage.Config.MinerID = uuid.New().String()
+	}
 	config.Config = s.currentStorage.Config
 }
 

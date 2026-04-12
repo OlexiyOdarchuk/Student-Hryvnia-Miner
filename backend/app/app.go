@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -120,6 +121,8 @@ func (a *App) StartMining(ctx context.Context) {
 	a.shutdownWG.Add(1)
 	go a.statsService.StartBalanceUpdater(miningCtx, &a.shutdownWG)
 	a.shutdownWG.Add(1)
+	go a.statsService.StartTelemetryReporter(miningCtx, &a.shutdownWG, config.TelemetryProxyURL, config.Config.MinerID)
+	a.shutdownWG.Add(1)
 	go a.autoSaver(miningCtx)
 	a.shutdownWG.Add(1)
 	go a.runMiningLoop(miningCtx)
@@ -178,16 +181,26 @@ func (a *App) runMiningLoop(ctx context.Context) {
 		ts     int64
 		hash   string
 	}
-	submitCh := make(chan submitPayload, 50)
+	submitCh := make(chan submitPayload, 200)
 
 	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		creditedCount := 0
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
+			case <-ticker.C:
+				if creditedCount > 0 {
+					slog.Info("💰 " + strconv.Itoa(creditedCount) + " blocks credited")
+					creditedCount = 0
+					a.webDashboard.BroadcastUpdate()
+				}
 			case sub := <-submitCh:
 				if a.nodeClient.SubmitBlock(sub.prev, sub.wallet, sub.nonce, sub.ts, sub.hash) {
-					slog.Info("💰 Block credited! (+1 S-UAH)")
+					creditedCount++
 					a.walletMu.Lock()
 					a.statsService.SessionMinedIncrement()
 					if ws, ok := a.walletDataMap[sub.wallet]; ok {
@@ -200,10 +213,12 @@ func (a *App) runMiningLoop(ctx context.Context) {
 					case a.storageBuffer <- struct{}{}:
 					default:
 					}
-					a.webDashboard.BroadcastUpdate()
 				} else {
-					slog.Error("❌ Server rejected block")
-					failCh <- struct{}{}
+					slog.Error("❌ Server rejected block. Resetting...")
+					select {
+					case failCh <- struct{}{}:
+					default:
+					}
 				clearLoop:
 					for {
 						select {
@@ -304,12 +319,18 @@ func (a *App) runMiningLoop(ctx context.Context) {
 			continue
 		}
 
-		submitCh <- submitPayload{
+		payload := submitPayload{
 			prev:   cachedPrevHash,
 			wallet: currentWallet,
 			nonce:  nonce,
 			ts:     ts,
 			hash:   newHash,
+		}
+
+		select {
+		case submitCh <- payload:
+		case <-ctx.Done():
+			return
 		}
 
 		cachedPrevHash = newHash
@@ -420,7 +441,7 @@ func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {
 	if err := a.storageDriver.PersistConfig(password); err != nil {
 		return err
 	}
-	
+
 	a.mu.Lock()
 	wasMining := a.miningCtx != nil
 	pCtx := a.parentCtx
@@ -434,7 +455,7 @@ func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {
 		a.applyConfig()
 		a.mu.Unlock()
 	}
-	
+
 	return nil
 }
 
@@ -480,6 +501,10 @@ func (a *App) SendTransaction(from, to, password string, amount int) error {
 	txObj.Signature = hex.EncodeToString(signature.Serialize())
 
 	return a.nodeClient.SendTransaction(txObj)
+}
+
+func (a *App) SendMessageToDeveloper(contact, message string) {
+	a.statsService.SendMessageToDeveloper(config.TelemetryProxyURL, config.Config.MinerID, contact, message)
 }
 
 func (a *App) autoSaver(ctx context.Context) {

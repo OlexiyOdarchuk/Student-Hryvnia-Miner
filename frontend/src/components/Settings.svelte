@@ -3,6 +3,8 @@
     import { GetConfig, UpdateConfig, ChangePassword, GetSystemInfo } from '../../wailsjs/go/main/App';
 
     let config = {
+        miner_id: '',
+        telegram_handle: '',
         base_url: '',
         server_port: '',
         difficulty: 0,
@@ -81,7 +83,19 @@
         
         
         <h3 style="margin-bottom: 20px; color: white;">Конфігурація майнера</h3>
-        <form on:submit|preventDefault={save} style="display: grid; gap: 20px; margin-bottom: 40px;">
+        <form on:submit|preventDefault={save} style="display: grid; gap: 25px;">
+            <div style="padding: 15px; background: rgba(129, 140, 248, 0.05); border-radius: 12px; border: 1px solid rgba(129, 140, 248, 0.1);">
+                <label class="field-label" style="color: var(--primary);">Ваш унікальний Miner ID</label>
+                <code style="font-family: var(--font-mono); font-size: 0.9rem; color: #94a3b8; display: block; word-break: break-all;">{config.miner_id}</code>
+                <div style="font-size: 0.7rem; color: #64748b; margin-top: 5px;">Цей ID використовується для анонімної статистики та ідентифікації вашої ноди.</div>
+            </div>
+
+            <div>
+                <label class="field-label">Ваш Telegram (@username або посилання)</label>
+                <input class="field" placeholder="@username (необов'язково)" bind:value={config.telegram_handle}>
+                <div style="font-size: 0.75rem; color: #64748b; margin-top: -15px;">Для зв'язку з розробником та персоналізації статистики.</div>
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
                     <label class="field-label">Базовий URL сервера</label>

@@ -11,21 +11,34 @@
         document.dispatchEvent(new CustomEvent("toggle-focus"));
     }
 
-    $: isAnyWorking = ($stats.wallets || []).some((w) => w.working);
-    $: isOnline = $connected;
+    let isAnyWorking = false;
+    let isOnline = false;
+    let statusText = "ОФЛАЙН";
+    let statusClass = "offline";
+    let activeWalletsCount = 0;
 
-    $: statusText = !isOnline
-        ? "ОФЛАЙН"
-        : isAnyWorking
-          ? "ОНЛАЙН"
-          : "ПРИЗУПИНЕНО";
-    $: statusClass = !isOnline ? "offline" : isAnyWorking ? "" : "paused"; 
+    $: if ($stats || $connected) {
+        isOnline = $connected;
+        const wallets = $stats.wallets || [];
+        isAnyWorking = wallets.some((w) => w.working);
+        activeWalletsCount = wallets.filter((w) => w.working).length;
+
+        statusText = !isOnline
+            ? "ОФЛАЙН"
+            : isAnyWorking
+              ? "ОНЛАЙН"
+              : "ПРИЗУПИНЕНО";
+        statusClass = !isOnline ? "offline" : isAnyWorking ? "" : "paused";
+    }
 
     let lastSessionBlocks = 0;
     let pulseClass = "";
+    let pulseTimer: any = null;
+
     $: if ($stats && $stats.session_blocks > lastSessionBlocks) {
+        if (pulseTimer) clearTimeout(pulseTimer);
         pulseClass = "pulse-active";
-        setTimeout(() => (pulseClass = ""), 1000);
+        pulseTimer = setTimeout(() => (pulseClass = ""), 1000);
         lastSessionBlocks = $stats.session_blocks;
     }
     $: if ($stats && lastSessionBlocks === 0 && $stats.session_blocks > 0) {
@@ -302,7 +315,7 @@
             <div
                 style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--neon-cyan); margin-bottom: 4px;"
             >
-                {($stats.wallets || []).filter((w) => w.working).length}
+                {activeWalletsCount}
             </div>
             <div
                 style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"
