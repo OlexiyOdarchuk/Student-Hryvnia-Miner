@@ -174,6 +174,9 @@ func (a *App) runMiningLoop(ctx context.Context) {
 	var cachedPrevHash string
 	failCh := make(chan struct{}, 10)
 
+	var cancelCurrentMutex sync.Mutex
+	var cancelCurrentBlock context.CancelFunc
+
 	type submitPayload struct {
 		prev   string
 		wallet string
@@ -214,7 +217,14 @@ func (a *App) runMiningLoop(ctx context.Context) {
 					default:
 					}
 				} else {
-					slog.Error("❌ Server rejected block. Resetting...")
+					slog.Error("❌ Server rejected block. Canceling current mining...")
+
+					cancelCurrentMutex.Lock()
+					if cancelCurrentBlock != nil {
+						cancelCurrentBlock()
+					}
+					cancelCurrentMutex.Unlock()
+
 					select {
 					case failCh <- struct{}{}:
 					default:
@@ -274,6 +284,11 @@ func (a *App) runMiningLoop(ctx context.Context) {
 		}
 
 		blockCtx, cancelBlock := context.WithCancel(ctx)
+
+		cancelCurrentMutex.Lock()
+		cancelCurrentBlock = cancelBlock
+		cancelCurrentMutex.Unlock()
+
 		go func(hashToTrack string) {
 			checkFreq := time.Duration(cfg.BlockCheckFreqMs) * time.Millisecond
 			if checkFreq < 1000*time.Millisecond {
@@ -301,11 +316,17 @@ func (a *App) runMiningLoop(ctx context.Context) {
 					latestHash := a.nodeClient.GetChainLastHashCached()
 					if latestHash != "" && latestHash != hashToTrack {
 						slog.Info("⚠️ Block updated by network. Restarting...")
+
+						cancelCurrentMutex.Lock()
+						if cancelCurrentBlock != nil {
+							cancelCurrentBlock()
+						}
+						cancelCurrentMutex.Unlock()
+
 						select {
 						case failCh <- struct{}{}:
 						default:
 						}
-						cancelBlock()
 						return
 					}
 				}
@@ -313,6 +334,10 @@ func (a *App) runMiningLoop(ctx context.Context) {
 		}(cachedPrevHash)
 
 		newHash, nonce, ts := a.minerClient.MineBlock(blockCtx, cachedPrevHash, currentWallet)
+
+		cancelCurrentMutex.Lock()
+		cancelCurrentBlock = nil
+		cancelCurrentMutex.Unlock()
 		cancelBlock()
 
 		if newHash == "" {
