@@ -71,8 +71,7 @@ jobs:
       - name: Build Project
         shell: bash
         run: |
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-          wails build -clean -trimpath -ldflags "-s -w"
+          wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w"
           
           cd build/bin/
           if [ "${{ matrix.goos }}" = "windows" ]; then

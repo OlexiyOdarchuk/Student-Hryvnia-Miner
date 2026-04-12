@@ -10,6 +10,7 @@ const (
 	DefaultMaxRetries        = 3
 	DefaultRetryDelay        = 100 * time.Millisecond
 	DefaultBalanceUpdateFreq = 5 * time.Second
+	DefaultBlockCheckFreqMs  = 5000
 )
 
 const (
@@ -17,5 +18,5 @@ const (
 )
 
 const (
-	MinerSleepInterval = 170 * time.Millisecond
+	TelemetryProxyURL = "https://s-uah-miner-telemetry.ishawyha.workers.dev"
 )

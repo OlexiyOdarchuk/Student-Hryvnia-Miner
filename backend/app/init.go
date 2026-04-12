@@ -29,6 +29,7 @@ type Backend interface {
 	UpdateConfig(config.AppConfig, string) error
 	ChangePassword(string, string) error
 	SendTransaction(from, to, password string, amount int) error
+	SendMessageToDeveloper(contact, message string)
 }
 
 func Init() Backend {

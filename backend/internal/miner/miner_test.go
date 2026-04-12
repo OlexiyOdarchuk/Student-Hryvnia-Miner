@@ -1,6 +1,7 @@
 package miner
 
 import (
+	"context"
 	"encoding/hex"
 	"sync/atomic"
 	"testing"
@@ -57,7 +58,7 @@ func BenchmarkMiner(b *testing.B) {
 	miner := InitMiner(&hashCount, node, 0)
 	miner.CompileDifficultyBits(20)
 	for b.Loop() {
-		miner.MineBlock("00000741360f68d0f9cec60e2b11015438efb63bb0b5a76af801245b8eefb4a0", "04b22cebe3c0085925e016647ba96e54282763dbcbcc149db52baa3aaef1b76826edcc3feee1eb0ac26acc09d6bc4f3f956ab91f14d2caca25c3402bee8712ab61")
+		miner.MineBlock(context.Background(), "00000741360f68d0f9cec60e2b11015438efb63bb0b5a76af801245b8eefb4a0", "04b22cebe3c0085925e016647ba96e54282763dbcbcc149db52baa3aaef1b76826edcc3feee1eb0ac26acc09d6bc4f3f956ab91f14d2caca25c3402bee8712ab61")
 	}
 }
 

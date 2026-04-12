@@ -11,21 +11,34 @@
         document.dispatchEvent(new CustomEvent("toggle-focus"));
     }
 
-    $: isAnyWorking = ($stats.wallets || []).some((w) => w.working);
-    $: isOnline = $connected;
+    let isAnyWorking = false;
+    let isOnline = false;
+    let statusText = "ОФЛАЙН";
+    let statusClass = "offline";
+    let activeWalletsCount = 0;
 
-    $: statusText = !isOnline
-        ? "ОФЛАЙН"
-        : isAnyWorking
-          ? "ОНЛАЙН"
-          : "ПРИЗУПИНЕНО";
-    $: statusClass = !isOnline ? "offline" : isAnyWorking ? "" : "paused"; 
+    $: if ($stats || $connected) {
+        isOnline = $connected;
+        const wallets = $stats.wallets || [];
+        isAnyWorking = wallets.some((w) => w.working);
+        activeWalletsCount = wallets.filter((w) => w.working).length;
+
+        statusText = !isOnline
+            ? "ОФЛАЙН"
+            : isAnyWorking
+              ? "ОНЛАЙН"
+              : "ПРИЗУПИНЕНО";
+        statusClass = !isOnline ? "offline" : isAnyWorking ? "" : "paused";
+    }
 
     let lastSessionBlocks = 0;
     let pulseClass = "";
+    let pulseTimer: any = null;
+
     $: if ($stats && $stats.session_blocks > lastSessionBlocks) {
+        if (pulseTimer) clearTimeout(pulseTimer);
         pulseClass = "pulse-active";
-        setTimeout(() => (pulseClass = ""), 1000);
+        pulseTimer = setTimeout(() => (pulseClass = ""), 1000);
         lastSessionBlocks = $stats.session_blocks;
     }
     $: if ($stats && lastSessionBlocks === 0 && $stats.session_blocks > 0) {
@@ -45,16 +58,7 @@
         }
     }
 
-    $: if (chart && $stats) {
-        try {
-            const ds = chart.data.datasets[0].data;
-            if (ds.length > 60) ds.shift();
-            ds.push($stats.hashrate);
-            chart.update("none");
-        } catch (e) {
-            console.error("Chart update failed", e);
-        }
-    }
+    let chartInterval: any;
 
     onMount(() => {
         setTimeout(() => {
@@ -108,10 +112,29 @@
                         },
                     },
                 });
+
+                chartInterval = setInterval(() => {
+                    let currentStats;
+                    stats.subscribe(v => currentStats = v)();
+                    if (chart && currentStats) {
+                        try {
+                            const ds = chart.data.datasets[0].data;
+                            if (ds.length > 60) ds.shift();
+                            ds.push(currentStats.hashrate);
+                            chart.update("none");
+                        } catch (e) {
+                            console.error("Chart update failed", e);
+                        }
+                    }
+                }, 1000);
             } catch (e) {
                 console.error("Chart init failed", e);
             }
         }, 100);
+
+        return () => {
+            if (chartInterval) clearInterval(chartInterval);
+        };
     });
 </script>
 
@@ -272,22 +295,18 @@
             </div>
         </div>
         <div
-            class="glass-card stat-card"
-            style="border-top-color: var(--warning); transition: transform 0.2s, box-shadow 0.2s;"
+            class={pulseClass}
+            style="padding: 10px; background: rgba(251, 191, 36, 0.05); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.1); transition: box-shadow 0.2s, border-color 0.2s;"
         >
             <div
-                style="padding: 10px; background: rgba(251, 191, 36, 0.05); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.1);"
+                style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--warning); margin-bottom: 4px;"
             >
-                <div
-                    style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--warning); margin-bottom: 4px;"
-                >
-                    {$stats.session_blocks}
-                </div>
-                <div
-                    style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"
-                >
-                    Блоки
-                </div>
+                {$stats.session_blocks}
+            </div>
+            <div
+                style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"
+            >
+                Блоки
             </div>
         </div>
         <div
@@ -296,7 +315,7 @@
             <div
                 style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--neon-cyan); margin-bottom: 4px;"
             >
-                {($stats.wallets || []).filter((w) => w.working).length}
+                {activeWalletsCount}
             </div>
             <div
                 style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"

@@ -33,6 +33,8 @@ export function IsStorageInitialized():Promise<boolean>;
 
 export function RenameWallet(arg1:string,arg2:string):Promise<string>;
 
+export function SendMessageToDeveloper(arg1:string,arg2:string):Promise<void>;
+
 export function SendTransaction(arg1:string,arg2:string,arg3:string,arg4:number):Promise<string>;
 
 export function SetGlobalMining(arg1:boolean):Promise<void>;

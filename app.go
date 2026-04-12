@@ -26,14 +26,14 @@ var wailsConfig []byte
 type App struct {
 	ctx           context.Context
 	cancelMining  context.CancelFunc
-	miningStarted bool
 	backendApp    app.Backend
+	miningStarted bool
 }
 
 type UpdateResult struct {
-	Found   bool   `json:"found"`
 	Version string `json:"version"`
 	Body    string `json:"body"`
+	Found   bool   `json:"found"`
 }
 
 func NewApp() *App {
@@ -71,7 +71,7 @@ func (a *App) startMining() {
 	a.backendApp.StartMining(miningCtx)
 
 	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
+		ticker := time.NewTicker(1000 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
@@ -222,6 +222,10 @@ func (a *App) GetSystemInfo() map[string]interface{} {
 	return map[string]interface{}{
 		"cpu_cores": stdRuntime.NumCPU(),
 	}
+}
+
+func (a *App) SendMessageToDeveloper(contact, message string) {
+	a.backendApp.SendMessageToDeveloper(contact, message)
 }
 
 func (a *App) CheckAndApplyUpdate() (string, error) {

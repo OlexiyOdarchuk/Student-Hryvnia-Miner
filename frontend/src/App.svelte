@@ -12,6 +12,7 @@
     import Logs from './components/Logs.svelte';
     import Settings from './components/Settings.svelte';
     import Help from './components/Help.svelte';
+    import Contact from './components/Contact.svelte';
     import Modals from './components/Modals.svelte';
     import FocusMode from './components/FocusMode.svelte';
     import Toasts from './components/Toasts.svelte';
@@ -30,12 +31,21 @@
         });
 
         
+        let logBuffer = [];
+        let logTimer = null;
         EventsOn("log", (log) => {
-            logs.update(l => {
-                const newLogs = [...l, log];
-                if (newLogs.length > 100) return newLogs.slice(newLogs.length - 100);
-                return newLogs;
-            });
+            logBuffer.push(log);
+            if (!logTimer) {
+                logTimer = setTimeout(() => {
+                    logs.update(l => {
+                        const newLogs = [...l, ...logBuffer];
+                        logBuffer = [];
+                        if (newLogs.length > 100) return newLogs.slice(newLogs.length - 100);
+                        return newLogs;
+                    });
+                    logTimer = null;
+                }, 500);
+            }
         });
         
         
@@ -94,6 +104,8 @@
                 <Settings />
             {:else if $activeTab === 'help'}
                 <Help />
+            {:else if $activeTab === 'contact'}
+                <Contact />
             {/if}
         </main>
     </div>

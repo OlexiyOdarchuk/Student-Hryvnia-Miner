@@ -50,6 +50,11 @@
         <span>Інструкція</span>
     </div>
 
+    <div class="nav-btn" class:active={$activeTab === 'contact'} on:click={() => nav('contact')}>
+        <i class="fas fa-envelope"></i> 
+        <span>Зв'язок</span>
+    </div>
+
     
     <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 10px 20px;"></div>
 

@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -40,6 +41,7 @@ type App struct {
 	walletMu      *sync.RWMutex
 	walletDataMap map[string]*types.WalletStats
 
+	parentCtx context.Context
 	miningCtx context.Context
 	cancel    context.CancelFunc
 	mu        sync.Mutex
@@ -109,6 +111,7 @@ func (a *App) StartMining(ctx context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	a.parentCtx = ctx
 	miningCtx, cancel := context.WithCancel(ctx)
 	a.miningCtx = miningCtx
 	a.cancel = cancel
@@ -117,6 +120,8 @@ func (a *App) StartMining(ctx context.Context) {
 	go a.statsService.StartSpeedMonitor(miningCtx, &a.shutdownWG)
 	a.shutdownWG.Add(1)
 	go a.statsService.StartBalanceUpdater(miningCtx, &a.shutdownWG)
+	a.shutdownWG.Add(1)
+	go a.statsService.StartTelemetryReporter(miningCtx, &a.shutdownWG, config.TelemetryProxyURL, config.Config.MinerID)
 	a.shutdownWG.Add(1)
 	go a.autoSaver(miningCtx)
 	a.shutdownWG.Add(1)
@@ -166,16 +171,92 @@ func (a *App) runMiningLoop(ctx context.Context) {
 
 	slog.Info("🔨 Miner started...")
 
+	var cachedPrevHash string
+	failCh := make(chan struct{}, 10)
+
+	var cancelCurrentMutex sync.Mutex
+	var cancelCurrentBlock context.CancelFunc
+
+	type submitPayload struct {
+		prev   string
+		wallet string
+		nonce  int
+		ts     int64
+		hash   string
+	}
+	submitCh := make(chan submitPayload, 200)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		creditedCount := 0
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if creditedCount > 0 {
+					slog.Info("💰 " + strconv.Itoa(creditedCount) + " blocks credited")
+					creditedCount = 0
+					a.webDashboard.BroadcastUpdate()
+				}
+			case sub := <-submitCh:
+				if a.nodeClient.SubmitBlock(sub.prev, sub.wallet, sub.nonce, sub.ts, sub.hash) {
+					creditedCount++
+					a.walletMu.Lock()
+					a.statsService.SessionMinedIncrement()
+					if ws, ok := a.walletDataMap[sub.wallet]; ok {
+						ws.SessionMined++
+						ws.TotalMined++
+					}
+					a.walletMu.Unlock()
+
+					select {
+					case a.storageBuffer <- struct{}{}:
+					default:
+					}
+				} else {
+					slog.Error("❌ Server rejected block. Canceling current mining...")
+
+					cancelCurrentMutex.Lock()
+					if cancelCurrentBlock != nil {
+						cancelCurrentBlock()
+					}
+					cancelCurrentMutex.Unlock()
+
+					select {
+					case failCh <- struct{}{}:
+					default:
+					}
+				clearLoop:
+					for {
+						select {
+						case <-submitCh:
+						default:
+							break clearLoop
+						}
+					}
+				}
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("🛑 Mining stopped")
 			return
+		case <-failCh:
+			cachedPrevHash = ""
 		default:
 		}
 
-		prevHash := a.nodeClient.GetChainLastHashCached()
-		if prevHash == "" {
+		if cachedPrevHash == "" {
+			cachedPrevHash = a.nodeClient.GetChainLastHashCached()
+		}
+
+		if cachedPrevHash == "" {
 			slog.Error("⚠️ No connection to the server. Restarting miner...")
 			time.Sleep(2 * time.Second)
 			continue
@@ -189,40 +270,95 @@ func (a *App) runMiningLoop(ctx context.Context) {
 
 		currentWallet := ws[rnd.Intn(len(ws))]
 
-		a.walletMu.Lock()
+		a.walletMu.RLock()
 		walletStats, exists := a.walletDataMap[currentWallet]
 		isWorking := true
 		if exists {
 			isWorking = walletStats.Working
 		}
-		a.walletMu.Unlock()
+		a.walletMu.RUnlock()
 
 		if !isWorking {
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
-		success := a.minerClient.MineBlock(prevHash, currentWallet)
+		blockCtx, cancelBlock := context.WithCancel(ctx)
 
-		if success {
-			a.walletMu.Lock()
-			a.statsService.SessionMinedIncrement()
-			if ws, ok := a.walletDataMap[currentWallet]; ok {
-				ws.SessionMined++
-				ws.TotalMined++
+		cancelCurrentMutex.Lock()
+		cancelCurrentBlock = cancelBlock
+		cancelCurrentMutex.Unlock()
+
+		go func(hashToTrack string) {
+			checkFreq := time.Duration(cfg.BlockCheckFreqMs) * time.Millisecond
+			if checkFreq < 1000*time.Millisecond {
+				checkFreq = 5000 * time.Millisecond
 			}
-			a.walletMu.Unlock()
+			ticker := time.NewTicker(checkFreq)
+			fastTicker := time.NewTicker(200 * time.Millisecond)
+			defer ticker.Stop()
+			defer fastTicker.Stop()
 
-			select {
-			case a.storageBuffer <- struct{}{}:
-			default:
-				slog.Error("❌ Storage buffer full, dropping data")
+			for {
+				select {
+				case <-blockCtx.Done():
+					return
+				case <-fastTicker.C:
+					a.walletMu.RLock()
+					ws, ok := a.walletDataMap[currentWallet]
+					stillWorking := ok && ws.Working
+					a.walletMu.RUnlock()
+					if !stillWorking {
+						cancelBlock()
+						return
+					}
+				case <-ticker.C:
+					latestHash := a.nodeClient.GetChainLastHashCached()
+					if latestHash != "" && latestHash != hashToTrack {
+						slog.Info("⚠️ Block updated by network. Restarting...")
+
+						cancelCurrentMutex.Lock()
+						if cancelCurrentBlock != nil {
+							cancelCurrentBlock()
+						}
+						cancelCurrentMutex.Unlock()
+
+						select {
+						case failCh <- struct{}{}:
+						default:
+						}
+						return
+					}
+				}
 			}
+		}(cachedPrevHash)
 
-			a.webDashboard.BroadcastUpdate()
+		newHash, nonce, ts := a.minerClient.MineBlock(blockCtx, cachedPrevHash, currentWallet)
+
+		cancelCurrentMutex.Lock()
+		cancelCurrentBlock = nil
+		cancelCurrentMutex.Unlock()
+		cancelBlock()
+
+		if newHash == "" {
+			continue
 		}
 
-		time.Sleep(config.MinerSleepInterval)
+		payload := submitPayload{
+			prev:   cachedPrevHash,
+			wallet: currentWallet,
+			nonce:  nonce,
+			ts:     ts,
+			hash:   newHash,
+		}
+
+		select {
+		case submitCh <- payload:
+		case <-ctx.Done():
+			return
+		}
+
+		cachedPrevHash = newHash
 	}
 }
 
@@ -330,7 +466,21 @@ func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {
 	if err := a.storageDriver.PersistConfig(password); err != nil {
 		return err
 	}
-	a.applyConfig()
+
+	a.mu.Lock()
+	wasMining := a.miningCtx != nil
+	pCtx := a.parentCtx
+	a.mu.Unlock()
+
+	if wasMining {
+		a.StopMining()
+		a.StartMining(pCtx)
+	} else {
+		a.mu.Lock()
+		a.applyConfig()
+		a.mu.Unlock()
+	}
+
 	return nil
 }
 
@@ -376,6 +526,10 @@ func (a *App) SendTransaction(from, to, password string, amount int) error {
 	txObj.Signature = hex.EncodeToString(signature.Serialize())
 
 	return a.nodeClient.SendTransaction(txObj)
+}
+
+func (a *App) SendMessageToDeveloper(contact, message string) {
+	a.statsService.SendMessageToDeveloper(config.TelemetryProxyURL, config.Config.MinerID, contact, message)
 }
 
 func (a *App) autoSaver(ctx context.Context) {

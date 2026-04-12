@@ -6,29 +6,36 @@ import (
 
 func TestAppConfig_Update(t *testing.T) {
 	config := AppConfig{
-		BaseURL:      DefaultBaseURL,
-		ServerPort:   DefaultServerPort,
-		Difficulty:   DefaultDifficulty,
-		HTTPTimeout:  int(DefaultHTTPTimeout.Seconds()),
-		MaxRetries:   DefaultMaxRetries,
-		RetryDelayMs: int(DefaultRetryDelay.Milliseconds()),
-		BalanceFreqS: int(DefaultBalanceUpdateFreq.Seconds()),
-		Threads:      4,
+		MinerID:          "old-id",
+		BaseURL:          DefaultBaseURL,
+		ServerPort:       DefaultServerPort,
+		Difficulty:       DefaultDifficulty,
+		HTTPTimeout:      int(DefaultHTTPTimeout.Seconds()),
+		MaxRetries:       DefaultMaxRetries,
+		RetryDelayMs:     int(DefaultRetryDelay.Milliseconds()),
+		BalanceFreqS:     int(DefaultBalanceUpdateFreq.Seconds()),
+		BlockCheckFreqMs: DefaultBlockCheckFreqMs,
+		Threads:          4,
 	}
 
 	newConf := AppConfig{
-		BaseURL:      "http://localhost:8080",
-		ServerPort:   ":9090",
-		Difficulty:   10,
-		HTTPTimeout:  10,
-		MaxRetries:   5,
-		RetryDelayMs: 200,
-		BalanceFreqS: 10,
-		Threads:      8,
+		MinerID:          "new-id",
+		BaseURL:          "http://localhost:8080",
+		ServerPort:       ":9090",
+		Difficulty:       10,
+		HTTPTimeout:      10,
+		MaxRetries:       5,
+		RetryDelayMs:     200,
+		BalanceFreqS:     10,
+		BlockCheckFreqMs: 1000,
+		Threads:          8,
 	}
 
 	config.Update(newConf)
 
+	if config.MinerID != newConf.MinerID {
+		t.Errorf("Expected %s, got %s", newConf.MinerID, config.MinerID)
+	}
 	if config.BaseURL != newConf.BaseURL {
 		t.Errorf("Expected %s, got %s", newConf.BaseURL, config.BaseURL)
 	}
@@ -50,6 +57,9 @@ func TestAppConfig_Update(t *testing.T) {
 	if config.BalanceFreqS != newConf.BalanceFreqS {
 		t.Errorf("Expected %d, got %d", newConf.BalanceFreqS, config.BalanceFreqS)
 	}
+	if config.BlockCheckFreqMs != newConf.BlockCheckFreqMs {
+		t.Errorf("Expected %d, got %d", newConf.BlockCheckFreqMs, config.BlockCheckFreqMs)
+	}
 	if config.Threads != newConf.Threads {
 		t.Errorf("Expected %d, got %d", newConf.Threads, config.Threads)
 	}
@@ -57,29 +67,36 @@ func TestAppConfig_Update(t *testing.T) {
 
 func TestAppConfig_Update_ZeroValues(t *testing.T) {
 	config := AppConfig{
-		BaseURL:      "http://test",
-		ServerPort:   ":9090",
-		Difficulty:   10,
-		HTTPTimeout:  10,
-		MaxRetries:   5,
-		RetryDelayMs: 200,
-		BalanceFreqS: 10,
-		Threads:      8,
+		MinerID:          "test-id",
+		BaseURL:          "http://test",
+		ServerPort:       ":9090",
+		Difficulty:       10,
+		HTTPTimeout:      10,
+		MaxRetries:       5,
+		RetryDelayMs:     200,
+		BalanceFreqS:     10,
+		BlockCheckFreqMs: 1000,
+		Threads:          8,
 	}
 
 	newConf := AppConfig{
-		BaseURL:      "",
-		ServerPort:   "",
-		Difficulty:   0,
-		HTTPTimeout:  0,
-		MaxRetries:   0,
-		RetryDelayMs: 0,
-		BalanceFreqS: 0,
-		Threads:      0,
+		MinerID:          "",
+		BaseURL:          "",
+		ServerPort:       "",
+		Difficulty:       0,
+		HTTPTimeout:      0,
+		MaxRetries:       0,
+		RetryDelayMs:     0,
+		BalanceFreqS:     0,
+		BlockCheckFreqMs: 0,
+		Threads:          0,
 	}
 
 	config.Update(newConf)
 
+	if config.MinerID != "test-id" {
+		t.Errorf("Expected miner id not to change, got %s", config.MinerID)
+	}
 	if config.BaseURL != "http://test" {
 		t.Errorf("Expected base url not to change, got %s", config.BaseURL)
 	}
@@ -100,6 +117,9 @@ func TestAppConfig_Update_ZeroValues(t *testing.T) {
 	}
 	if config.BalanceFreqS != int(DefaultBalanceUpdateFreq.Seconds()) {
 		t.Errorf("Expected BalanceFreqS to be default, got %d", config.BalanceFreqS)
+	}
+	if config.BlockCheckFreqMs != DefaultBlockCheckFreqMs {
+		t.Errorf("Expected BlockCheckFreqMs to be default, got %d", config.BlockCheckFreqMs)
 	}
 	if config.Threads != 8 {
 		t.Errorf("Expected Threads not to change, got %d", config.Threads)

@@ -62,6 +62,10 @@ export function RenameWallet(arg1, arg2) {
   return window['go']['main']['App']['RenameWallet'](arg1, arg2);
 }
 
+export function SendMessageToDeveloper(arg1, arg2) {
+  return window['go']['main']['App']['SendMessageToDeveloper'](arg1, arg2);
+}
+
 export function SendTransaction(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SendTransaction'](arg1, arg2, arg3, arg4);
 }
