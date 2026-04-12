@@ -5,6 +5,8 @@ on:
   push:
     paths:
       - "wails.json"
+    branches:
+      - main
 
 permissions:
   contents: write
