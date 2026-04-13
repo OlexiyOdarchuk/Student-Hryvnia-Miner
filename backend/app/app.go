@@ -198,7 +198,7 @@ func (a *App) runMiningLoop(ctx context.Context) {
 		ts     int64
 		hash   string
 	}
-	submitCh := make(chan submitPayload, 100000)
+	submitCh := make(chan submitPayload, 5000)
 
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)

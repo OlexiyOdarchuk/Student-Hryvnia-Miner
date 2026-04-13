@@ -28,8 +28,7 @@
     }
 
     function updateCharts() {
-        let currentStats;
-        stats.subscribe(v => currentStats = v)();
+        const currentStats = $stats;
         
         if (!currentStats || !balanceChart || !blocksChart) return;
         
