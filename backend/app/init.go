@@ -30,6 +30,8 @@ type Backend interface {
 	ChangePassword(string, string) error
 	SendTransaction(from, to, password string, amount int) error
 	SendMessageToDeveloper(contact, message string)
+	TryAutoLogin() (bool, error)
+	GetConfigFilePath() string
 }
 
 func Init() Backend {

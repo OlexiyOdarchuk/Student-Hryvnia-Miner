@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { GetConfig, UpdateConfig, ChangePassword, GetSystemInfo } from '../../wailsjs/go/main/App';
-
+    import { GetConfig, UpdateConfig, ChangePassword, GetSystemInfo, GetConfigFilePath, OpenConfigFolder } from '../../wailsjs/go/main/App';
     let config = {
         miner_id: '',
         telegram_handle: '',
@@ -28,9 +27,11 @@
     let confirmPass = '';
     let passMsg = '';
     let isPassError = false;
+    let configPath = "Завантаження..."; 
 
     onMount(async () => {
         config = await GetConfig();
+        configPath = await GetConfigFilePath(); 
         try {
             const info = await GetSystemInfo();
             if (info && info.cpu_cores) {
@@ -72,6 +73,11 @@
             oldPass = ''; newPass = ''; confirmPass = '';
         }
     }
+
+    function handleOpenFolder() {
+        OpenConfigFolder();
+    }
+
 </script>
 
 <div class="content-wrapper">
@@ -83,6 +89,20 @@
         
         
         <h3 style="margin-bottom: 20px; color: white;">Конфігурація майнера</h3>
+        <div class="settings-card">
+            <h3>Дані програми</h3>
+                
+            <div class="path-container">
+                <div class="path-info">
+                    <span class="label">Шлях до конфігурації:</span>
+                    <code style="user-select: all;">{configPath}</code>
+                </div>
+                    
+                <button class="btn btn-secondary btn-sm" on:click={handleOpenFolder}>
+                    <i class="fas fa-folder-open"></i> Відкрити папку
+                </button>
+            </div>
+        </div>
         <form on:submit|preventDefault={save} style="display: grid; gap: 25px;">
             <div style="padding: 15px; background: rgba(129, 140, 248, 0.05); border-radius: 12px; border: 1px solid rgba(129, 140, 248, 0.1);">
                 <label class="field-label" style="color: var(--primary);">Ваш унікальний Miner ID</label>
@@ -143,7 +163,7 @@
             
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
                 <label class="field-label" style="color: var(--primary);">Підтвердіть поточним паролем</label>
-                <input type="password" class="field" bind:value={password} placeholder="Поточний пароль" required>
+                <input type="password" class="field" bind:value={password} placeholder="Поточний пароль">
             </div>
             
             {#if message}
@@ -162,16 +182,16 @@
         <form on:submit|preventDefault={changePass} style="display: grid; gap: 20px;">
             <div>
                 <label class="field-label">Поточний пароль</label>
-                <input type="password" class="field" bind:value={oldPass} required>
+                <input type="password" class="field" bind:value={oldPass}>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
                     <label class="field-label">Новий пароль</label>
-                    <input type="password" class="field" bind:value={newPass} required minlength="4">
+                    <input type="password" class="field" bind:value={newPass} minlength="4">
                 </div>
                 <div>
                     <label class="field-label">Підтвердіть новий</label>
-                    <input type="password" class="field" bind:value={confirmPass} required minlength="4">
+                    <input type="password" class="field" bind:value={confirmPass} minlength="4">
                 </div>
             </div>
             

@@ -15,6 +15,8 @@ export function GenerateKeyPair():Promise<Record<string, string>>;
 
 export function GetConfig():Promise<config.AppConfig>;
 
+export function GetConfigFilePath():Promise<string>;
+
 export function GetDashboardData():Promise<types.DashboardData>;
 
 export function GetSystemInfo():Promise<Record<string, any>>;
@@ -31,6 +33,8 @@ export function InitStorage(arg1:string):Promise<string>;
 
 export function IsStorageInitialized():Promise<boolean>;
 
+export function OpenConfigFolder():Promise<void>;
+
 export function RenameWallet(arg1:string,arg2:string):Promise<string>;
 
 export function SendMessageToDeveloper(arg1:string,arg2:string):Promise<void>;
@@ -40,6 +44,8 @@ export function SendTransaction(arg1:string,arg2:string,arg3:string,arg4:number)
 export function SetGlobalMining(arg1:boolean):Promise<void>;
 
 export function ToggleWallet(arg1:string):Promise<boolean>;
+
+export function TryAutoLogin():Promise<boolean>;
 
 export function UnlockStorage(arg1:string):Promise<string>;
 

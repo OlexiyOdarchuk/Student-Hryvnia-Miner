@@ -7,6 +7,8 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"os/exec"
+	"path/filepath"
 	stdRuntime "runtime"
 	"shminer/backend/app"
 	"shminer/backend/config"
@@ -93,6 +95,21 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 // --- Auth Methods ---
+
+func (a *App) TryAutoLogin() bool {
+	success, err := a.backendApp.TryAutoLogin()
+
+	if err == nil && success {
+		a.startMining()
+		return true
+	}
+
+	if err != nil && err.Error() != "Невірний пароль" && err.Error() != "not_found" {
+		slog.Error("Помилка автологіну", "err", err)
+	}
+
+	return false
+}
 
 func (a *App) GenerateKeyPair() (map[string]string, error) {
 	privKey, err := secp256k1.GeneratePrivateKey()
@@ -274,4 +291,27 @@ func (a *App) CheckAndApplyUpdate() (string, error) {
 	}
 
 	return "The update was successful. Please restart the app.", nil
+}
+
+func (a *App) GetConfigFilePath() string {
+	return a.backendApp.GetConfigFilePath()
+}
+
+func (a *App) OpenConfigFolder() {
+	filePath := a.GetConfigFilePath()
+	dir := filepath.Dir(filePath)
+
+	var err error
+	switch stdRuntime.GOOS {
+	case "windows":
+		err = exec.Command("explorer", dir).Start()
+	case "darwin":
+		err = exec.Command("open", dir).Start()
+	case "linux":
+		err = exec.Command("xdg-open", dir).Start()
+	}
+
+	if err != nil {
+		slog.Error("Не вдалося відкрити папку конфігу", "err", err)
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"shminer/backend/config"
 	"shminer/backend/types"
 	"sync"
@@ -16,8 +17,6 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/argon2"
 )
-
-const StorageFile = "SHMinerSettings.bin"
 
 type Storage struct {
 	mu              sync.RWMutex
@@ -27,6 +26,48 @@ type Storage struct {
 
 func NewDriver() *Storage {
 	return &Storage{}
+}
+
+func getSettingsPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return config.ConfigFileName, nil
+	}
+
+	appDir := filepath.Join(configDir, config.AppName)
+
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		return "", err
+	}
+
+	return filepath.Join(appDir, config.ConfigFileName), nil
+}
+
+func (s *Storage) GetConfigFilePath() string {
+	path, err := getSettingsPath()
+	if err != nil {
+		return "Невідомий шлях"
+	}
+	return path
+}
+
+func (s *Storage) TryAutoLogin() (bool, error) {
+	if !s.CheckExists() {
+		return false, errors.New("not_found")
+	}
+
+	err := s.LoadStorage("")
+
+	if err == nil {
+		slog.Info("🔓 Автологін (Пароль не встановлено)")
+		return true, nil
+	}
+
+	if err.Error() == "Невірний пароль" {
+		return false, nil
+	}
+
+	return false, err
 }
 
 func (s *Storage) GetSessionPassword() string {
@@ -44,6 +85,11 @@ func (s *Storage) GetStorage() types.StorageData {
 func (s *Storage) UpdateWallets(newWallets []types.WalletStats) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	for i := range newWallets {
+		newWallets[i].SessionMined = 0
+	}
+
 	s.currentStorage.Wallets = newWallets
 }
 
@@ -119,11 +165,17 @@ func (s *Storage) SaveStorage(password string, data types.StorageData) error {
 
 	finalData := append(salt, ciphertext...)
 
-	return os.WriteFile(StorageFile, finalData, 0644)
+	configPath, err := getSettingsPath()
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, finalData, 0644)
 }
 
 func (s *Storage) LoadStorage(password string) error {
-	fileData, err := os.ReadFile(StorageFile)
+	configPath, err := getSettingsPath()
+	fileData, err := os.ReadFile(configPath)
 	if os.IsNotExist(err) {
 		return errors.New("not_found")
 	}
@@ -186,6 +238,10 @@ func (s *Storage) applyLoadedData() {
 }
 
 func (s *Storage) CheckExists() bool {
-	_, err := os.Stat(StorageFile)
+	configPath, err := getSettingsPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(configPath)
 	return !os.IsNotExist(err)
 }

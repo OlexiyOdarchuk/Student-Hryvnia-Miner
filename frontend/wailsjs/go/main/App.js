@@ -26,6 +26,10 @@ export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
+export function GetConfigFilePath() {
+  return window['go']['main']['App']['GetConfigFilePath']();
+}
+
 export function GetDashboardData() {
   return window['go']['main']['App']['GetDashboardData']();
 }
@@ -58,6 +62,10 @@ export function IsStorageInitialized() {
   return window['go']['main']['App']['IsStorageInitialized']();
 }
 
+export function OpenConfigFolder() {
+  return window['go']['main']['App']['OpenConfigFolder']();
+}
+
 export function RenameWallet(arg1, arg2) {
   return window['go']['main']['App']['RenameWallet'](arg1, arg2);
 }
@@ -76,6 +84,10 @@ export function SetGlobalMining(arg1) {
 
 export function ToggleWallet(arg1) {
   return window['go']['main']['App']['ToggleWallet'](arg1);
+}
+
+export function TryAutoLogin() {
+  return window['go']['main']['App']['TryAutoLogin']();
 }
 
 export function UnlockStorage(arg1) {

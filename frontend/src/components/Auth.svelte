@@ -4,6 +4,7 @@
         IsStorageInitialized,
         InitStorage,
         UnlockStorage,
+        TryAutoLogin,
     } from "../../wailsjs/go/main/App";
 
     const dispatch = createEventDispatcher();
@@ -16,7 +17,18 @@
 
     onMount(async () => {
         const initialized = await IsStorageInitialized();
-        isSetup = !initialized;
+        
+        if (initialized) {
+            const autoLogged = await TryAutoLogin();
+            if (autoLogged) {
+                dispatch("login");
+                return;
+            }
+            isSetup = false;
+        } else {
+            isSetup = true;
+        }
+        
         loading = false;
     });
 
@@ -24,8 +36,8 @@
         error = "";
 
         if (isSetup) {
-            if (password.length < 4) {
-                error = "Пароль надто короткий";
+            if (password.length > 0 && password.length < 4) {
+                error = "Пароль надто короткий (мінімум 4 символи)";
                 return;
             }
             if (password !== confirmPassword) {
@@ -55,7 +67,7 @@
 
         {#if loading}
             <div style="text-align: center; color: #94a3b8;">
-                Перевірка сховища...
+                Завантаження сховища...
             </div>
         {:else}
             <h2
@@ -70,8 +82,7 @@
                     type="password"
                     class="field"
                     bind:value={password}
-                    placeholder="Введіть пароль"
-                    required
+                    placeholder={isSetup ? "Введіть пароль (необов'язково)" : "Введіть пароль"}
                     autofocus
                 />
 
@@ -81,8 +92,7 @@
                         type="password"
                         class="field"
                         bind:value={confirmPassword}
-                        placeholder="Повторіть пароль"
-                        required
+                        placeholder="Повторіть пароль (якщо вводили)"
                     />
                 {/if}
 
@@ -107,8 +117,8 @@
                 <div
                     style="margin-top: 20px; font-size: 0.8rem; color: #64748b; text-align: center;"
                 >
-                    Цей пароль зашифрує ваші гаманці та налаштування. Не
-                    загубіть його.
+                    Задайте пароль для шифрування гаманців. <br/>
+                    <b>Або залиште поле пустим</b> для автоматичного входу.
                 </div>
             {/if}
         {/if}

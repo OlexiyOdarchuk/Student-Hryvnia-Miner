@@ -184,7 +184,7 @@ func (a *App) runMiningLoop(ctx context.Context) {
 		ts     int64
 		hash   string
 	}
-	submitCh := make(chan submitPayload, 200)
+	submitCh := make(chan submitPayload, 100000)
 
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
@@ -374,6 +374,17 @@ func (a *App) InitStorage(password string) error {
 	return nil
 }
 
+func (a *App) TryAutoLogin() (bool, error) {
+	ok, err := a.storageDriver.TryAutoLogin()
+	if err != nil {
+		return ok, err
+	}
+	if ok {
+		a.syncWalletSnapshot()
+	}
+	return ok, nil
+}
+
 func (a *App) UnlockStorage(password string) error {
 	if err := a.storageDriver.LoadStorage(password); err != nil {
 		return err
@@ -482,6 +493,10 @@ func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {
 	}
 
 	return nil
+}
+
+func (a *App) GetConfigFilePath() string {
+	return a.storageDriver.GetConfigFilePath()
 }
 
 func (a *App) ChangePassword(oldPass, newPass string) error {

@@ -20,3 +20,8 @@ const (
 const (
 	TelemetryProxyURL = "https://s-uah-miner-telemetry.ishawyha.workers.dev"
 )
+
+const (
+	AppName        = "SHMiner"
+	ConfigFileName = "SHMinerSettings.bin"
+)

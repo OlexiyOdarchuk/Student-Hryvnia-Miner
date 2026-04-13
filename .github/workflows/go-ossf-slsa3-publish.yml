@@ -70,15 +70,24 @@ jobs:
             libglib2.0-dev \
             pkg-config
 
+      - name: Install Windows Deps
+        if: matrix.goos == 'windows'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nsis mingw-w64
+
       - name: Build Project
         shell: bash
         run: |
-          wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w"
-          
-          cd build/bin/
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            mv SHMiner.exe SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.exe
+            wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w" -nsis
+            
+            cd build/bin/
+            mv SHMiner.exe SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}-portable.exe
+            mv "S-UAH Miner-${{ matrix.goarch }}-installer.exe" SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}-setup.exe
           else
+            wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w"
+            cd build/bin/
             mv SHMiner SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}
           fi
 
@@ -108,6 +117,10 @@ jobs:
           body: |
             🎉 Автоматичний реліз SHMiner
             Версія: v${{ needs.version-check.outputs.version }}
+            
+            📦 **Для Windows доступні дві версії:**
+            - `setup.exe` — Інсталятор (рекомендовано, створює ярлики та зберігає налаштування)
+            - `portable.exe` — Портативна версія (можна запускати без встановлення)
             
             У цьому релізі доступні бінарники для:
             - Windows amd64/arm64

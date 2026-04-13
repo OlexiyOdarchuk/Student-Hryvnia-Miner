@@ -1,13 +1,20 @@
 package storage
 
 import (
-	"os"
 	"shminer/backend/types"
 	"testing"
 )
 
+func setupTestEnv(t *testing.T) {
+	tempDir := t.TempDir()
+
+	t.Setenv("APPDATA", tempDir)         // Windows
+	t.Setenv("XDG_CONFIG_HOME", tempDir) // Linux
+	t.Setenv("HOME", tempDir)            // macOS та fallback для Linux
+}
+
 func TestStorage_InitAndLoad(t *testing.T) {
-	defer os.Remove(StorageFile)
+	setupTestEnv(t)
 
 	s := NewDriver()
 	err := s.InitStorage("my_secure_password")
@@ -31,7 +38,7 @@ func TestStorage_InitAndLoad(t *testing.T) {
 }
 
 func TestStorage_ChangePassword(t *testing.T) {
-	defer os.Remove(StorageFile)
+	setupTestEnv(t)
 
 	s := NewDriver()
 	s.InitStorage("old_password")
@@ -59,7 +66,7 @@ func TestStorage_ChangePassword(t *testing.T) {
 }
 
 func TestStorage_UpdateWallets(t *testing.T) {
-	defer os.Remove(StorageFile)
+	setupTestEnv(t)
 
 	s := NewDriver()
 	s.InitStorage("test")
