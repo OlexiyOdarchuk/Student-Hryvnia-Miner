@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
+
 	"log/slog"
 	"math"
 	"net/http"
@@ -71,6 +72,7 @@ func (ac *ApiClient) GetChainLastHashCached() string {
 		if len(chain) == 0 {
 			return errors.New("chain response empty")
 		}
+		io.Copy(io.Discard, resp.Body)
 		result = chain[len(chain)-1].Hash
 		return nil
 	})
@@ -81,56 +83,23 @@ func (ac *ApiClient) GetChainLastHashCached() string {
 }
 
 func (ac *ApiClient) SubmitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
-	payload := map[string]struct {
-		PrevHash     string        `json:"prevHash"`
-		Transactions []Transaction `json:"transactions"`
-		Nonce        int           `json:"nonce"`
-		Miner        string        `json:"miner"`
-		Reward       int           `json:"reward"`
-		Timestamp    int64         `json:"timestamp"`
-		Hash         string        `json:"hash"`
-	}{
-		"block": {
-			PrevHash: prev,
-			Transactions: []Transaction{
-				{
-					From:   "",
-					To:     wallet,
-					Amount: 1,
-				},
-			},
-			Nonce:     nonce,
-			Miner:     wallet,
-			Reward:    1,
-			Timestamp: ts,
-			Hash:      hash,
-		},
-	}
+	body := buildBody(prev, wallet, nonce, ts, hash)
 
-	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", ac.baseUrl+"/submit-block", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 
-	var success bool
-	err := ac.retryWithBackoff(func() error {
-		req, _ := http.NewRequest("POST", ac.baseUrl+"/submit-block", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := ac.httpClient.Do(req)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		body, _ := ioutil.ReadAll(resp.Body)
-		if resp.StatusCode != 200 && resp.StatusCode != 201 {
-			return errors.New("stats " + strconv.Itoa(resp.StatusCode) + ": " + string(body))
-		}
-		success = true
-		return nil
-	})
-
+	resp, err := ac.httpClient.Do(req)
 	if err != nil {
-		slog.Error("❌ Помилка при відправці блоку", "error", err)
 		return false
 	}
-	return success
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		return false
+	}
+
+	return true
 }
 
 func (ac *ApiClient) GetBalance(addr string) float64 {
@@ -144,7 +113,7 @@ func (ac *ApiClient) GetBalance(addr string) float64 {
 		if resp.StatusCode != 200 {
 			return errors.New("stats " + strconv.Itoa(resp.StatusCode))
 		}
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		var data struct {
 			Balance float64 `json:"balance"`
 		}
@@ -182,7 +151,7 @@ func (ac *ApiClient) SendTransaction(tx types.TxPayload) error {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, _ := io.ReadAll(resp.Body)
 			var errResp struct {
 				Message string `json:"message"`
 				Error   string `json:"error"`
@@ -197,6 +166,7 @@ func (ac *ApiClient) SendTransaction(tx types.TxPayload) error {
 			}
 			return errors.New("Server rejected the transaction: " + string(body))
 		}
+		io.Copy(io.Discard, resp.Body)
 		return nil
 	})
 }
@@ -223,4 +193,38 @@ func (ac *ApiClient) retryWithBackoff(fn func() error) error {
 		}
 	}
 	return lastErr
+}
+
+func buildBody(prev, wallet string, nonce int, ts int64, hash string) []byte {
+	buf := make([]byte, 0, 256)
+
+	buf = append(buf, `{"block":{`...)
+
+	buf = append(buf, `"prevHash":"`...)
+	buf = append(buf, prev...)
+	buf = append(buf, `",`...)
+
+	buf = append(buf, `"transactions":[{"from":"","to":"`...)
+	buf = append(buf, wallet...)
+	buf = append(buf, `","amount":1}],`...)
+
+	buf = append(buf, `"nonce":`...)
+	buf = strconv.AppendInt(buf, int64(nonce), 10)
+	buf = append(buf, `,`...)
+
+	buf = append(buf, `"miner":"`...)
+	buf = append(buf, wallet...)
+	buf = append(buf, `",`...)
+
+	buf = append(buf, `"reward":1,`...)
+
+	buf = append(buf, `"timestamp":`...)
+	buf = strconv.AppendInt(buf, ts, 10)
+	buf = append(buf, `,`...)
+
+	buf = append(buf, `"hash":"`...)
+	buf = append(buf, hash...)
+	buf = append(buf, `"}}`...)
+
+	return buf
 }

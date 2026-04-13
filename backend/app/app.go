@@ -51,13 +51,26 @@ type noopWebDashBoard struct{}
 
 func (noopWebDashBoard) BroadcastUpdate() {}
 
+func getOptimizedTransport() *http.Transport {
+	return &http.Transport{
+		ForceAttemptHTTP2:   true,
+		MaxIdleConns:        10000,
+		MaxIdleConnsPerHost: 10000,
+		MaxConnsPerHost:     10000,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+		DisableCompression:  true,
+	}
+}
+
 func New() *App {
 	walletMu := &sync.RWMutex{}
 	walletDataMap := make(map[string]*types.WalletStats)
 	storageDriver := storage.NewDriver()
 
 	httpClient := &http.Client{
-		Timeout: time.Duration(config.Config.HTTPTimeout) * time.Second,
+		Transport: getOptimizedTransport(),
+		Timeout:   time.Duration(config.Config.HTTPTimeout) * time.Second,
 	}
 
 	node := nodeclient.NewApiClient(
@@ -94,7 +107,7 @@ func New() *App {
 func (a *App) StartApp(logCallback func(types.LogEntry)) {
 	uiLogger := slog.New(&logger.UIHandler{
 		LogCallback: logCallback,
-		Handler:     slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
+		Handler:     slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
 	})
 	slog.SetDefault(uiLogger)
 }
@@ -141,7 +154,8 @@ func (a *App) StopMining() {
 
 func (a *App) applyConfig() {
 	httpClient := &http.Client{
-		Timeout: time.Duration(config.Config.HTTPTimeout) * time.Second,
+		Transport: getOptimizedTransport(),
+		Timeout:   time.Duration(config.Config.HTTPTimeout) * time.Second,
 	}
 
 	node := nodeclient.NewApiClient(
