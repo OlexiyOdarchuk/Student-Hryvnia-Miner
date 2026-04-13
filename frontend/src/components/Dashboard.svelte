@@ -35,6 +35,8 @@
     let pulseClass = "";
     let pulseTimer: any = null;
 
+    $: displayLogs = $logs.slice().reverse().slice(0, 50);
+
     $: if ($stats && $stats.session_blocks > lastSessionBlocks) {
         if (pulseTimer) clearTimeout(pulseTimer);
         pulseClass = "pulse-active";
@@ -114,8 +116,7 @@
                 });
 
                 chartInterval = setInterval(() => {
-                    let currentStats;
-                    stats.subscribe(v => currentStats = v)();
+                    const currentStats = $stats;
                     if (chart && currentStats) {
                         try {
                             const ds = chart.data.datasets[0].data;
@@ -236,7 +237,7 @@
                 id="quick-stats-container"
                 style="flex: 1; overflow-y: auto; min-height: 0;"
             >
-                {#each $logs.slice().reverse().slice(0, 50) as log}
+                {#each displayLogs as log (log.id || log.message + log.time)}
                     <div class="log-row-mini {log.type}">
                         <span
                             style="opacity:0.5; margin-right: 8px; font-size: 0.8em;"
