@@ -34,6 +34,14 @@ export function GetDashboardData() {
   return window['go']['main']['App']['GetDashboardData']();
 }
 
+export function GetDashboardURL() {
+  return window['go']['main']['App']['GetDashboardURL']();
+}
+
+export function GetLocalIP() {
+  return window['go']['main']['App']['GetLocalIP']();
+}
+
 export function GetSystemInfo() {
   return window['go']['main']['App']['GetSystemInfo']();
 }

@@ -203,17 +203,18 @@ func (s *Stats) appendTwoDigits(dst []byte, v int) []byte {
 
 func (s *Stats) UpdateSingleBalance(wallet string) {
 	bal := s.nodeClient.GetBalance(wallet)
+
 	s.mu.Lock()
 	if val, ok := s.walletDataMap[wallet]; ok {
 		val.ServerBalance = bal
 	}
 	s.mu.Unlock()
+
 	s.webDashboard.BroadcastUpdate()
 }
 
 func (s *Stats) GetDashboardData() types.DashboardData {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	addrs := s.wallets.GetWallets()
 
 	hashVal := s.stats.GlobalHashrate.Load()
 	var hash float64
@@ -223,26 +224,30 @@ func (s *Stats) GetDashboardData() types.DashboardData {
 
 	totalBal := 0.0
 	var lifetimeBlocks uint32
-	var wStats []types.WalletStats
+	wStats := make([]types.WalletStats, 0, len(addrs))
 
-	for _, addr := range s.wallets.GetWallets() {
-		if ws, ok := s.walletDataMap[addr]; ok {
-			totalBal += ws.ServerBalance
-			lifetimeBlocks += ws.TotalMined
-			wStats = append(wStats, types.WalletStats{
-				Address:       ws.Address,
-				Name:          ws.Name,
-				ServerBalance: ws.ServerBalance,
-				SessionMined:  ws.SessionMined,
-				TotalMined:    ws.TotalMined,
-				Working:       ws.Working,
-			})
+	s.mu.RLock()
+	for _, addr := range addrs {
+		ws, ok := s.walletDataMap[addr]
+		if !ok {
+			continue
 		}
+		totalBal += ws.ServerBalance
+		lifetimeBlocks += ws.TotalMined
+		wStats = append(wStats, types.WalletStats{
+			Address:       ws.Address,
+			Name:          ws.Name,
+			ServerBalance: ws.ServerBalance,
+			SessionMined:  ws.SessionMined,
+			TotalMined:    ws.TotalMined,
+			Working:       ws.Working,
+		})
 	}
+	s.mu.RUnlock()
 
 	return types.DashboardData{
 		Hashrate:       hash,
-		SessionBlocks:  s.stats.SessionMined,
+		SessionBlocks:  atomic.LoadUint32(&s.stats.SessionMined),
 		LifetimeBlocks: lifetimeBlocks,
 		Uptime:         s.formatDuration(time.Since(s.stats.StartTime)),
 		TotalBalance:   totalBal,

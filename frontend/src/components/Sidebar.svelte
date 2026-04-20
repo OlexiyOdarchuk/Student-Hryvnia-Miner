@@ -1,17 +1,57 @@
 <script lang="ts">
-    import { activeTab } from '../stores';
+    import { activeTab, notifications } from '../stores';
     import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
-    import { GetConfig } from '../../wailsjs/go/main/App';
+    import { GetConfig, GetLocalIP } from '../../wailsjs/go/main/App';
 
     function nav(tab) {
         activeTab.set(tab);
+    }
+
+    async function copyToClipboard(text: string): Promise<boolean> {
+        if (navigator.clipboard && window.isSecureContext !== false) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (_) {
+            }
+        }
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try {
+            ok = document.execCommand("copy");
+        } finally {
+            document.body.removeChild(ta);
+        }
+        return ok;
     }
 
     async function openWebMonitor() {
         const conf = await GetConfig();
         let port = conf.server_port || ":8080";
         if (port.startsWith(":")) port = port.substring(1);
-        BrowserOpenURL(`http://localhost:${port}`);
+
+        const lanIP = await GetLocalIP();
+        const host = lanIP || "localhost";
+        const lanURL = `http://${host}:${port}`;
+
+        if (lanIP) {
+            const copied = await copyToClipboard(lanURL);
+            if (copied) {
+                notifications.success("Посилання скопійовано!");
+            } else {
+                notifications.info(lanURL);
+            }
+        } else {
+            notifications.info("Мережевий IP не знайдено — відкриваю на цьому ПК.");
+        }
+
+        BrowserOpenURL(lanURL);
     }
 </script>
 

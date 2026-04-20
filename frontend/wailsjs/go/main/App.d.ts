@@ -19,6 +19,10 @@ export function GetConfigFilePath():Promise<string>;
 
 export function GetDashboardData():Promise<types.DashboardData>;
 
+export function GetDashboardURL():Promise<string>;
+
+export function GetLocalIP():Promise<string>;
+
 export function GetSystemInfo():Promise<Record<string, any>>;
 
 export function GetWalletJSONSecure(arg1:string,arg2:string):Promise<string>;

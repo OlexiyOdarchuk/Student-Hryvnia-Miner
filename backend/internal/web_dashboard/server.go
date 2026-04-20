@@ -16,9 +16,9 @@ type dashboardDataGetter interface {
 }
 
 type Server struct {
-	port      string // must begin with ":", for example ":8080"
+	port      string
 	dashboard dashboardDataGetter
-	clients   map[*websocket.Conn]bool
+	clients   map[*websocket.Conn]struct{}
 	clientsMu sync.Mutex
 	upgrader  websocket.Upgrader
 }
@@ -27,27 +27,17 @@ func NewServer(port string, dashboard dashboardDataGetter) *Server {
 	return &Server{
 		port:      port,
 		dashboard: dashboard,
-		clients:   make(map[*websocket.Conn]bool),
-		clientsMu: sync.Mutex{},
+		clients:   make(map[*websocket.Conn]struct{}),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
 	}
 }
 
-func (s *Server) BroadcastUpdate() {
-	s.clientsMu.Lock()
-	defer s.clientsMu.Unlock()
-
-	if len(s.clients) == 0 {
-		return
-	}
-
-	fullData := s.dashboard.GetDashboardData()
-
-	var safeWallets []map[string]interface{}
-	for _, wallet := range fullData.Wallets {
-		safeWallets = append(safeWallets, map[string]interface{}{
+func buildResponse(data types.DashboardData) map[string]any {
+	safeWallets := make([]map[string]any, 0, len(data.Wallets))
+	for _, wallet := range data.Wallets {
+		safeWallets = append(safeWallets, map[string]any{
 			"address":        wallet.Address,
 			"name":           wallet.Name,
 			"session_mined":  wallet.SessionMined,
@@ -56,26 +46,51 @@ func (s *Server) BroadcastUpdate() {
 			"working":        wallet.Working,
 		})
 	}
-
-	response := map[string]interface{}{
-		"hashrate":      fullData.Hashrate,
-		"total_balance": fullData.TotalBalance,
-		"uptime":        fullData.Uptime,
+	return map[string]any{
+		"hashrate":      data.Hashrate,
+		"total_balance": data.TotalBalance,
+		"uptime":        data.Uptime,
 		"wallets":       safeWallets,
 	}
+}
 
-	msg, err := json.Marshal(response)
+func (s *Server) BroadcastUpdate() {
+	s.clientsMu.Lock()
+	hasClients := len(s.clients) > 0
+	s.clientsMu.Unlock()
+	if !hasClients {
+		return
+	}
+
+	fullData := s.dashboard.GetDashboardData()
+	msg, err := json.Marshal(buildResponse(fullData))
 	if err != nil {
 		return
 	}
 
-	for client := range s.clients {
-		err := client.WriteMessage(websocket.TextMessage, msg)
-		if err != nil {
+	s.clientsMu.Lock()
+	snapshot := make([]*websocket.Conn, 0, len(s.clients))
+	for c := range s.clients {
+		snapshot = append(snapshot, c)
+	}
+	s.clientsMu.Unlock()
+
+	var failed []*websocket.Conn
+	for _, client := range snapshot {
+		if err := client.WriteMessage(websocket.TextMessage, msg); err != nil {
 			client.Close()
-			delete(s.clients, client)
+			failed = append(failed, client)
 		}
 	}
+
+	if len(failed) == 0 {
+		return
+	}
+	s.clientsMu.Lock()
+	for _, c := range failed {
+		delete(s.clients, c)
+	}
+	s.clientsMu.Unlock()
 }
 
 func (s *Server) StartWebServer() {
@@ -85,36 +100,14 @@ func (s *Server) StartWebServer() {
 			return
 		}
 		s.clientsMu.Lock()
-		s.clients[conn] = true
+		s.clients[conn] = struct{}{}
 		s.clientsMu.Unlock()
 	})
 
 	http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-
-		fullData := s.dashboard.GetDashboardData()
-
-		var safeWallets []map[string]interface{}
-		for _, wallet := range fullData.Wallets {
-			safeWallets = append(safeWallets, map[string]interface{}{
-				"address":        wallet.Address,
-				"name":           wallet.Name,
-				"session_mined":  wallet.SessionMined,
-				"total_mined":    wallet.TotalMined,
-				"server_balance": wallet.ServerBalance,
-				"working":        wallet.Working,
-			})
-		}
-
-		response := map[string]interface{}{
-			"hashrate":      fullData.Hashrate,
-			"total_balance": fullData.TotalBalance,
-			"uptime":        fullData.Uptime,
-			"wallets":       safeWallets,
-		}
-
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(buildResponse(s.dashboard.GetDashboardData()))
 	})
 
 	http.HandleFunc("/favicon.svg", func(w http.ResponseWriter, r *http.Request) {
@@ -127,10 +120,11 @@ func (s *Server) StartWebServer() {
 		w.Write(assets.WebUI)
 	})
 
+	addr := s.port
 	go func() {
-		if err := http.ListenAndServe(s.port, nil); err != nil {
+		if err := http.ListenAndServe(addr, nil); err != nil {
 			slog.Error("❌ Web server error: ", "error", err)
 		}
 	}()
-	slog.Info("🌐 API Server is running", "port", s.port)
+	slog.Info("🌐 API Server listening on LAN", "addr", addr)
 }

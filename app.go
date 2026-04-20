@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"shminer/backend/app"
 	"shminer/backend/config"
 	"shminer/backend/types"
+	"strings"
 	"time"
 
 	_ "embed"
@@ -239,6 +241,65 @@ func (a *App) GetSystemInfo() map[string]interface{} {
 	return map[string]interface{}{
 		"cpu_cores": stdRuntime.NumCPU(),
 	}
+}
+
+// GetLocalIP returns the first non-loopback IPv4 address of an interface that
+// is up and not a point-to-point/virtual link. Returns "" if none is found.
+func (a *App) GetLocalIP() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ""
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		name := strings.ToLower(iface.Name)
+		if strings.HasPrefix(name, "docker") ||
+			strings.HasPrefix(name, "br-") ||
+			strings.HasPrefix(name, "virbr") ||
+			strings.HasPrefix(name, "veth") ||
+			strings.HasPrefix(name, "tun") ||
+			strings.HasPrefix(name, "tap") {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip4 := ip.To4()
+			if ip4 == nil || !ip4.IsPrivate() {
+				continue
+			}
+			return ip4.String()
+		}
+	}
+	return ""
+}
+
+// GetDashboardURL returns a ready-to-share LAN URL for the dashboard, or ""
+// if the machine has no routable LAN address.
+func (a *App) GetDashboardURL() string {
+	ip := a.GetLocalIP()
+	if ip == "" {
+		return ""
+	}
+	port := strings.TrimPrefix(config.Config.ServerPort, ":")
+	if port == "" {
+		port = "8080"
+	}
+	return "http://" + ip + ":" + port
 }
 
 func (a *App) SendMessageToDeveloper(contact, message string) {

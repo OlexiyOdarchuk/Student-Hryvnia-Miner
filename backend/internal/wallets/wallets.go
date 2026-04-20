@@ -43,10 +43,18 @@ func muOrNew(mu *sync.RWMutex) *sync.RWMutex {
 	return mu
 }
 
+func (w *Wallets) snapshotLocked() []types.WalletStats {
+	list := make([]types.WalletStats, 0, len(w.Wallets))
+	for _, addr := range w.Wallets {
+		if stats, ok := w.walletDataMap[addr]; ok {
+			list = append(list, *stats)
+		}
+	}
+	return list
+}
+
 func (w *Wallets) Load(snapshot types.StorageData) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	for addr := range w.walletDataMap {
 		delete(w.walletDataMap, addr)
 	}
@@ -57,8 +65,10 @@ func (w *Wallets) Load(snapshot types.StorageData) {
 		w.Wallets = append(w.Wallets, walletCopy.Address)
 		w.walletDataMap[walletCopy.Address] = &walletCopy
 	}
+	list := w.snapshotLocked()
+	w.mu.Unlock()
 
-	w.storage.UpdateWallets(snapshot.Wallets)
+	w.storage.UpdateWallets(list)
 }
 
 func (w *Wallets) ExportWalletJSON(address string) (string, error) {
@@ -66,12 +76,12 @@ func (w *Wallets) ExportWalletJSON(address string) (string, error) {
 	defer w.mu.RUnlock()
 
 	if stats, ok := w.walletDataMap[address]; ok {
-		w := WalletExport{
+		out := WalletExport{
 			Name: stats.Name,
 			Pub:  stats.Address,
 			Priv: stats.PrivateKey,
 		}
-		by, _ := json.Marshal(w)
+		by, _ := json.Marshal(out)
 		return string(by), nil
 	}
 	return "", errors.New("wallet not found")
@@ -87,24 +97,22 @@ func (w *Wallets) GetWallets() []string {
 }
 
 func (w *Wallets) SyncStorage() {
-	var list []types.WalletStats
-	for _, addr := range w.Wallets {
-		if stats, ok := w.walletDataMap[addr]; ok {
-			list = append(list, *stats)
-		}
-	}
+	w.mu.RLock()
+	list := w.snapshotLocked()
+	w.mu.RUnlock()
+
 	w.storage.UpdateWallets(list)
 }
 
 func (w *Wallets) AddWalletSafe(name, address, privateKey string) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	for _, w := range w.walletDataMap {
-		if w.Address == address {
+	for _, stats := range w.walletDataMap {
+		if stats.Address == address {
+			w.mu.Unlock()
 			return nil
 		}
-		if w.Name == name {
+		if stats.Name == name {
+			w.mu.Unlock()
 			return errors.New("wallet already exists")
 		}
 	}
@@ -116,82 +124,89 @@ func (w *Wallets) AddWalletSafe(name, address, privateKey string) error {
 		PrivateKey: privateKey,
 		Working:    true,
 	}
+	list := w.snapshotLocked()
+	w.mu.Unlock()
 
-	w.SyncStorage()
-	return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
+	return w.persist(list)
 }
 
 func (w *Wallets) DeleteWallet(address string) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	newWallets := make([]string, 0, 2)
-	for _, w := range w.Wallets {
-		if w != address {
-			newWallets = append(newWallets, w)
+	newWallets := make([]string, 0, len(w.Wallets))
+	for _, addr := range w.Wallets {
+		if addr != address {
+			newWallets = append(newWallets, addr)
 		}
 	}
 	w.Wallets = newWallets
 	delete(w.walletDataMap, address)
 
-	w.SyncStorage()
-	return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
+	list := w.snapshotLocked()
+	w.mu.Unlock()
+
+	return w.persist(list)
 }
 
 func (w *Wallets) RenameWallet(address, newName string) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	for addr, w := range w.walletDataMap {
-		if addr != address && w.Name == newName {
+	for addr, stats := range w.walletDataMap {
+		if addr != address && stats.Name == newName {
+			w.mu.Unlock()
 			return errors.New("wallet already exists")
 		}
 	}
 
-	if stats, ok := w.walletDataMap[address]; ok {
-		stats.Name = newName
-		w.SyncStorage()
-		return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
+	stats, ok := w.walletDataMap[address]
+	if !ok {
+		w.mu.Unlock()
+		return nil
 	}
-	return nil
+	stats.Name = newName
+	list := w.snapshotLocked()
+	w.mu.Unlock()
+
+	return w.persist(list)
 }
 
 func (w *Wallets) ToggleWalletMining(address string) bool {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	if stats, ok := w.walletDataMap[address]; ok {
-		stats.Working = !stats.Working
-
-		w.SyncStorage()
-		w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
-
-		return stats.Working
+	stats, ok := w.walletDataMap[address]
+	if !ok {
+		w.mu.Unlock()
+		return false
 	}
-	return false
+	stats.Working = !stats.Working
+	newState := stats.Working
+	list := w.snapshotLocked()
+	w.mu.Unlock()
+
+	_ = w.persist(list)
+	return newState
 }
 
 func (w *Wallets) SetAllMining(state bool) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	for _, stats := range w.walletDataMap {
 		stats.Working = state
 	}
-	w.SyncStorage()
-	return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
+	list := w.snapshotLocked()
+	w.mu.Unlock()
+
+	return w.persist(list)
 }
 
 func (w *Wallets) UpdateWalletKey(address, privateKey string) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	if stats, ok := w.walletDataMap[address]; ok {
-		stats.PrivateKey = privateKey
-		w.SyncStorage()
-		return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
+	stats, ok := w.walletDataMap[address]
+	if !ok {
+		w.mu.Unlock()
+		return nil
 	}
-	return nil
+	stats.PrivateKey = privateKey
+	list := w.snapshotLocked()
+	w.mu.Unlock()
+
+	return w.persist(list)
 }
 
 func (w *Wallets) GetPrivateKey(address string) string {
@@ -202,4 +217,9 @@ func (w *Wallets) GetPrivateKey(address string) string {
 		return stats.PrivateKey
 	}
 	return ""
+}
+
+func (w *Wallets) persist(list []types.WalletStats) error {
+	w.storage.UpdateWallets(list)
+	return w.storage.SaveStorage(w.storage.GetSessionPassword(), w.storage.GetStorage())
 }
