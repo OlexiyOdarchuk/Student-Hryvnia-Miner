@@ -90,10 +90,10 @@
                                  <button class="btn btn-icon" on:click={() => toggle(wallet)} title={wallet.working ? "Призупинити" : "Відновити"}>
                                     <i class="fas {wallet.working ? 'fa-pause' : 'fa-play'}" style="color: {wallet.working ? 'var(--warning)' : 'var(--success)'}"></i>
                                 </button>
-                                <button class="btn btn-icon" on:click={() => openModal('key', wallet)} title="Оновити ключ">
+                                <button class="btn btn-icon" on:click={() => openModal('key', wallet)} title="Керувати ключами">
                                     <i class="fas fa-key"></i>
                                 </button>
-                                <button class="btn btn-icon" on:click={() => openModal('edit', wallet)} title="Редагувати">
+                                <button class="btn btn-icon" on:click={() => openModal('edit', wallet)} title="Перейменувати">
                                     <i class="fas fa-pen"></i>
                                 </button>
                                 <button class="btn btn-icon danger" on:click={() => openModal('del', wallet)} title="Видалити">

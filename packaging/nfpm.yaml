@@ -1,0 +1,35 @@
+name: shminer
+arch: amd64
+platform: linux
+version: "${VERSION}"
+section: utils
+priority: optional
+maintainer: iShawyha <shawyhaf@gmail.com>
+description: Mining Client for S-UAH cryptocurrency (Student Hryvnia Miner)
+vendor: iShawyha
+homepage: https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner
+license: GPL-3.0-only
+
+depends:
+  - libgtk-3-0
+  - libwebkit2gtk-4.1
+
+contents:
+  - src: packaging/build/usr/bin/shminer
+    dst: /usr/bin/shminer
+  - src: packaging/build/usr/share/licenses/shminer/LICENSE
+    dst: /usr/share/licenses/shminer/LICENSE
+  - src: packaging/build/usr/share/icons/hicolor/256x256/apps/shminer.png
+    dst: /usr/share/icons/hicolor/256x256/apps/shminer.png
+  - src: packaging/build/usr/share/applications/shminer.desktop
+    dst: /usr/share/applications/shminer.desktop
+
+overrides:
+  deb:
+    depends:
+      - libgtk-3-0
+      - libwebkit2gtk-4.1
+  rpm:
+    depends:
+      - gtk3
+      - webkit2gtk3

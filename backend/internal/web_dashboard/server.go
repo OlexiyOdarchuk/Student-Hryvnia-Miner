@@ -15,10 +15,21 @@ type dashboardDataGetter interface {
 	GetDashboardData() types.DashboardData
 }
 
+type wsClient struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func (c *wsClient) writeMessage(msg []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.conn.WriteMessage(websocket.TextMessage, msg)
+}
+
 type Server struct {
 	port      string
 	dashboard dashboardDataGetter
-	clients   map[*websocket.Conn]struct{}
+	clients   map[*wsClient]struct{}
 	clientsMu sync.Mutex
 	upgrader  websocket.Upgrader
 }
@@ -27,7 +38,7 @@ func NewServer(port string, dashboard dashboardDataGetter) *Server {
 	return &Server{
 		port:      port,
 		dashboard: dashboard,
-		clients:   make(map[*websocket.Conn]struct{}),
+		clients:   make(map[*wsClient]struct{}),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool { return true },
 		},
@@ -47,20 +58,31 @@ func buildResponse(data types.DashboardData) map[string]any {
 		})
 	}
 	return map[string]any{
-		"hashrate":      data.Hashrate,
-		"total_balance": data.TotalBalance,
-		"uptime":        data.Uptime,
-		"wallets":       safeWallets,
+		"hashrate":         data.Hashrate,
+		"total_balance":    data.TotalBalance,
+		"uptime":           data.Uptime,
+		"wallets":          safeWallets,
+		"session_blocks":   data.SessionBlocks,
+		"lifetime_blocks":  data.LifetimeBlocks,
+		"session_found":    data.SessionFound,
+		"submit_queue_len": data.SubmitQueueLen,
+		"blocks_per_min":   data.BlocksPerMin,
+		"found_per_min":    data.FoundPerMin,
+		"is_mining":        data.IsMining,
 	}
 }
 
 func (s *Server) BroadcastUpdate() {
 	s.clientsMu.Lock()
-	hasClients := len(s.clients) > 0
-	s.clientsMu.Unlock()
-	if !hasClients {
+	if len(s.clients) == 0 {
+		s.clientsMu.Unlock()
 		return
 	}
+	snapshot := make([]*wsClient, 0, len(s.clients))
+	for c := range s.clients {
+		snapshot = append(snapshot, c)
+	}
+	s.clientsMu.Unlock()
 
 	fullData := s.dashboard.GetDashboardData()
 	msg, err := json.Marshal(buildResponse(fullData))
@@ -68,17 +90,10 @@ func (s *Server) BroadcastUpdate() {
 		return
 	}
 
-	s.clientsMu.Lock()
-	snapshot := make([]*websocket.Conn, 0, len(s.clients))
-	for c := range s.clients {
-		snapshot = append(snapshot, c)
-	}
-	s.clientsMu.Unlock()
-
-	var failed []*websocket.Conn
+	var failed []*wsClient
 	for _, client := range snapshot {
-		if err := client.WriteMessage(websocket.TextMessage, msg); err != nil {
-			client.Close()
+		if err := client.writeMessage(msg); err != nil {
+			client.conn.Close()
 			failed = append(failed, client)
 		}
 	}
@@ -99,8 +114,9 @@ func (s *Server) StartWebServer() {
 		if err != nil {
 			return
 		}
+		client := &wsClient{conn: conn}
 		s.clientsMu.Lock()
-		s.clients[conn] = struct{}{}
+		s.clients[client] = struct{}{}
 		s.clientsMu.Unlock()
 	})
 

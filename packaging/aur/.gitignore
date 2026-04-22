@@ -1,0 +1,6 @@
+shminer-*
+LICENSE
+
+src/
+pkg/
+*.pkg.tar.zst

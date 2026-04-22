@@ -14,7 +14,12 @@ type DashboardData struct {
 	TotalBalance   float64       `json:"total_balance"`
 	SessionBlocks  uint32        `json:"session_blocks"`
 	LifetimeBlocks uint32        `json:"lifetime_blocks"`
+	SessionFound   uint32        `json:"session_found"`
+	SubmitQueueLen int           `json:"submit_queue_len"`
+	BlocksPerMin   float64       `json:"blocks_per_min"`
+	FoundPerMin    float64       `json:"found_per_min"`
 	Uptime         string        `json:"uptime"`
+	IsMining       bool          `json:"is_mining"`
 }
 
 type WalletStats struct {
@@ -25,6 +30,7 @@ type WalletStats struct {
 	SessionMined  uint32  `json:"session_mined"`
 	TotalMined    uint32  `json:"total_mined"`
 	Working       bool    `json:"working"`
+	HasPrivateKey bool    `json:"has_private_key"`
 }
 
 type LogEntry struct {
@@ -41,6 +47,7 @@ type Stats struct {
 	HashCount         atomic.Uint32 `json:"hash_count"`
 	HashrateHistPos   int           `json:"hashrate_hist_pos"`
 	SessionMined      uint32        `json:"session_mined"`
+	SessionFound      uint32        `json:"session_found"`
 }
 
 type StorageData struct {

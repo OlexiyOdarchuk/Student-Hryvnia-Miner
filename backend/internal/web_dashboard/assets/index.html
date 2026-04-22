@@ -161,28 +161,55 @@
     <div id="stats-view" class="main">
         <div class="grid-4">
             <div class="glass-card">
-                <i class="fas fa-server stat-icon-bg"></i>
-                <div class="stat-label">Активні гаманці</div>
-                <div class="stat-value text-primary" id="active-wallets">0</div>
-                <div class="stat-sub">Зараз майнять</div>
+                <i class="fas fa-bolt stat-icon-bg"></i>
+                <div class="stat-label">Хешрейт</div>
+                <div class="stat-value text-primary"><span id="hashrate">0.00</span></div>
+                <div class="stat-sub">MH/s Середня швидкість</div>
             </div>
-            <div class="glass-card" style="border-top-color: var(--warning)">
-                <i class="fas fa-cube stat-icon-bg"></i>
-                <div class="stat-label">Сесійні блоки</div>
-                <div class="stat-value text-warning" id="sess-blocks">0</div>
-                <div class="stat-sub">За цей запуск</div>
-            </div>
-            <div class="glass-card" style="border-top-color: var(--accent)">
-                <i class="fas fa-layer-group stat-icon-bg"></i>
-                <div class="stat-label">Загальні блоки</div>
-                <div class="stat-value text-accent" id="life-blocks">0</div>
-                <div class="stat-sub">За весь час</div>
+            <div class="glass-card" style="border-top-color: var(--success)">
+                <i class="fas fa-wallet stat-icon-bg"></i>
+                <div class="stat-label">Баланс</div>
+                <div class="stat-value text-success" id="total-balance">0.00</div>
+                <div class="stat-sub">S-UAH Накопичено</div>
             </div>
             <div class="glass-card" style="border-top-color: var(--neon-cyan)">
                 <i class="fas fa-clock stat-icon-bg"></i>
                 <div class="stat-label">Час роботи</div>
                 <div class="stat-value text-cyan" id="uptime" style="font-size: 1.8rem">00:00:00</div>
                 <div class="stat-sub">Аптайм ноди</div>
+            </div>
+            <div class="glass-card">
+                <i class="fas fa-server stat-icon-bg"></i>
+                <div class="stat-label">Активні гаманці</div>
+                <div class="stat-value text-primary"><span id="active-wallets">0</span><span id="active-wallets-total" style="color:#64748b;font-size:1.5rem;font-weight:600">/0</span></div>
+                <div class="stat-sub">У роботі зараз</div>
+            </div>
+        </div>
+
+        <div class="grid-4">
+            <div class="glass-card" style="border-top-color: var(--warning)">
+                <i class="fas fa-coins stat-icon-bg"></i>
+                <div class="stat-label">Зараховано</div>
+                <div class="stat-value text-warning" id="sess-blocks">0</div>
+                <div class="stat-sub"><span id="credited-rate">0.00</span> / хв</div>
+            </div>
+            <div class="glass-card" style="border-top-color: var(--accent)">
+                <i class="fas fa-hammer stat-icon-bg"></i>
+                <div class="stat-label">Намайнено</div>
+                <div class="stat-value text-accent" id="session-found">0</div>
+                <div class="stat-sub"><span id="found-rate">0.00</span> / хв</div>
+            </div>
+            <div class="glass-card" style="border-top-color: var(--neon-cyan)">
+                <i class="fas fa-layer-group stat-icon-bg"></i>
+                <div class="stat-label">У черзі</div>
+                <div class="stat-value text-cyan" id="queue-len">0</div>
+                <div class="stat-sub">Очікують відправки</div>
+            </div>
+            <div class="glass-card">
+                <i class="fas fa-infinity stat-icon-bg"></i>
+                <div class="stat-label">Всього</div>
+                <div class="stat-value text-primary" id="life-blocks">0</div>
+                <div class="stat-sub">За весь час</div>
             </div>
         </div>
 
@@ -293,17 +320,17 @@
         }
 
         function renderData(data) {
-            let sessionBlocks = 0, lifetimeBlocks = 0, active = 0;
+            let active = 0;
             let wNames = [], wBalances = [], wBlocks = [];
-            
+
             const wallets = data.wallets || [];
+            const sessionBlocks = data.session_blocks || 0;
+            const lifetimeBlocks = data.lifetime_blocks || 0;
             const tbody = document.getElementById('wallet-tbody');
             tbody.innerHTML = '';
             
             wallets.forEach(w => {
                 if (w.working) active++;
-                sessionBlocks += w.session_mined;
-                lifetimeBlocks += w.total_mined;
                 wNames.push(w.name);
                 wBalances.push(w.server_balance);
                 wBlocks.push(w.session_mined);
@@ -387,10 +414,17 @@
             }
 
             document.getElementById('active-wallets').innerText = active;
+            document.getElementById('active-wallets-total').innerText = '/' + wallets.length;
             document.getElementById('sess-blocks').innerText = sessionBlocks;
             document.getElementById('life-blocks').innerText = lifetimeBlocks;
             document.getElementById('uptime').innerText = data.uptime;
-            
+            document.getElementById('hashrate').innerText = (data.hashrate || 0).toFixed(2);
+            document.getElementById('total-balance').innerText = (data.total_balance || 0).toFixed(2);
+            document.getElementById('session-found').innerText = data.session_found || 0;
+            document.getElementById('queue-len').innerText = data.submit_queue_len || 0;
+            document.getElementById('credited-rate').innerText = (data.blocks_per_min || 0).toFixed(2);
+            document.getElementById('found-rate').innerText = (data.found_per_min || 0).toFixed(2);
+
             document.getElementById('f-hash').innerText = data.hashrate.toFixed(2);
             document.getElementById('f-balance').innerText = data.total_balance.toFixed(2);
             document.getElementById('f-s-blocks').innerText = sessionBlocks;

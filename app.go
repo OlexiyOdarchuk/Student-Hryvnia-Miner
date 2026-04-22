@@ -217,6 +217,25 @@ func (a *App) SetGlobalMining(state bool) {
 	_ = a.backendApp.SetGlobalMining(state)
 }
 
+func (a *App) IsMining() bool {
+	return a.backendApp.IsMining()
+}
+
+func (a *App) SetMining(state bool) {
+	a.backendApp.SetMining(state)
+}
+
+func (a *App) SendTestTelegramMessage(token, chatID string) string {
+	if err := a.backendApp.SendTestTelegramMessage(token, chatID); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func (a *App) ResolveTelegramChatID(token, chatID string) (string, error) {
+	return a.backendApp.ResolveTelegramChatID(token, chatID)
+}
+
 // Settings
 
 func (a *App) GetConfig() config.AppConfig {
@@ -235,6 +254,10 @@ func (a *App) ChangePassword(oldPass, newPass string) string {
 		return err.Error()
 	}
 	return ""
+}
+
+func (a *App) HasPassword() bool {
+	return a.backendApp.HasPassword()
 }
 
 func (a *App) GetSystemInfo() map[string]interface{} {
@@ -319,7 +342,14 @@ func (a *App) CheckAndApplyUpdate() (string, error) {
 		currentVersion = "v" + currentVersion
 	}
 
-	updater, err := selfupdate.NewUpdater(selfupdate.Config{})
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	updater, err := selfupdate.NewUpdater(selfupdate.Config{
+		Filters: []string{"^SHMiner-"},
+	})
 	if err != nil {
 		return "", err
 	}
@@ -342,16 +372,42 @@ func (a *App) CheckAndApplyUpdate() (string, error) {
 		Body:    latest.ReleaseNotes,
 	})
 
-	exe, err := os.Executable()
-	if err != nil {
-		return "", err
+	if !canSelfReplace(exe) {
+		msg := "Доступна нова версія " + latest.Version() +
+			". Завантажте вручну: https://github.com/" + repo + "/releases/latest"
+		a.emitUpdateStatus("info", msg)
+		return msg, nil
 	}
 
 	if err := updater.UpdateTo(context.Background(), latest, exe); err != nil {
 		return "", errors.New("error during update: " + err.Error())
 	}
 
-	return "The update was successful. Please restart the app.", nil
+	msg := "Оновлено до " + latest.Version() + ". Перезапустіть програму."
+	a.emitUpdateStatus("success", msg)
+	return msg, nil
+}
+
+func (a *App) emitUpdateStatus(kind, msg string) {
+	runtime.EventsEmit(a.ctx, "update_status", map[string]string{
+		"type":    kind,
+		"message": msg,
+	})
+}
+
+func canSelfReplace(exe string) bool {
+	if stdRuntime.GOOS != "linux" {
+		return true
+	}
+	if os.Getenv("APPIMAGE") != "" {
+		return false
+	}
+	for _, p := range []string{"/usr/bin/", "/usr/local/bin/", "/opt/"} {
+		if strings.HasPrefix(exe, p) {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *App) GetConfigFilePath() string {

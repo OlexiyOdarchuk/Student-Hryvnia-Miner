@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   version-check:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
     steps:
@@ -28,14 +28,20 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             goos: linux
             goarch: amd64
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             goos: windows
             goarch: arm64
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             goos: windows
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
             goarch: amd64
 
     runs-on: ${{ matrix.os }}
@@ -57,7 +63,7 @@ jobs:
         run: npm ci --prefix frontend
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Install Linux Deps
         if: matrix.goos == 'linux'
@@ -66,7 +72,7 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             libgtk-3-dev \
-            libwebkit2gtk-4.0-dev \
+            libwebkit2gtk-4.1-dev \
             libglib2.0-dev \
             pkg-config
 
@@ -75,6 +81,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y nsis mingw-w64
+
+      - name: Install macOS Deps
+        if: matrix.goos == 'darwin'
+        run: |
+          which -s brew || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew install gcc
 
       - name: Build Project
         shell: bash
@@ -85,8 +97,17 @@ jobs:
             cd build/bin/
             mv SHMiner.exe SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}-portable.exe
             mv "S-UAH Miner-${{ matrix.goarch }}-installer.exe" SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}-setup.exe
-          else
+          elif [ "${{ matrix.goos }}" = "darwin" ]; then
             wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w"
+            
+            cd build/bin/
+            APP_NAME=$(ls -d *.app)
+            mv "$APP_NAME" "SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.app"
+            
+            hdiutil create -volname "SHMiner" -srcfolder "SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.app" -ov -format UDZO "SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.dmg"
+          else
+            wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w" -tags webkit2_41
+            
             cd build/bin/
             mv SHMiner SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}
           fi
@@ -97,11 +118,170 @@ jobs:
           name: SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}
           path: build/bin/*
 
-  release:
-    needs: [version-check, build]
-    runs-on: ubuntu-22.04
+      - name: Upload icon
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: icon
+          path: build/windows/icon.ico
+
+      - name: Convert icon to png
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64'
+        run: |
+          sudo apt-get install -y imagemagick
+          mkdir -p icon-png
+          convert -resize 256x256 build/windows/icon.ico icon-png/icon.png
+
+      - name: Upload icon.png
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: icon-png
+          path: icon-png/icon.png
+
+  build-deb-rpm:
+    needs: build
+    runs-on: ubuntu-latest
     steps:
-      - name: Download all binaries
+      - name: Checkout repository 
+        uses: actions/checkout@v4
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: SHMiner-linux-amd64
+          path: .
+
+      - name: Download icon.png
+        uses: actions/download-artifact@v4
+        with:
+          name: icon-png
+          path: .
+
+      - name: Get version
+        run: |
+          VERSION=$(jq -r '.version' wails.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Install nfpm
+        run: |
+          NFPM_VERSION=2.38.0
+          curl -sSL -o /tmp/nfpm.tar.gz \
+            "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+          sudo tar -xzf /tmp/nfpm.tar.gz -C /usr/local/bin/ nfpm
+          nfpm --version
+
+      - name: Prepare packaging
+        run: |
+          VERSION=${{ env.VERSION }}
+          mkdir -p packaging/build/usr/bin
+          mkdir -p packaging/build/usr/share/licenses/shminer
+          mkdir -p packaging/build/usr/share/icons/hicolor/256x256/apps
+          mkdir -p packaging/build/usr/share/applications
+          
+          mv SHMiner-linux-amd64 packaging/build/usr/bin/shminer
+          chmod +x packaging/build/usr/bin/shminer
+          
+          cp LICENSE packaging/build/usr/share/licenses/shminer/
+          
+          cp icon.png packaging/build/usr/share/icons/hicolor/256x256/apps/shminer.png
+          
+          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;\n' > packaging/build/usr/share/applications/shminer.desktop
+      
+      - name: Build packages
+        run: |
+          export VERSION=${{ env.VERSION }}
+          mkdir -p packaging/output
+          
+          nfpm package -f packaging/nfpm.yaml -p deb -t packaging/output/
+          nfpm package -f packaging/nfpm.yaml -p rpm -t packaging/output/
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: shminer-deb
+          path: packaging/output/*.deb
+          retention-days: 7
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: shminer-rpm
+          path: packaging/output/*.rpm
+          retention-days: 7
+
+  build-appimage:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository 
+        uses: actions/checkout@v4
+        
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: SHMiner-linux-amd64
+          path: .
+
+      - name: Download icon
+        uses: actions/download-artifact@v4
+        with:
+          name: icon
+          path: .
+
+      - name: Get version
+        run: |
+          VERSION=$(jq -r '.version' wails.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Install imagemagick
+        run: sudo apt-get install -y imagemagick
+
+      - name: Build AppImage
+        run: |
+          VERSION=${{ env.VERSION }}
+          mv SHMiner-linux-amd64 shminer
+          
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp shminer AppDir/usr/bin/shminer
+          chmod +x AppDir/usr/bin/shminer
+          convert -resize 256x256 icon.ico AppDir/usr/share/icons/hicolor/256x256/apps/shminer.png
+          cp AppDir/usr/share/icons/hicolor/256x256/apps/shminer.png AppDir/shminer.png
+          
+          printf '#!/bin/bash\n' > AppDir/AppRun
+          printf 'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"\n' >> AppDir/AppRun
+          printf 'export PATH="${APPDIR}/usr/bin:${PATH}"\n' >> AppDir/AppRun
+          printf 'export LD_LIBRARY_PATH="${APPDIR}/usr/lib:${APPDIR}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"\n' >> AppDir/AppRun
+          printf 'export XDG_DATA_DIRS="${APPDIR}/usr/share:${XDG_DATA_DIRS:-}"\n' >> AppDir/AppRun
+          printf 'exec "${APPDIR}/usr/bin/shminer" "${@}"\n' >> AppDir/AppRun
+          chmod +x AppDir/AppRun
+          
+          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH cryptocurrency\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;\nKeywords=crypto;miner; майнінг; s-uah;\n' > AppDir/shminer.desktop
+
+      - name: Build AppImage
+        run: |
+          curl -sSL -o appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
+            AppDir shminer-${VERSION}.AppImage
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: shminer-appimage
+          path: shminer-*.AppImage
+          retention-days: 7
+
+  release:
+    needs: [version-check, build, build-deb-rpm, build-appimage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./dist
@@ -117,12 +297,66 @@ jobs:
           body: |
             🎉 Автоматичний реліз SHMiner
             Версія: v${{ needs.version-check.outputs.version }}
-            
-            📦 **Для Windows доступні дві версії:**
-            - `setup.exe` — Інсталятор (рекомендовано, створює ярлики та зберігає налаштування)
-            - `portable.exe` — Портативна версія (можна запускати без встановлення)
-            
-            У цьому релізі доступні бінарники для:
-            - Windows amd64/arm64
+
+            ## Бінарники (збираються з вихідного коду)
             - Linux amd64
-          files: ./dist/**
+            - Windows amd64/arm64 (portable + installer)
+            - macOS amd64(intel)/arm64(M processors) (DMG)
+
+            ## Пакети
+            - DEB (Ubuntu/Debian)
+            - RPM (Fedora/RHEL)
+            - AppImage (universal Linux)
+          files: |
+            ./dist/SHMiner-*
+            ./dist/*.deb
+            ./dist/*.rpm
+            ./dist/*.AppImage
+
+      - name: Install Nix (for hashing)
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Update flake.nix
+        run: |
+          VERSION=${{ needs.version-check.outputs.version }}
+          
+          NEW_HASH=$(nix hash file dist/SHMiner-linux-amd64)
+          
+          sed -i -E "s/version = \".*\"/version = \"$VERSION\"/" flake.nix
+          
+          sed -i -E "s|hash = \".*\"|hash = \"$NEW_HASH\"|" flake.nix
+
+      - name: Commit and push flake.nix
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(nix): update flake.nix for v${{ needs.version-check.outputs.version }}"
+          file_pattern: 'flake.nix'
+
+      - name: Bump version in PKGBUILD
+        run: |
+          VERSION=${{ needs.version-check.outputs.version }}
+          
+          # Замінюємо версію в PKGBUILD
+          sed -i -E "s/^pkgver=.*/pkgver=$VERSION/" packaging/aur/PKGBUILD
+          
+          # Скидаємо pkgrel на 1 при кожному новому релізі
+          sed -i -E "s/^pkgrel=.*/pkgrel=1/" packaging/aur/PKGBUILD
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
+        with:
+          pkgname: shminer-bin
+          pkgbuild: ./packaging/aur/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Release v${{ needs.version-check.outputs.version }}"
+          updpkgsums: true
+
+      - name: Commit updated PKGBUILD back to GitHub
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(aur): bump PKGBUILD to v${{ needs.version-check.outputs.version }}"
+          file_pattern: 'packaging/aur/PKGBUILD'

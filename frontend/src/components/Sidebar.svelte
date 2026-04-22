@@ -76,9 +76,9 @@
         <i class="fas fa-chart-bar"></i> 
         <span>Статистика</span>
     </div>
-    <div class="nav-btn" class:active={$activeTab === 'logs'} on:click={() => nav('logs')}>
-        <i class="fas fa-terminal"></i> 
-        <span>Термінал</span>
+    <div class="nav-btn" class:active={$activeTab === 'automation'} on:click={() => nav('automation')}>
+        <i class="fab fa-telegram"></i>
+        <span>Автоматизація</span>
     </div>
     <div class="nav-btn" class:active={$activeTab === 'settings'} on:click={() => nav('settings')}>
         <i class="fas fa-cog"></i> 

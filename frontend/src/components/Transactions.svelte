@@ -1,12 +1,22 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import { stats, notifications } from "../stores";
-    import { SendTransaction } from "../../wailsjs/go/main/App";
+    import { SendTransaction, HasPassword } from "../../wailsjs/go/main/App";
 
     let selectedAddress: string = "";
     let toAddress: string = "";
-    let amount: number | null = null; 
+    let amount: number | null = null;
     let password: string = "";
     let sending: boolean = false;
+    let passwordRequired: boolean = true;
+
+    onMount(async () => {
+        try {
+            passwordRequired = await HasPassword();
+        } catch (e) {
+            passwordRequired = true;
+        }
+    });
 
     function selectWallet(wallet: any) {
         selectedAddress = wallet.address;
@@ -23,7 +33,6 @@
     }
 
     async function handleSend() {
-        
         if (!selectedAddress) {
             notifications.error("Оберіть гаманець для списання коштів");
             return;
@@ -36,8 +45,8 @@
             notifications.error("Сума повинна бути більшою за 0");
             return;
         }
-        if (!password) {
-            notifications.error("Введіть пароль для підпису");
+        if (passwordRequired && !password) {
+            notifications.error("Введіть пароль адміністратора");
             return;
         }
 
@@ -81,7 +90,7 @@
                         ><i class="fas fa-wallet"></i> Гаманець відправника</label
                     >
                     <div class="wallet-select-grid">
-                        {#each ($stats.wallets || []).filter((w) => w.private_key) as wallet}
+                        {#each ($stats.wallets || []).filter((w) => w.has_private_key) as wallet}
                             <div
                                 class="wallet-select-card"
                                 class:selected={selectedAddress ===
@@ -101,6 +110,15 @@
                                 </div>
                                 <div class="wallet-addr">
                                     {wallet.address.substring(0, 10)}...
+                                </div>
+                            </div>
+                        {:else}
+                            <div class="wallet-empty">
+                                <i class="fas fa-key"></i>
+                                <div>
+                                    Немає гаманців із приватним ключем.
+                                    Додайте приватний ключ у вкладці
+                                    <b>Гаманці</b>, щоб надсилати транзакції.
                                 </div>
                             </div>
                         {/each}
@@ -138,17 +156,19 @@
                     </div>
                 </div>
 
-                <div class="field-group">
-                    <label class="field-label"
-                        ><i class="fas fa-lock"></i> Пароль адміністратора</label
-                    >
-                    <input
-                        type="password"
-                        class="field"
-                        placeholder="Для безпеки переказів"
-                        bind:value={password}
-                    />
-                </div>
+                {#if passwordRequired}
+                    <div class="field-group">
+                        <label class="field-label"
+                            ><i class="fas fa-lock"></i> Пароль адміністратора</label
+                        >
+                        <input
+                            type="password"
+                            class="field"
+                            placeholder="Для безпеки переказів"
+                            bind:value={password}
+                        />
+                    </div>
+                {/if}
 
                 <button
                     type="submit"
@@ -307,6 +327,23 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 15px;
+    }
+    .wallet-empty {
+        grid-column: 1 / -1;
+        padding: 30px 20px;
+        text-align: center;
+        color: #94a3b8;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+    .wallet-empty i {
+        display: block;
+        font-size: 2rem;
+        margin-bottom: 10px;
+        color: #64748b;
     }
     .wallet-select-card {
         background: rgba(255, 255, 255, 0.03);

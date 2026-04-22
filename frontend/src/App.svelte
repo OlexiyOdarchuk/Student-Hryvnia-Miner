@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { activeTab, stats, logs, connected } from './stores';
+    import { activeTab, stats, logs, connected, notifications } from './stores';
     import { EventsOn } from '../wailsjs/runtime/runtime';
     
     import Auth from './components/Auth.svelte';
@@ -9,7 +9,7 @@
     import Wallets from './components/Wallets.svelte';
     import Transactions from './components/Transactions.svelte';
     import Statistics from './components/Statistics.svelte';
-    import Logs from './components/Logs.svelte';
+    import Automation from './components/Automation.svelte';
     import Settings from './components/Settings.svelte';
     import Help from './components/Help.svelte';
     import Contact from './components/Contact.svelte';
@@ -28,6 +28,13 @@
         EventsOn("stats", (data) => {
             stats.set(data);
             connected.set(true);
+        });
+
+        EventsOn("update_status", (payload: { type: string; message: string }) => {
+            if (!payload || !payload.message) return;
+            if (payload.type === "success") notifications.success(payload.message);
+            else if (payload.type === "error") notifications.error(payload.message);
+            else notifications.info(payload.message);
         });
 
         
@@ -98,8 +105,8 @@
                 <Transactions />
             {:else if $activeTab === 'stats'}
                 <Statistics />
-            {:else if $activeTab === 'logs'}
-                <Logs />
+            {:else if $activeTab === 'automation'}
+                <Automation />
             {:else if $activeTab === 'settings'}
                 <Settings />
             {:else if $activeTab === 'help'}

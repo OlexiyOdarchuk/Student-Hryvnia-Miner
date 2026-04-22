@@ -11,6 +11,7 @@ const (
 	DefaultRetryDelay        = 100 * time.Millisecond
 	DefaultBalanceUpdateFreq = 5 * time.Second
 	DefaultBlockCheckFreqMs  = 5000
+	DefaultSubmitBufferSize  = 1000
 )
 
 const (
