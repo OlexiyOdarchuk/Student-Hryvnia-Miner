@@ -57,7 +57,7 @@ jobs:
         run: npm ci --prefix frontend
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Install Linux Deps
         if: matrix.goos == 'linux'
@@ -99,21 +99,21 @@ jobs:
           path: build/bin/*
 
       - name: Upload icon
-        if: matrix.goos == 'windows'
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64'
         uses: actions/upload-artifact@v4
         with:
           name: icon
           path: build/windows/icon.ico
 
       - name: Convert icon to png
-        if: matrix.goos == 'windows'
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64'
         run: |
           sudo apt-get install -y imagemagick
           mkdir -p icon-png
           convert -resize 256x256 build/windows/icon.ico icon-png/icon.png
 
       - name: Upload icon.png
-        if: matrix.goos == 'windows'
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64'
         uses: actions/upload-artifact@v4
         with:
           name: icon-png
@@ -137,11 +137,13 @@ jobs:
           VERSION=$(jq -r '.version' wails.json)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Installnfpm
-        uses: jryknz/setup-nfpm@v1
-        with:
-          version: 2.37.0
-          nfpm-version: 2.38.0
+      - name: Install nfpm
+        run: |
+          NFPM_VERSION=2.38.0
+          curl -sSL -o /tmp/nfpm.tar.gz \
+            "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+          sudo tar -xzf /tmp/nfpm.tar.gz -C /usr/local/bin/ nfpm
+          nfpm --version
 
       - name: Prepare packaging
         run: |
@@ -231,13 +233,12 @@ jobs:
           printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH cryptocurrency\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;Crypto;\nKeywords=crypto;miner; майнінг; s-uah;\n' > AppDir/shminer.desktop
 
       - name: Build AppImage
-        uses: afRech/artifactory-appimage@master
-        with:
-          args: AppDir
-
-      - name: Rename
         run: |
-          mv SHMiner-x86_64.AppImage shminer-${VERSION}.AppImage
+          curl -sSL -o appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
+            AppDir shminer-${VERSION}.AppImage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
@@ -250,6 +251,9 @@ jobs:
     needs: [version-check, build, build-deb-rpm, build-appimage]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -266,16 +270,20 @@ jobs:
           body: |
             🎉 Автоматичний реліз SHMiner
             Версія: v${{ needs.version-check.outputs.version }}
-            
+
             ## Бінарники (збираються з вихідного коду)
             - Linux amd64
             - Windows amd64/arm64 (portable + installer)
-            
+
             ## Пакети
             - DEB (Ubuntu/Debian)
             - RPM (Fedora/RHEL)
             - AppImage (universal Linux)
-          files: ./dist/*
+          files: |
+            ./dist/SHMiner-*
+            ./dist/*.deb
+            ./dist/*.rpm
+            ./dist/*.AppImage
 
       - name: Install Nix (for hashing)
         uses: cachix/install-nix-action@v25
