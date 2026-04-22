@@ -118,7 +118,7 @@ jobs:
           name: icon-png
           path: icon-png/icon.png
 
-  build-deb:
+  build-deb-rpm:
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -131,107 +131,54 @@ jobs:
           name: SHMiner-linux-amd64
           path: .
 
-      - name: Download icon
-        uses: actions/download-artifact@v4
-        with:
-          name: icon
-          path: .
-
       - name: Get version
         run: |
           VERSION=$(jq -r '.version' wails.json)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Install tools
-        run: sudo apt-get install -y imagemagick
+      - name: Installnfpm
+        uses: jryknz/setup-nfpm@v1
+        with:
+          version: 2.37.0
+          nfpm-version: 2.38.0
 
-      - name: Build DEB
+      - name: Prepare packaging
         run: |
           VERSION=${{ env.VERSION }}
-          mv SHMiner-linux-amd64 shminer
-          chmod +x shminer
+          mkdir -p packaging/build/usr/bin
+          mkdir -p packaging/build/usr/share/licenses/shminer
+          mkdir -p packaging/build/usr/share/icons/hicolor/256x256/apps
+          mkdir -p packaging/build/usr/share/applications
           
-          PACKAGE_DIR="shminer-${VERSION}"
-          mkdir -p "$PACKAGE_DIR/usr/bin"
-          mkdir -p "$PACKAGE_DIR/usr/share/licenses/shminer"
-          mkdir -p "$PACKAGE_DIR/usr/share/icons/hicolor/256x256/apps"
-          mkdir -p "$PACKAGE_DIR/usr/share/applications"
+          mv SHMiner-linux-amd64 packaging/build/usr/bin/shminer
+          chmod +x packaging/build/usr/bin/shminer
           
-          cp shminer "$PACKAGE_DIR/usr/bin/shminer"
-          cp LICENSE "$PACKAGE_DIR/usr/share/licenses/shminer/"
-          convert -resize 256x256 icon.ico "$PACKAGE_DIR/usr/share/icons/hicolor/256x256/apps/shminer.png"
+          cp LICENSE packaging/build/usr/share/licenses/shminer/
           
-          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH cryptocurrency\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;Crypto;\nKeywords=crypto;miner; майнінг; s-uah;\n' > "$PACKAGE_DIR/usr/share/applications/shminer.desktop"
+          cp icon-png/icon.png packaging/build/usr/share/icons/hicolor/256x256/apps/shminer.png
           
-          dpkg-deb --build --compression=gzip "$PACKAGE_DIR" "shminer_${VERSION}_amd64.deb"
-          rm -rf "$PACKAGE_DIR"
+          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;Crypto;\n' > packaging/build/usr/share/applications/shminer.desktop
+      
+      - name: Build packages
+        run: |
+          export VERSION=${{ env.VERSION }}
+          mkdir -p packaging/output
+          
+          nfpm package -f packaging/nfpm.yaml -p deb -t packaging/output/
+          nfpm package -f packaging/nfpm.yaml -p rpm -t packaging/output/
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
         with:
           name: shminer-deb
-          path: shminer_*.deb
+          path: packaging/output/*.deb
           retention-days: 7
-
-  build-rpm:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      
-      - name: Checkout repository 
-        uses: actions/checkout@v4
-
-      - name: Download Linux binary
-        uses: actions/download-artifact@v4
-        with:
-          name: SHMiner-linux-amd64
-          path: .
-
-      - name: Download icon
-        uses: actions/download-artifact@v4
-        with:
-          name: icon
-          path: .
-
-      - name: Get version
-        run: |
-          VERSION=$(jq -r '.version' wails.json)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Install rpmdevtools + imagemagick
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpmdevtools rpmlint imagemagick
-
-      - name: Build RPM
-        run: |
-          VERSION=${{ env.VERSION }}
-          mv SHMiner-linux-amd64 shminer
-          chmod +x shminer
-          
-          rpmdev-setuptree
-          
-          mkdir -p ~/rpmbuild/SOURCES/icons
-          mkdir -p ~/rpmbuild/SOURCES/share/applications
-          cp shminer ~/rpmbuild/BUILD/shminer
-          cp LICENSE ~/rpmbuild/SOURCES/
-          convert -resize 256x256 icon.ico ~/rpmbuild/SOURCES/icons/shminer.png
-          
-          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH cryptocurrency\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;Crypto;\nKeywords=crypto;miner; майнінг; s-uah;\n' > ~/rpmbuild/SOURCES/shminer.desktop
-          
-          sed -e 's/@VERSION@/'$VERSION'/g' \
-              -e 's|@URL@|https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner|g' \
-              packaging/rpm/shminer.spec > ~/rpmbuild/SPECS/shminer.spec
-          
-          rpmbuild -bb --define "_topdir $(pwd)/rpmbuild" ~/rpmbuild/SPECS/shminer.spec
-          
-          mv ~/rpmbuild/RPMS/x86_64/shminer-*.x86_64.rpm "shminer_${VERSION}_amd64.rpm"
 
       - name: Upload RPM
         uses: actions/upload-artifact@v4
         with:
           name: shminer-rpm
-          path: shminer_*.rpm
+          path: packaging/output/*.rpm
           retention-days: 7
 
   build-appimage:
@@ -299,7 +246,7 @@ jobs:
           retention-days: 7
 
   release:
-    needs: [version-check, build, build-deb, build-rpm, build-appimage]
+    needs: [version-check, build, build-deb-rpm, build-appimage]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
