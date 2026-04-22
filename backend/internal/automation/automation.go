@@ -1,33 +1,28 @@
 package automation
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
+	"errors"
 	"log/slog"
-	"net/http"
-	"net/url"
 	"shminer/backend/config"
-	"shminer/backend/internal/telegram"
 	"shminer/backend/types"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	tele "gopkg.in/telebot.v3"
 )
 
 type DashboardProvider interface {
 	GetDashboardData() types.DashboardData
 }
 
-type Controller = telegram.Controller
-
 type Engine struct {
 	ctrl           Controller
 	dash           DashboardProvider
-	httpClient     *http.Client
-	bot            *telegram.Bot
+	bot            *Bot
 	botMu          sync.Mutex
 	sessionStart   atomic.Int64
 	lastErrorSent  atomic.Int64
@@ -38,9 +33,8 @@ type Engine struct {
 
 func New(ctrl Controller, dash DashboardProvider) *Engine {
 	e := &Engine{
-		ctrl:       ctrl,
-		dash:       dash,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		ctrl: ctrl,
+		dash: dash,
 	}
 	e.sessionStart.Store(time.Now().Unix())
 	return e
@@ -81,7 +75,7 @@ func (e *Engine) startBot(ctx context.Context) {
 	if e.bot != nil {
 		return
 	}
-	bot, err := telegram.Start(ctx, auto.TelegramBotToken, auto.TelegramChatID, e.ctrl)
+	bot, err := StartBot(ctx, auto.TelegramBotToken, auto.TelegramChatID, e.ctrl)
 	if err != nil {
 		slog.Debug("Telegram bot not started", "err", err)
 		return
@@ -98,6 +92,12 @@ func (e *Engine) stopBot() {
 	}
 }
 
+func (e *Engine) activeBot() *Bot {
+	e.botMu.Lock()
+	defer e.botMu.Unlock()
+	return e.bot
+}
+
 func (e *Engine) ResetSession() {
 	e.sessionStart.Store(time.Now().Unix())
 	e.notifiedTarget.Store(false)
@@ -110,7 +110,7 @@ func (e *Engine) checkRules() {
 
 	if auto.BlockTarget > 0 && mining && data.SessionBlocks >= auto.BlockTarget {
 		if !e.notifiedTarget.Swap(true) {
-			msg := fmt.Sprintf("🎯 Досягнуто цілі: зараховано %d блоків. Зупиняю майнінг.", data.SessionBlocks)
+			msg := "🎯 Досягнуто цілі: зараховано " + strconv.FormatUint(uint64(data.SessionBlocks), 10) + " блоків. Зупиняю майнінг."
 			slog.Info(msg)
 			if auto.NotifyOnTarget {
 				e.sendTelegram(msg)
@@ -123,7 +123,7 @@ func (e *Engine) checkRules() {
 	if auto.SessionMinutes > 0 && mining {
 		start := time.Unix(e.sessionStart.Load(), 0)
 		if time.Since(start) >= time.Duration(auto.SessionMinutes)*time.Minute {
-			msg := fmt.Sprintf("⏱️ Таймер сесії %d хв вичерпано. Зупиняю майнінг.", auto.SessionMinutes)
+			msg := "⏱️ Таймер сесії " + strconv.FormatUint(uint64(auto.SessionMinutes), 10) + " хв вичерпано. Зупиняю майнінг."
 			slog.Info(msg)
 			if auto.NotifyOnStop {
 				e.sendTelegram(msg)
@@ -182,76 +182,62 @@ func (e *Engine) notifyIfEnabled(enabled func(config.AutomationConfig) bool, mes
 func (e *Engine) SendTestMessage() error {
 	auto := config.Config.Automation
 	if auto.TelegramBotToken == "" || auto.TelegramChatID == "" {
-		return fmt.Errorf("bot token and chat ID are required")
+		return errors.New("bot token and chat ID are required")
 	}
-	return e.doSendTelegram(auto.TelegramBotToken, auto.TelegramChatID, "✅ Тестове повідомлення від S-UAH Miner")
+	return sendOneShot(auto.TelegramBotToken, auto.TelegramChatID, "✅ Тестове повідомлення від S-UAH Miner")
 }
 
 func (e *Engine) SendTestWithConfig(token, chatID string) error {
 	if token == "" || chatID == "" {
-		return fmt.Errorf("token and chat_id required")
+		return errors.New("token and chat_id required")
 	}
-	return e.doSendTelegram(token, chatID, "✅ Перевірка з'єднання з S-UAH Miner")
+	return sendOneShot(token, chatID, "✅ Перевірка з'єднання з S-UAH Miner")
 }
 
 func (e *Engine) sendTelegram(message string) {
-	auto := config.Config.Automation
-	if auto.TelegramBotToken == "" || auto.TelegramChatID == "" {
+	bot := e.activeBot()
+	if bot == nil {
 		return
 	}
-	if err := e.doSendTelegram(auto.TelegramBotToken, auto.TelegramChatID, message); err != nil {
+	if err := bot.Send(message); err != nil {
 		slog.Debug("Telegram send failed", "err", err)
 	}
 }
 
-func (e *Engine) doSendTelegram(token, chatID, message string) error {
-	endpoint := "https://api.telegram.org/bot" + token + "/sendMessage"
-	payload := map[string]string{
-		"chat_id": chatID,
-		"text":    message,
+func sendOneShot(token, chatID, message string) error {
+	id, err := strconv.ParseInt(strings.TrimSpace(chatID), 10, 64)
+	if err != nil {
+		return errors.New("invalid chat id: " + err.Error())
 	}
-	body, err := json.Marshal(payload)
+	tb, err := tele.NewBot(tele.Settings{Token: token})
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := e.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("telegram api: %d", resp.StatusCode)
-	}
-	return nil
+	_, err = tb.Send(&tele.User{ID: id}, message)
+	return err
 }
 
 func (e *Engine) ResolveChatID(token, chatID string) (string, error) {
-	endpoint := "https://api.telegram.org/bot" + token + "/getChat?chat_id=" + url.QueryEscape(chatID)
-	resp, err := e.httpClient.Get(endpoint)
+	if token == "" || chatID == "" {
+		return "", errors.New("token and chat_id required")
+	}
+	tb, err := tele.NewBot(tele.Settings{Token: token})
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
-	var out struct {
-		Ok     bool `json:"ok"`
-		Result struct {
-			ID int64 `json:"id"`
-		} `json:"result"`
-		Description string `json:"description"`
+	name := strings.TrimSpace(chatID)
+	if id, err := strconv.ParseInt(name, 10, 64); err == nil {
+		chat, err := tb.ChatByID(id)
+		if err != nil {
+			return "", err
+		}
+		return strconv.FormatInt(chat.ID, 10), nil
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	chat, err := tb.ChatByUsername(name)
+	if err != nil {
 		return "", err
 	}
-	if !out.Ok {
-		return "", fmt.Errorf("%s", out.Description)
-	}
-	return fmt.Sprintf("%d", out.Result.ID), nil
+	return strconv.FormatInt(chat.ID, 10), nil
 }
 
 func withinSchedule(now time.Time, start, stop string) bool {
@@ -272,11 +258,12 @@ func parseHHMM(s string) (int, bool) {
 	if len(parts) != 2 {
 		return 0, false
 	}
-	var h, m int
-	if _, err := fmt.Sscanf(parts[0], "%d", &h); err != nil {
+	h, err := strconv.Atoi(parts[0])
+	if err != nil {
 		return 0, false
 	}
-	if _, err := fmt.Sscanf(parts[1], "%d", &m); err != nil {
+	m, err := strconv.Atoi(parts[1])
+	if err != nil {
 		return 0, false
 	}
 	if h < 0 || h > 23 || m < 0 || m > 59 {

@@ -100,12 +100,17 @@ func New() *App {
 	statsService.SetWebDashboard(dashboard)
 	minerClient := miner.InitMiner(statsService.HashCountPtr(), node, int(config.Config.Threads))
 
+	submitBuf := config.Config.SubmitBufferSize
+	if submitBuf <= 0 {
+		submitBuf = config.DefaultSubmitBufferSize
+	}
+
 	app := &App{
 		storageDriver: storageDriver,
 		walletService: walletService,
 		statsService:  statsService,
 		storageBuffer: make(chan struct{}, 90),
-		submitCh:      make(chan submitPayload, 1000),
+		submitCh:      make(chan submitPayload, submitBuf),
 		shutdownWG:    sync.WaitGroup{},
 		minerClient:   minerClient,
 		nodeClient:    node,
@@ -189,6 +194,14 @@ func (a *App) applyConfig() {
 	a.statsService.SetNodeClient(node)
 	a.statsService.SetBalanceFreq(time.Duration(config.Config.BalanceFreqS) * time.Second)
 	a.minerClient = miner.InitMiner(a.statsService.HashCountPtr(), node, int(config.Config.Threads))
+
+	submitBuf := config.Config.SubmitBufferSize
+	if submitBuf <= 0 {
+		submitBuf = config.DefaultSubmitBufferSize
+	}
+	if cap(a.submitCh) != submitBuf {
+		a.submitCh = make(chan submitPayload, submitBuf)
+	}
 }
 
 func (a *App) runMiningLoop(ctx context.Context) {
@@ -558,6 +571,54 @@ func (a *App) GetWalletJSONSecure(address, password string) (string, error) {
 
 func (a *App) GetConfig() config.AppConfig {
 	return config.Config
+}
+
+func (a *App) GetAutomation() config.AutomationConfig {
+	return config.Config.Automation
+}
+
+func (a *App) GetSubmitBufferSize() int {
+	if config.Config.SubmitBufferSize > 0 {
+		return config.Config.SubmitBufferSize
+	}
+	return config.DefaultSubmitBufferSize
+}
+
+func (a *App) SaveAutomationBot(cfg config.AutomationConfig) error {
+	pass := a.storageDriver.GetSessionPassword()
+	if pass == "" {
+		return errors.New("storage locked")
+	}
+	config.Config.Automation = cfg
+	return a.storageDriver.PersistConfig(pass)
+}
+
+func (a *App) SaveSubmitBufferSizeBot(size int) error {
+	pass := a.storageDriver.GetSessionPassword()
+	if pass == "" {
+		return errors.New("storage locked")
+	}
+	if size <= 0 {
+		size = config.DefaultSubmitBufferSize
+	}
+	config.Config.SubmitBufferSize = size
+	return a.storageDriver.PersistConfig(pass)
+}
+
+func (a *App) DeleteWalletBot(address string) error {
+	pass := a.storageDriver.GetSessionPassword()
+	if pass == "" {
+		return errors.New("storage locked")
+	}
+	return a.walletService.DeleteWallet(address)
+}
+
+func (a *App) ExportWalletJSONBot(address string) (string, error) {
+	pass := a.storageDriver.GetSessionPassword()
+	if pass == "" {
+		return "", errors.New("storage locked")
+	}
+	return a.walletService.ExportWalletJSON(address)
 }
 
 func (a *App) UpdateConfig(newConf config.AppConfig, password string) error {

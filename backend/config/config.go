@@ -10,6 +10,7 @@ type AppConfig struct {
 	RetryDelayMs     int              `json:"retry_delay_ms"`
 	BalanceFreqS     int              `json:"balance_freq_s"`
 	BlockCheckFreqMs int              `json:"block_check_freq_ms"`
+	SubmitBufferSize int              `json:"submit_buffer_size"`
 	MaxRetries       uint16           `json:"max_retries"`
 	Threads          uint8            `json:"threads"`
 	Automation       AutomationConfig `json:"automation"`
@@ -38,6 +39,7 @@ var Config = AppConfig{
 	RetryDelayMs:     int(DefaultRetryDelay.Milliseconds()),
 	BalanceFreqS:     int(DefaultBalanceUpdateFreq.Seconds()),
 	BlockCheckFreqMs: DefaultBlockCheckFreqMs,
+	SubmitBufferSize: DefaultSubmitBufferSize,
 	Threads:          4,
 }
 
@@ -90,6 +92,12 @@ func (c *AppConfig) Update(newConf AppConfig) {
 		c.BlockCheckFreqMs = newConf.BlockCheckFreqMs
 	} else {
 		c.BlockCheckFreqMs = DefaultBlockCheckFreqMs
+	}
+
+	if newConf.SubmitBufferSize > 0 {
+		c.SubmitBufferSize = newConf.SubmitBufferSize
+	} else {
+		c.SubmitBufferSize = DefaultSubmitBufferSize
 	}
 
 	if newConf.Threads > 0 {

@@ -42,6 +42,7 @@ export namespace config {
 	    retry_delay_ms: number;
 	    balance_freq_s: number;
 	    block_check_freq_ms: number;
+	    submit_buffer_size: number;
 	    max_retries: number;
 	    threads: number;
 	    automation: AutomationConfig;
@@ -61,6 +62,7 @@ export namespace config {
 	        this.retry_delay_ms = source["retry_delay_ms"];
 	        this.balance_freq_s = source["balance_freq_s"];
 	        this.block_check_freq_ms = source["block_check_freq_ms"];
+	        this.submit_buffer_size = source["submit_buffer_size"];
 	        this.max_retries = source["max_retries"];
 	        this.threads = source["threads"];
 	        this.automation = this.convertValues(source["automation"], AutomationConfig);
