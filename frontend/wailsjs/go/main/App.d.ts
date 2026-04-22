@@ -31,9 +31,13 @@ export function GetWalletKey(arg1:string,arg2:string):Promise<string>;
 
 export function GetWallets():Promise<Array<string>>;
 
+export function HasPassword():Promise<boolean>;
+
 export function ImportWalletJSON(arg1:string):Promise<string>;
 
 export function InitStorage(arg1:string):Promise<string>;
+
+export function IsMining():Promise<boolean>;
 
 export function IsStorageInitialized():Promise<boolean>;
 
@@ -41,11 +45,17 @@ export function OpenConfigFolder():Promise<void>;
 
 export function RenameWallet(arg1:string,arg2:string):Promise<string>;
 
+export function ResolveTelegramChatID(arg1:string,arg2:string):Promise<string>;
+
 export function SendMessageToDeveloper(arg1:string,arg2:string):Promise<void>;
+
+export function SendTestTelegramMessage(arg1:string,arg2:string):Promise<string>;
 
 export function SendTransaction(arg1:string,arg2:string,arg3:string,arg4:number):Promise<string>;
 
 export function SetGlobalMining(arg1:boolean):Promise<void>;
+
+export function SetMining(arg1:boolean):Promise<void>;
 
 export function ToggleWallet(arg1:string):Promise<boolean>;
 

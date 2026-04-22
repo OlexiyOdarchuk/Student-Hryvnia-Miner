@@ -217,6 +217,25 @@ func (a *App) SetGlobalMining(state bool) {
 	_ = a.backendApp.SetGlobalMining(state)
 }
 
+func (a *App) IsMining() bool {
+	return a.backendApp.IsMining()
+}
+
+func (a *App) SetMining(state bool) {
+	a.backendApp.SetMining(state)
+}
+
+func (a *App) SendTestTelegramMessage(token, chatID string) string {
+	if err := a.backendApp.SendTestTelegramMessage(token, chatID); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func (a *App) ResolveTelegramChatID(token, chatID string) (string, error) {
+	return a.backendApp.ResolveTelegramChatID(token, chatID)
+}
+
 // Settings
 
 func (a *App) GetConfig() config.AppConfig {
@@ -235,6 +254,10 @@ func (a *App) ChangePassword(oldPass, newPass string) string {
 		return err.Error()
 	}
 	return ""
+}
+
+func (a *App) HasPassword() bool {
+	return a.backendApp.HasPassword()
 }
 
 func (a *App) GetSystemInfo() map[string]interface{} {

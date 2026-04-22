@@ -28,8 +28,13 @@ type Backend interface {
 	GetConfig() config.AppConfig
 	UpdateConfig(config.AppConfig, string) error
 	ChangePassword(string, string) error
+	HasPassword() bool
 	SendTransaction(from, to, password string, amount int) error
 	SendMessageToDeveloper(contact, message string)
+	SendTestTelegramMessage(token, chatID string) error
+	ResolveTelegramChatID(token, chatID string) (string, error)
+	IsMining() bool
+	SetMining(state bool)
 	TryAutoLogin() (bool, error)
 	GetConfigFilePath() string
 }

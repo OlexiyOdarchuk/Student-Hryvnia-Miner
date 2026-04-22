@@ -9,7 +9,7 @@
     import Wallets from './components/Wallets.svelte';
     import Transactions from './components/Transactions.svelte';
     import Statistics from './components/Statistics.svelte';
-    import Logs from './components/Logs.svelte';
+    import Automation from './components/Automation.svelte';
     import Settings from './components/Settings.svelte';
     import Help from './components/Help.svelte';
     import Contact from './components/Contact.svelte';
@@ -98,8 +98,8 @@
                 <Transactions />
             {:else if $activeTab === 'stats'}
                 <Statistics />
-            {:else if $activeTab === 'logs'}
-                <Logs />
+            {:else if $activeTab === 'automation'}
+                <Automation />
             {:else if $activeTab === 'settings'}
                 <Settings />
             {:else if $activeTab === 'help'}

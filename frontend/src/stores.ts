@@ -7,8 +7,13 @@ export const stats = writable<types.DashboardData>({
     hashrate: 0,
     session_blocks: 0,
     lifetime_blocks: 0,
+    session_found: 0,
+    submit_queue_len: 0,
+    blocks_per_min: 0,
+    found_per_min: 0,
     uptime: "00:00:00",
     total_balance: 0,
+    is_mining: false,
     wallets: [],
     new_logs: []
 } as types.DashboardData);

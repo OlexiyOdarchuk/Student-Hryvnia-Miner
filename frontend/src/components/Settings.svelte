@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { GetConfig, UpdateConfig, ChangePassword, GetSystemInfo, GetConfigFilePath, OpenConfigFolder } from '../../wailsjs/go/main/App';
+    import { GetConfig, UpdateConfig, ChangePassword, GetSystemInfo, GetConfigFilePath, OpenConfigFolder, HasPassword } from '../../wailsjs/go/main/App';
     let config = {
         miner_id: '',
         telegram_handle: '',
@@ -27,11 +27,17 @@
     let confirmPass = '';
     let passMsg = '';
     let isPassError = false;
-    let configPath = "Завантаження..."; 
+    let configPath = "Завантаження...";
+    let passwordRequired = true;
 
     onMount(async () => {
         config = await GetConfig();
-        configPath = await GetConfigFilePath(); 
+        configPath = await GetConfigFilePath();
+        try {
+            passwordRequired = await HasPassword();
+        } catch (e) {
+            passwordRequired = true;
+        }
         try {
             const info = await GetSystemInfo();
             if (info && info.cpu_cores) {
@@ -57,13 +63,13 @@
     async function changePass() {
         passMsg = '';
         isPassError = false;
-        
+
         if (newPass !== confirmPass) {
             isPassError = true;
             passMsg = "Паролі не співпадають";
             return;
         }
-        
+
         const err = await ChangePassword(oldPass, newPass);
         if (err) {
             isPassError = true;
@@ -71,6 +77,11 @@
         } else {
             passMsg = "Пароль змінено успішно!";
             oldPass = ''; newPass = ''; confirmPass = '';
+            try {
+                passwordRequired = await HasPassword();
+            } catch (e) {
+                // ignore
+            }
         }
     }
 
@@ -161,10 +172,12 @@
                 </div>
             </div>
             
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                <label class="field-label" style="color: var(--primary);">Підтвердіть поточним паролем</label>
-                <input type="password" class="field" bind:value={password} placeholder="Поточний пароль">
-            </div>
+            {#if passwordRequired}
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <label class="field-label" style="color: var(--primary);">Підтвердіть поточним паролем</label>
+                    <input type="password" class="field" bind:value={password} placeholder="Поточний пароль">
+                </div>
+            {/if}
             
             {#if message}
                 <div style="padding: 10px; border-radius: 8px; text-align: center; {isError ? 'background: rgba(239, 68, 68, 0.2); color: var(--danger);' : 'background: rgba(16, 185, 129, 0.2); color: var(--success);'}">
@@ -178,12 +191,20 @@
         </form>
         
         
-        <h3 style="margin-bottom: 20px; color: white; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px;">Зміна паролю адміністратора</h3>
+        <h3 style="margin-bottom: 20px; color: white; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px;">
+            {passwordRequired ? "Зміна паролю адміністратора" : "Встановити пароль адміністратора"}
+        </h3>
         <form on:submit|preventDefault={changePass} style="display: grid; gap: 20px;">
-            <div>
-                <label class="field-label">Поточний пароль</label>
-                <input type="password" class="field" bind:value={oldPass}>
-            </div>
+            {#if passwordRequired}
+                <div>
+                    <label class="field-label">Поточний пароль</label>
+                    <input type="password" class="field" bind:value={oldPass}>
+                </div>
+            {:else}
+                <div style="padding: 10px 14px; background: rgba(129, 140, 248, 0.08); border-radius: 10px; border-left: 3px solid var(--primary); font-size: 0.85rem; color: #cbd5e1;">
+                    У вас зараз немає паролю — сховище розблоковується автоматично. Встановіть новий пароль, щоб шифрувати гаманці.
+                </div>
+            {/if}
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div>
                     <label class="field-label">Новий пароль</label>
@@ -194,15 +215,15 @@
                     <input type="password" class="field" bind:value={confirmPass} minlength="4">
                 </div>
             </div>
-            
+
             {#if passMsg}
                 <div style="padding: 10px; border-radius: 8px; text-align: center; {isPassError ? 'background: rgba(239, 68, 68, 0.2); color: var(--danger);' : 'background: rgba(16, 185, 129, 0.2); color: var(--success);'}">
                     {passMsg}
                 </div>
             {/if}
-            
+
             <button type="submit" class="btn btn-secondary btn-xl">
-                Оновити пароль
+                {passwordRequired ? "Оновити пароль" : "Встановити пароль"}
             </button>
         </form>
     </div>

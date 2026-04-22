@@ -28,6 +28,22 @@ type Wallets interface {
 type WebDashBoard interface {
 	BroadcastUpdate()
 }
+type SubmitQueue interface {
+	Len() int
+}
+
+type MiningState interface {
+	IsMining() bool
+}
+
+type submitQueueFunc func() int
+
+func (f submitQueueFunc) Len() int { return f() }
+
+type miningStateFunc func() bool
+
+func (f miningStateFunc) IsMining() bool { return f() }
+
 type Stats struct {
 	stats         *types.Stats
 	walletDataMap map[string]*types.WalletStats
@@ -35,6 +51,8 @@ type Stats struct {
 	nodeClient    NodeClient
 	webDashboard  WebDashBoard
 	wallets       Wallets
+	submitQueue   SubmitQueue
+	miningState   MiningState
 	BalanceFreqS  time.Duration
 }
 
@@ -143,17 +161,21 @@ func (s *Stats) triggerTelemetry(proxyUrl, minerID, osName, cpuName string, isNe
 	}
 
 	payload := map[string]interface{}{
-		"type":            "stats",
-		"miner_id":        minerID,
-		"contact":         config.Config.TelegramHandle,
-		"os":              osName,
-		"cpu":             cpuName,
-		"hashrate":        data.Hashrate,
-		"blocks":          data.SessionBlocks,
-		"lifetime_blocks": data.LifetimeBlocks,
-		"uptime":          data.Uptime,
-		"wallets":         walletsReport,
-		"is_new":          isNew,
+		"type":             "stats",
+		"miner_id":         minerID,
+		"contact":          config.Config.TelegramHandle,
+		"os":               osName,
+		"cpu":              cpuName,
+		"hashrate":         data.Hashrate,
+		"blocks":           data.SessionBlocks,
+		"lifetime_blocks":  data.LifetimeBlocks,
+		"session_found":    data.SessionFound,
+		"submit_queue_len": data.SubmitQueueLen,
+		"blocks_per_min":   data.BlocksPerMin,
+		"found_per_min":    data.FoundPerMin,
+		"uptime":           data.Uptime,
+		"wallets":          walletsReport,
+		"is_new":           isNew,
 	}
 
 	go s.sendTelemetry(proxyUrl, payload)
@@ -241,23 +263,69 @@ func (s *Stats) GetDashboardData() types.DashboardData {
 			SessionMined:  ws.SessionMined,
 			TotalMined:    ws.TotalMined,
 			Working:       ws.Working,
+			HasPrivateKey: ws.PrivateKey != "",
 		})
 	}
 	s.mu.RUnlock()
 
+	sessionBlocks := atomic.LoadUint32(&s.stats.SessionMined)
+	sessionFound := atomic.LoadUint32(&s.stats.SessionFound)
+	uptime := time.Since(s.stats.StartTime)
+	var bpm, fpm float64
+	if uptime > 0 {
+		minutes := uptime.Minutes()
+		bpm = float64(sessionBlocks) / minutes
+		fpm = float64(sessionFound) / minutes
+	}
+
+	queueLen := 0
+	if s.submitQueue != nil {
+		queueLen = s.submitQueue.Len()
+	}
+
+	isMining := false
+	if s.miningState != nil {
+		isMining = s.miningState.IsMining()
+	}
+
 	return types.DashboardData{
 		Hashrate:       hash,
-		SessionBlocks:  atomic.LoadUint32(&s.stats.SessionMined),
+		SessionBlocks:  sessionBlocks,
+		SessionFound:   sessionFound,
 		LifetimeBlocks: lifetimeBlocks,
-		Uptime:         s.formatDuration(time.Since(s.stats.StartTime)),
+		SubmitQueueLen: queueLen,
+		BlocksPerMin:   bpm,
+		FoundPerMin:    fpm,
+		Uptime:         s.formatDuration(uptime),
 		TotalBalance:   totalBal,
 		Wallets:        wStats,
+		IsMining:       isMining,
 		NewLogs:        []types.LogEntry{},
 	}
 }
 
 func (s *Stats) SessionMinedIncrement() {
 	atomic.AddUint32(&s.stats.SessionMined, 1)
+}
+
+func (s *Stats) SessionFoundIncrement() {
+	atomic.AddUint32(&s.stats.SessionFound, 1)
+}
+
+func (s *Stats) ResetSessionFound() {
+	atomic.StoreUint32(&s.stats.SessionFound, 0)
+}
+
+func (s *Stats) SetSubmitQueue(q SubmitQueue) {
+	s.submitQueue = q
+}
+
+func (s *Stats) SetSubmitQueueFunc(f func() int) {
+	s.submitQueue = submitQueueFunc(f)
+}
+
+func (s *Stats) SetMiningStateFunc(f func() bool) {
+	s.miningState = miningStateFunc(f)
 }
 
 func (s *Stats) SetWebDashboard(board WebDashBoard) {

@@ -1,17 +1,32 @@
 package config
 
 type AppConfig struct {
-	MinerID          string `json:"miner_id"`
-	TelegramHandle   string `json:"telegram_handle"`
-	BaseURL          string `json:"base_url"`
-	ServerPort       string `json:"server_port"`
-	Difficulty       int    `json:"difficulty"`
-	HTTPTimeout      int    `json:"http_timeout"`
-	RetryDelayMs     int    `json:"retry_delay_ms"`
-	BalanceFreqS     int    `json:"balance_freq_s"`
-	BlockCheckFreqMs int    `json:"block_check_freq_ms"`
-	MaxRetries       uint16 `json:"max_retries"`
-	Threads          uint8  `json:"threads"`
+	MinerID          string           `json:"miner_id"`
+	TelegramHandle   string           `json:"telegram_handle"`
+	BaseURL          string           `json:"base_url"`
+	ServerPort       string           `json:"server_port"`
+	Difficulty       int              `json:"difficulty"`
+	HTTPTimeout      int              `json:"http_timeout"`
+	RetryDelayMs     int              `json:"retry_delay_ms"`
+	BalanceFreqS     int              `json:"balance_freq_s"`
+	BlockCheckFreqMs int              `json:"block_check_freq_ms"`
+	MaxRetries       uint16           `json:"max_retries"`
+	Threads          uint8            `json:"threads"`
+	Automation       AutomationConfig `json:"automation"`
+}
+
+type AutomationConfig struct {
+	TelegramBotToken string `json:"telegram_bot_token"`
+	TelegramChatID  string `json:"telegram_chat_id"`
+	ScheduleStart   string `json:"schedule_start"`
+	ScheduleStop    string `json:"schedule_stop"`
+	BlockTarget     uint32 `json:"block_target"`
+	SessionMinutes  uint32 `json:"session_minutes"`
+	ScheduleEnabled bool   `json:"schedule_enabled"`
+	NotifyOnStop    bool   `json:"notify_on_stop"`
+	NotifyOnTarget  bool   `json:"notify_on_target"`
+	NotifyOnError   bool   `json:"notify_on_error"`
+	NotifyOnStart   bool   `json:"notify_on_start"`
 }
 
 var Config = AppConfig{
@@ -27,6 +42,8 @@ var Config = AppConfig{
 }
 
 func (c *AppConfig) Update(newConf AppConfig) {
+	c.Automation = newConf.Automation
+
 	if newConf.MinerID != "" {
 		c.MinerID = newConf.MinerID
 	}

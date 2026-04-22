@@ -12,9 +12,11 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"shminer/backend/config"
+	"shminer/backend/internal/automation"
 	"shminer/backend/internal/logger"
 	"shminer/backend/internal/miner"
 	"shminer/backend/internal/nodeclient"
@@ -28,23 +30,34 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
 )
 
+type submitPayload struct {
+	prev   string
+	wallet string
+	nonce  int
+	ts     int64
+	hash   string
+}
+
 type App struct {
-	storageDriver *storage.Storage
-	walletService *wallets.Wallets
-	statsService  *stats.Stats
-	storageBuffer chan struct{}
-	shutdownWG    sync.WaitGroup
-	minerClient   *miner.Miner
-	nodeClient    nodeclient.NodeClient
-	webDashboard  *web_dashboard.Server
+	storageDriver    *storage.Storage
+	walletService    *wallets.Wallets
+	statsService     *stats.Stats
+	storageBuffer    chan struct{}
+	submitCh         chan submitPayload
+	shutdownWG       sync.WaitGroup
+	minerClient      *miner.Miner
+	nodeClient       nodeclient.NodeClient
+	webDashboard     *web_dashboard.Server
+	automationEngine *automation.Engine
 
 	walletMu      *sync.RWMutex
 	walletDataMap map[string]*types.WalletStats
 
-	parentCtx context.Context
-	miningCtx context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
+	parentCtx    context.Context
+	miningCtx    context.Context
+	cancel       context.CancelFunc
+	mu           sync.Mutex
+	miningPaused atomic.Bool
 }
 
 type noopWebDashBoard struct{}
@@ -92,6 +105,7 @@ func New() *App {
 		walletService: walletService,
 		statsService:  statsService,
 		storageBuffer: make(chan struct{}, 90),
+		submitCh:      make(chan submitPayload, 1000),
 		shutdownWG:    sync.WaitGroup{},
 		minerClient:   minerClient,
 		nodeClient:    node,
@@ -99,6 +113,10 @@ func New() *App {
 		walletMu:      walletMu,
 		walletDataMap: walletDataMap,
 	}
+
+	statsService.SetSubmitQueueFunc(func() int { return len(app.submitCh) })
+	statsService.SetMiningStateFunc(app.IsMining)
+	app.automationEngine = automation.New(app, statsService)
 
 	go dashboard.StartWebServer()
 	return app
@@ -137,6 +155,8 @@ func (a *App) StartMining(ctx context.Context) {
 	go a.statsService.StartTelemetryReporter(miningCtx, &a.shutdownWG, config.TelemetryProxyURL, config.Config.MinerID)
 	a.shutdownWG.Add(1)
 	go a.autoSaver(miningCtx)
+	a.shutdownWG.Add(1)
+	go a.automationEngine.Run(miningCtx, &a.shutdownWG)
 	a.shutdownWG.Add(1)
 	go a.runMiningLoop(miningCtx)
 }
@@ -180,6 +200,7 @@ func (a *App) runMiningLoop(ctx context.Context) {
 
 	a.minerClient.CompileDifficultyBits(cfg.Difficulty)
 	a.statsService.ResetSessionMined()
+	a.statsService.ResetSessionFound()
 	a.statsService.SetStartTime(time.Now())
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -191,14 +212,7 @@ func (a *App) runMiningLoop(ctx context.Context) {
 	var cancelCurrentMutex sync.Mutex
 	var cancelCurrentBlock context.CancelFunc
 
-	type submitPayload struct {
-		prev   string
-		wallet string
-		nonce  int
-		ts     int64
-		hash   string
-	}
-	submitCh := make(chan submitPayload, 5000)
+	submitCh := a.submitCh
 
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
@@ -273,6 +287,11 @@ func (a *App) runMiningLoop(ctx context.Context) {
 		if cachedPrevHash == "" {
 			slog.Error("⚠️ No connection to the server. Restarting miner...")
 			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if a.miningPaused.Load() {
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
@@ -358,6 +377,8 @@ func (a *App) runMiningLoop(ctx context.Context) {
 			continue
 		}
 
+		a.statsService.SessionFoundIncrement()
+
 		payload := submitPayload{
 			prev:   cachedPrevHash,
 			wallet: currentWallet,
@@ -440,7 +461,40 @@ func (a *App) ToggleWallet(address string) bool {
 }
 
 func (a *App) SetGlobalMining(state bool) error {
+	if state {
+		a.miningPaused.Store(false)
+	}
 	return a.walletService.SetAllMining(state)
+}
+
+func (a *App) SetMining(state bool) {
+	a.miningPaused.Store(!state)
+	if state {
+		_ = a.walletService.SetAllMining(true)
+	}
+	a.webDashboard.BroadcastUpdate()
+}
+
+func (a *App) IsMining() bool {
+	if a.miningPaused.Load() {
+		return false
+	}
+	a.walletMu.RLock()
+	defer a.walletMu.RUnlock()
+	for _, ws := range a.walletDataMap {
+		if ws.Working {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) SendTestTelegramMessage(token, chatID string) error {
+	return a.automationEngine.SendTestWithConfig(token, chatID)
+}
+
+func (a *App) ResolveTelegramChatID(token, chatID string) (string, error) {
+	return a.automationEngine.ResolveChatID(token, chatID)
 }
 
 func (a *App) UpdateWalletKey(address, privateKey, password string) error {
@@ -470,6 +524,29 @@ func (a *App) ImportWalletJSON(jsonContent string) error {
 		return errors.New("JSON must contain the fields name, pub, priv")
 	}
 	return a.walletService.AddWalletSafe(payload.Name, payload.Pub, payload.Priv)
+}
+
+func (a *App) GenerateWallet(name string) (string, error) {
+	privKey, err := secp256k1.GeneratePrivateKey()
+	if err != nil {
+		return "", err
+	}
+	pub := hex.EncodeToString(privKey.PubKey().SerializeUncompressed())
+	priv := hex.EncodeToString(privKey.Serialize())
+	if err := a.walletService.AddWalletSafe(name, pub, priv); err != nil {
+		return "", err
+	}
+	return pub, nil
+}
+
+func (a *App) ResetSession() {
+	a.statsService.ResetSessionMined()
+	a.statsService.ResetSessionFound()
+	a.statsService.SetStartTime(time.Now())
+	if a.automationEngine != nil {
+		a.automationEngine.ResetSession()
+	}
+	a.webDashboard.BroadcastUpdate()
 }
 
 func (a *App) GetWalletJSONSecure(address, password string) (string, error) {
@@ -522,6 +599,10 @@ func (a *App) verifyPassword(password string) error {
 		return errors.New("invalid password")
 	}
 	return nil
+}
+
+func (a *App) HasPassword() bool {
+	return a.storageDriver.GetSessionPassword() != ""
 }
 
 func (a *App) SendTransaction(from, to, password string, amount int) error {

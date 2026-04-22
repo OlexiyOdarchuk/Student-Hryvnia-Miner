@@ -1,5 +1,37 @@
 export namespace config {
 	
+	export class AutomationConfig {
+	    telegram_bot_token: string;
+	    telegram_chat_id: string;
+	    schedule_start: string;
+	    schedule_stop: string;
+	    block_target: number;
+	    session_minutes: number;
+	    schedule_enabled: boolean;
+	    notify_on_stop: boolean;
+	    notify_on_target: boolean;
+	    notify_on_error: boolean;
+	    notify_on_start: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AutomationConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.telegram_bot_token = source["telegram_bot_token"];
+	        this.telegram_chat_id = source["telegram_chat_id"];
+	        this.schedule_start = source["schedule_start"];
+	        this.schedule_stop = source["schedule_stop"];
+	        this.block_target = source["block_target"];
+	        this.session_minutes = source["session_minutes"];
+	        this.schedule_enabled = source["schedule_enabled"];
+	        this.notify_on_stop = source["notify_on_stop"];
+	        this.notify_on_target = source["notify_on_target"];
+	        this.notify_on_error = source["notify_on_error"];
+	        this.notify_on_start = source["notify_on_start"];
+	    }
+	}
 	export class AppConfig {
 	    miner_id: string;
 	    telegram_handle: string;
@@ -12,6 +44,7 @@ export namespace config {
 	    block_check_freq_ms: number;
 	    max_retries: number;
 	    threads: number;
+	    automation: AutomationConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppConfig(source);
@@ -30,7 +63,26 @@ export namespace config {
 	        this.block_check_freq_ms = source["block_check_freq_ms"];
 	        this.max_retries = source["max_retries"];
 	        this.threads = source["threads"];
+	        this.automation = this.convertValues(source["automation"], AutomationConfig);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }
@@ -45,6 +97,7 @@ export namespace types {
 	    session_mined: number;
 	    total_mined: number;
 	    working: boolean;
+	    has_private_key: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new WalletStats(source);
@@ -59,6 +112,7 @@ export namespace types {
 	        this.session_mined = source["session_mined"];
 	        this.total_mined = source["total_mined"];
 	        this.working = source["working"];
+	        this.has_private_key = source["has_private_key"];
 	    }
 	}
 	export class LogEntry {
@@ -86,7 +140,12 @@ export namespace types {
 	    total_balance: number;
 	    session_blocks: number;
 	    lifetime_blocks: number;
+	    session_found: number;
+	    submit_queue_len: number;
+	    blocks_per_min: number;
+	    found_per_min: number;
 	    uptime: string;
+	    is_mining: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new DashboardData(source);
@@ -100,7 +159,12 @@ export namespace types {
 	        this.total_balance = source["total_balance"];
 	        this.session_blocks = source["session_blocks"];
 	        this.lifetime_blocks = source["lifetime_blocks"];
+	        this.session_found = source["session_found"];
+	        this.submit_queue_len = source["submit_queue_len"];
+	        this.blocks_per_min = source["blocks_per_min"];
+	        this.found_per_min = source["found_per_min"];
 	        this.uptime = source["uptime"];
+	        this.is_mining = source["is_mining"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

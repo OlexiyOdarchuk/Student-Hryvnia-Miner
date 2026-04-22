@@ -58,12 +58,20 @@ export function GetWallets() {
   return window['go']['main']['App']['GetWallets']();
 }
 
+export function HasPassword() {
+  return window['go']['main']['App']['HasPassword']();
+}
+
 export function ImportWalletJSON(arg1) {
   return window['go']['main']['App']['ImportWalletJSON'](arg1);
 }
 
 export function InitStorage(arg1) {
   return window['go']['main']['App']['InitStorage'](arg1);
+}
+
+export function IsMining() {
+  return window['go']['main']['App']['IsMining']();
 }
 
 export function IsStorageInitialized() {
@@ -78,8 +86,16 @@ export function RenameWallet(arg1, arg2) {
   return window['go']['main']['App']['RenameWallet'](arg1, arg2);
 }
 
+export function ResolveTelegramChatID(arg1, arg2) {
+  return window['go']['main']['App']['ResolveTelegramChatID'](arg1, arg2);
+}
+
 export function SendMessageToDeveloper(arg1, arg2) {
   return window['go']['main']['App']['SendMessageToDeveloper'](arg1, arg2);
+}
+
+export function SendTestTelegramMessage(arg1, arg2) {
+  return window['go']['main']['App']['SendTestTelegramMessage'](arg1, arg2);
 }
 
 export function SendTransaction(arg1, arg2, arg3, arg4) {
@@ -88,6 +104,10 @@ export function SendTransaction(arg1, arg2, arg3, arg4) {
 
 export function SetGlobalMining(arg1) {
   return window['go']['main']['App']['SetGlobalMining'](arg1);
+}
+
+export function SetMining(arg1) {
+  return window['go']['main']['App']['SetMining'](arg1);
 }
 
 export function ToggleWallet(arg1) {

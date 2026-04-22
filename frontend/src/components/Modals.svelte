@@ -1,21 +1,31 @@
 <script lang="ts">
-    import { AddWallet, RenameWallet, DeleteWallet, UpdateWalletKey, ImportWalletJSON, GetWalletJSONSecure, GetWalletKey, GenerateKeyPair } from '../../wailsjs/go/main/App';
+    import { onMount } from 'svelte';
+    import { AddWallet, RenameWallet, DeleteWallet, UpdateWalletKey, ImportWalletJSON, GetWalletJSONSecure, GetWalletKey, GenerateKeyPair, HasPassword } from '../../wailsjs/go/main/App';
     import { ClipboardSetText } from '../../wailsjs/runtime/runtime';
     import { notifications } from '../stores';
     import type { types } from '../../wailsjs/go/models';
-    
-    export let type: string = ''; 
+
+    export let type: string = '';
     export let wallet: types.WalletStats | null = null;
     export let onClose: () => void;
-    
+
     let name = '';
     let address = '';
     let privateKey = '';
     let password = '';
     let jsonContent = '';
+    let passwordRequired = true;
 
     let addTab: 'create' | 'import' = 'create';
     let importTab: 'manual' | 'json' = 'manual';
+
+    onMount(async () => {
+        try {
+            passwordRequired = await HasPassword();
+        } catch (e) {
+            passwordRequired = true;
+        }
+    });
     
     if (wallet && type === 'edit') {
         name = wallet.name;
@@ -161,26 +171,28 @@
             </form>
 
         {:else if type === 'del'}
-             <h2 style="color: var(--danger);">Відключити гаманець?</h2>
-            <p style="color: #94a3b8; margin-bottom: 30px;">Майнінг зупиниться для цього гаманця.</p>
+             <h2 style="color: var(--danger);">Видалити гаманець?</h2>
+            <p style="color: #94a3b8; margin-bottom: 30px;">Ви зможете продовжити його використання, якщо експортуєте його.</p>
             <form on:submit|preventDefault={handleSubmit}>
-                <label class="field-label">Пароль адміністратора</label>
-                <input type="password" class="field" placeholder="Підтвердіть пароль" bind:value={password} required>
+                {#if passwordRequired}
+                    <label class="field-label">Пароль адміністратора</label>
+                    <input type="password" class="field" placeholder="Підтвердіть пароль" bind:value={password}>
+                {/if}
                 <button type="submit" class="btn btn-xl" style="width: 100%; background: var(--danger); color: white;">
-                    <i class="fas fa-trash"></i> Відключити
+                    <i class="fas fa-trash"></i> Видалити
                 </button>
             </form>
 
         {:else if type === 'key'}
             <h2>Керування ключами</h2>
-            
+
             <div class="key-actions-section">
                 <label class="field-label">Експорт</label>
                 <div class="btn-group">
-                    <button type="button" class="btn btn-secondary" on:click={handleExportKey} disabled={!password}>
+                    <button type="button" class="btn btn-secondary" on:click={handleExportKey} disabled={passwordRequired && !password}>
                         <i class="fas fa-copy"></i> Копіювати ключ
                     </button>
-                    <button type="button" class="btn btn-secondary" on:click={handleExportJSON} disabled={!password}>
+                    <button type="button" class="btn btn-secondary" on:click={handleExportJSON} disabled={passwordRequired && !password}>
                         <i class="fas fa-file-code"></i> Експорт JSON
                     </button>
                 </div>
@@ -191,10 +203,12 @@
             <form on:submit|preventDefault={handleSubmit}>
                 <label class="field-label">Оновити приватний ключ</label>
                 <input type="password" class="field" placeholder="Вставте новий ключ" bind:value={privateKey}>
-                
-                <label class="field-label" style="margin-top: 15px;">Пароль адміністратора (для всіх дій)</label>
-                <input type="password" class="field" placeholder="Підтвердіть пароль" bind:value={password} required>
-                
+
+                {#if passwordRequired}
+                    <label class="field-label" style="margin-top: 15px;">Пароль адміністратора (для всіх дій)</label>
+                    <input type="password" class="field" placeholder="Підтвердіть пароль" bind:value={password}>
+                {/if}
+
                 <button type="submit" class="btn btn-primary btn-xl" style="width: 100%; margin-top: 15px;" disabled={!privateKey}>
                     <i class="fas fa-sync"></i> Оновити ключ
                 </button>

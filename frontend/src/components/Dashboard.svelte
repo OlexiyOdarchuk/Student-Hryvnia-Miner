@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import Chart from "chart.js/auto";
     import { stats, logs, connected, notifications } from "../stores";
-    import { SetGlobalMining } from "../../wailsjs/go/main/App";
+    import { SetMining } from "../../wailsjs/go/main/App";
 
     let chartCanvas: HTMLCanvasElement;
     let chart: Chart;
@@ -11,31 +11,62 @@
         document.dispatchEvent(new CustomEvent("toggle-focus"));
     }
 
-    let isAnyWorking = false;
+    let isMining = false;
     let isOnline = false;
     let statusText = "ОФЛАЙН";
     let statusClass = "offline";
     let activeWalletsCount = 0;
+    let totalWalletsCount = 0;
 
     $: if ($stats || $connected) {
         isOnline = $connected;
         const wallets = $stats.wallets || [];
-        isAnyWorking = wallets.some((w) => w.working);
+        totalWalletsCount = wallets.length;
+        isMining = $stats.is_mining === true;
         activeWalletsCount = wallets.filter((w) => w.working).length;
 
         statusText = !isOnline
             ? "ОФЛАЙН"
-            : isAnyWorking
+            : isMining
               ? "ОНЛАЙН"
               : "ПРИЗУПИНЕНО";
-        statusClass = !isOnline ? "offline" : isAnyWorking ? "" : "paused";
+        statusClass = !isOnline ? "offline" : isMining ? "" : "paused";
     }
 
     let lastSessionBlocks = 0;
     let pulseClass = "";
     let pulseTimer: any = null;
 
-    $: displayLogs = $logs.slice().reverse().slice(0, 50);
+    type LogFilter = "all" | "credit" | "error";
+    let activeFilter: LogFilter = "all";
+
+    function matchesFilter(log: any): boolean {
+        if (activeFilter === "all") return true;
+        if (activeFilter === "error") return log.type === "ERROR";
+        if (activeFilter === "credit") {
+            return (
+                typeof log.message === "string" &&
+                log.message.includes("credited")
+            );
+        }
+        return true;
+    }
+
+    $: displayLogs = $logs
+        .slice()
+        .reverse()
+        .filter(matchesFilter)
+        .slice(0, 80);
+
+    $: errorCount = $logs.filter((l) => l.type === "ERROR").length;
+    $: creditEntries = $logs.filter(
+        (l) =>
+            typeof l.message === "string" && l.message.includes("credited"),
+    );
+
+    $: queueLen = $stats.submit_queue_len || 0;
+    $: creditedPerMin = $stats.blocks_per_min || 0;
+    $: foundPerMin = $stats.found_per_min || 0;
 
     $: if ($stats && $stats.session_blocks > lastSessionBlocks) {
         if (pulseTimer) clearTimeout(pulseTimer);
@@ -48,16 +79,27 @@
     }
 
     async function toggleGlobal() {
-        const newState = !isAnyWorking;
-        await SetGlobalMining(newState);
+        const newState = !isMining;
+        await SetMining(newState);
 
         if (newState) {
-            notifications.success("Всі воркери запущено!");
+            notifications.success("Майнінг запущено!");
         } else {
             notifications.info(
-                "Всі воркери зупинено. Оновлення балансів активне.",
+                "Майнінг призупинено. Оновлення балансів активне.",
             );
         }
+    }
+
+    function logIcon(log: any): string {
+        const msg = typeof log.message === "string" ? log.message : "";
+        if (log.type === "ERROR") return "fa-circle-exclamation";
+        if (msg.includes("credited")) return "fa-coins";
+        if (msg.includes("Miner started")) return "fa-play";
+        if (msg.includes("Mining stopped")) return "fa-stop";
+        if (msg.includes("Block updated")) return "fa-arrows-rotate";
+        if (msg.includes("No connection")) return "fa-plug-circle-xmark";
+        return "fa-circle-info";
     }
 
     let chartInterval: any;
@@ -148,16 +190,16 @@
                 <button
                     class="btn-icon"
                     on:click={toggleGlobal}
-                    title={isAnyWorking ? "Зупинити всі" : "Запустити всі"}
+                    title={isMining ? "Зупинити майнінг" : "Запустити майнінг"}
                     style="width: auto; padding: 0 20px; font-weight: 600; gap: 8px;"
                 >
                     <i
-                        class="fas {isAnyWorking ? 'fa-stop' : 'fa-play'}"
-                        style="color: {isAnyWorking
+                        class="fas {isMining ? 'fa-stop' : 'fa-play'}"
+                        style="color: {isMining
                             ? 'var(--danger)'
                             : 'var(--success)'}"
                     ></i>
-                    <span>{isAnyWorking ? "СТОП" : "СТАРТ"}</span>
+                    <span>{isMining ? "СТОП" : "СТАРТ"}</span>
                 </button>
             </div>
 
@@ -228,34 +270,56 @@
             class="glass-card recent-logs no-hover"
             style="grid-column: 2; display: flex; flex-direction: column; height: 100%; max-height: none;"
         >
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0;"
-            >
-                <div class="stat-label">Остання активність</div>
+            <div class="log-header">
+                <div class="stat-label">Журнал подій</div>
+                <div class="log-filters">
+                    <button
+                        class="log-filter-btn"
+                        class:active={activeFilter === "all"}
+                        on:click={() => (activeFilter = "all")}
+                        title="Усі події"
+                    >
+                        Всі
+                        <span class="filter-count">{$logs.length}</span>
+                    </button>
+                    <button
+                        class="log-filter-btn credit"
+                        class:active={activeFilter === "credit"}
+                        on:click={() => (activeFilter = "credit")}
+                        title="Тільки зараховані блоки"
+                    >
+                        <i class="fas fa-coins"></i>
+                        <span class="filter-count">{creditEntries.length}</span>
+                    </button>
+                    <button
+                        class="log-filter-btn error"
+                        class:active={activeFilter === "error"}
+                        on:click={() => (activeFilter = "error")}
+                        title="Тільки помилки"
+                    >
+                        <i class="fas fa-circle-exclamation"></i>
+                        <span class="filter-count">{errorCount}</span>
+                    </button>
+                </div>
             </div>
-            <div
-                id="quick-stats-container"
-                style="flex: 1; overflow-y: auto; min-height: 0;"
-            >
+            <div class="log-body">
                 {#each displayLogs as log (log.id || log.message + log.time)}
                     <div class="log-row-mini {log.type}">
-                        <span
-                            style="opacity:0.5; margin-right: 8px; font-size: 0.8em;"
-                            >{log.time}</span
-                        >
-                        <span>{log.message}</span>
+                        <i class="fas {logIcon(log)} log-icon"></i>
+                        <span class="log-time">{log.time}</span>
+                        <span class="log-msg">{log.message}</span>
                     </div>
                 {/each}
-                {#if $logs.length === 0}
-                    <div
-                        class="wallet-select-placeholder"
-                        style="padding: 20px; text-align: center; color: #64748b; border: none; background: transparent;"
-                    >
-                        <i
-                            class="fas fa-info-circle"
-                            style="font-size: 2rem; margin-bottom: 10px; opacity: 0.5;"
-                        ></i>
-                        <div>Очікування подій...</div>
+                {#if displayLogs.length === 0}
+                    <div class="log-empty">
+                        <i class="fas fa-satellite-dish"></i>
+                        <div>
+                            {#if $logs.length === 0}
+                                Очікування подій...
+                            {:else}
+                                Немає подій за обраним фільтром
+                            {/if}
+                        </div>
                     </div>
                 {/if}
             </div>
@@ -263,66 +327,186 @@
     </div>
 
     <div
-        class="glass-card no-hover"
-        style="flex-shrink: 0; padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; text-align: center;"
+        class="metric-grid"
+        style="flex-shrink: 0;"
         id="fun-stats-section"
     >
-        <div
-            style="padding: 10px; background: rgba(129, 140, 248, 0.05); border-radius: 12px; border: 1px solid rgba(129, 140, 248, 0.1);"
-        >
-            <div
-                style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--primary); margin-bottom: 4px;"
-            >
-                {$stats.hashrate.toFixed(2)}
-            </div>
-            <div
-                style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"
-            >
-                Швидкість
-            </div>
+        <div class="glass-card no-hover metric-cell {pulseClass}" style="--c: var(--warning);">
+            <i class="fas fa-coins metric-icon"></i>
+            <div class="metric-val">{$stats.session_blocks}</div>
+            <div class="metric-label">Зараховано</div>
+            <div class="metric-sub-line">{creditedPerMin.toFixed(2)} / хв</div>
         </div>
-        <div
-            style="padding: 10px; background: rgba(16, 185, 129, 0.05); border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.1);"
-        >
-            <div
-                style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--success); margin-bottom: 4px;"
-            >
-                {$stats.total_balance.toFixed(2)}
-            </div>
-            <div
-                style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"
-            >
-                Зароблено
-            </div>
+        <div class="glass-card no-hover metric-cell" style="--c: var(--accent);">
+            <i class="fas fa-hammer metric-icon"></i>
+            <div class="metric-val">{$stats.session_found || 0}</div>
+            <div class="metric-label">Намайнено</div>
+            <div class="metric-sub-line">{foundPerMin.toFixed(2)} / хв</div>
         </div>
-        <div
-            class={pulseClass}
-            style="padding: 10px; background: rgba(251, 191, 36, 0.05); border-radius: 12px; border: 1px solid rgba(251, 191, 36, 0.1); transition: box-shadow 0.2s, border-color 0.2s;"
-        >
-            <div
-                style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--warning); margin-bottom: 4px;"
-            >
-                {$stats.session_blocks}
-            </div>
-            <div
-                style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"
-            >
-                Блоки
-            </div>
+        <div class="glass-card no-hover metric-cell" style="--c: var(--neon-cyan);">
+            <i class="fas fa-layer-group metric-icon"></i>
+            <div class="metric-val">{queueLen}</div>
+            <div class="metric-label">У черзі</div>
+            <div class="metric-sub-line">очікують відправки</div>
         </div>
-        <div
-            style="padding: 10px; background: rgba(6, 182, 212, 0.05); border-radius: 12px; border: 1px solid rgba(6, 182, 212, 0.1);"
-        >
-            <div
-                style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-mono); color: var(--neon-cyan); margin-bottom: 4px;"
-            >
-                {activeWalletsCount}
+        <div class="glass-card no-hover metric-cell" style="--c: var(--success);">
+            <i class="fas fa-wallet metric-icon"></i>
+            <div class="metric-val">
+                {activeWalletsCount}<span class="metric-sub"
+                    >/{totalWalletsCount}</span
+                >
             </div>
-            <div
-                style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase;"
-            >
-                Активні
-            </div>
+            <div class="metric-label">Активні гаманці</div>
+            <div class="metric-sub-line">у роботі зараз</div>
         </div>
     </div>
 </div>
+
+<style>
+    .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+    }
+    .metric-cell {
+        position: relative;
+        padding: 18px 18px 14px;
+        background: linear-gradient(
+            140deg,
+            color-mix(in srgb, var(--c) 12%, transparent) 0%,
+            color-mix(in srgb, var(--c) 3%, transparent) 65%,
+            transparent 100%
+        );
+        border-top: 2px solid color-mix(in srgb, var(--c) 55%, transparent);
+        overflow: hidden;
+    }
+    .metric-icon {
+        position: absolute;
+        right: 14px;
+        top: 14px;
+        font-size: 1.4rem;
+        color: color-mix(in srgb, var(--c) 35%, transparent);
+    }
+    .metric-val {
+        font-size: 2rem;
+        font-weight: 800;
+        font-family: var(--font-mono);
+        color: var(--c);
+        margin-bottom: 4px;
+        line-height: 1;
+    }
+    .metric-sub {
+        font-size: 1rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .metric-label {
+        font-size: 0.72rem;
+        color: #cbd5e1;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+    }
+    .metric-sub-line {
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: #64748b;
+        font-family: var(--font-mono);
+    }
+
+    .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        flex-shrink: 0;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .log-filters {
+        display: flex;
+        gap: 6px;
+    }
+    .log-filter-btn {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #cbd5e1;
+        border-radius: 8px;
+        padding: 5px 10px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+    .log-filter-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+    .log-filter-btn.active {
+        background: rgba(129, 140, 248, 0.18);
+        border-color: rgba(129, 140, 248, 0.4);
+        color: white;
+    }
+    .log-filter-btn.credit.active {
+        background: rgba(251, 191, 36, 0.18);
+        border-color: rgba(251, 191, 36, 0.45);
+    }
+    .log-filter-btn.error.active {
+        background: rgba(239, 68, 68, 0.18);
+        border-color: rgba(239, 68, 68, 0.45);
+    }
+    .filter-count {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        padding: 1px 7px;
+        font-size: 0.7rem;
+        font-family: var(--font-mono);
+    }
+
+    .log-body {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+    }
+    .log-icon {
+        width: 16px;
+        text-align: center;
+        margin-right: 8px;
+        opacity: 0.8;
+    }
+    .log-time {
+        opacity: 0.5;
+        margin-right: 8px;
+        font-size: 0.8em;
+        font-family: var(--font-mono);
+    }
+    .log-row-mini.ERROR .log-icon {
+        color: var(--danger);
+    }
+
+    .log-empty {
+        padding: 30px 20px;
+        text-align: center;
+        color: #64748b;
+    }
+    .log-empty i {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        opacity: 0.5;
+        display: block;
+    }
+
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 45%, transparent);
+        }
+        100% {
+            box-shadow: 0 0 0 12px transparent;
+        }
+    }
+    .pulse-active {
+        animation: pulse 1s ease-out;
+        border-color: var(--c) !important;
+    }
+</style>
