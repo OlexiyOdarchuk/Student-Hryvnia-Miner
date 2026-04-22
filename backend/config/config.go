@@ -17,17 +17,17 @@ type AppConfig struct {
 }
 
 type AutomationConfig struct {
-	TelegramBotToken string `json:"telegram_bot_token"`
-	TelegramChatID  string `json:"telegram_chat_id"`
-	ScheduleStart   string `json:"schedule_start"`
-	ScheduleStop    string `json:"schedule_stop"`
-	BlockTarget     uint32 `json:"block_target"`
-	SessionMinutes  uint32 `json:"session_minutes"`
-	ScheduleEnabled bool   `json:"schedule_enabled"`
-	NotifyOnStop    bool   `json:"notify_on_stop"`
-	NotifyOnTarget  bool   `json:"notify_on_target"`
-	NotifyOnError   bool   `json:"notify_on_error"`
-	NotifyOnStart   bool   `json:"notify_on_start"`
+	TelegramBotToken   string `json:"telegram_bot_token"`
+	TelegramChatID     string `json:"telegram_chat_id"`
+	ScheduleStart      string `json:"schedule_start"`
+	ScheduleStop       string `json:"schedule_stop"`
+	BlockTarget        uint32 `json:"block_target"`
+	SessionMinutes     uint32 `json:"session_minutes"`
+	ProgressNotifyStep uint32 `json:"progress_notify_step"`
+	ScheduleEnabled    bool   `json:"schedule_enabled"`
+	NotifyOnStop       bool   `json:"notify_on_stop"`
+	NotifyOnTarget     bool   `json:"notify_on_target"`
+	NotifyOnStart      bool   `json:"notify_on_start"`
 }
 
 var Config = AppConfig{

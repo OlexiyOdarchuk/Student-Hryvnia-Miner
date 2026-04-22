@@ -7,10 +7,9 @@
         base_url: '',
         server_port: '',
         difficulty: 0,
-        max_retries: 0,
-        retry_delay_ms: 0,
         balance_freq_s: 0,
         block_check_freq_ms: 0,
+        submit_buffer_size: 0,
         http_timeout: 0,
         threads: 0
     };
@@ -155,20 +154,23 @@
                     <input type="number" class="field" bind:value={config.difficulty} required>
                 </div>
                 <div>
-                    <label class="field-label">Макс. спроб (API)</label>
-                    <input type="number" class="field" bind:value={config.max_retries} required>
-                </div>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
-                    <label class="field-label">Затримка повторних запитів API (мс)</label>
-                    <input type="number" class="field" bind:value={config.retry_delay_ms} required>
-                </div>
-                <div>
                     <label class="field-label">Синхр. блоків (мс)</label>
                     <input type="number" class="field" bind:value={config.block_check_freq_ms} required>
-                    <div style="font-size: 0.75rem; color: #64748b; margin-top: -15px; margin-bottom: 20px;">Частота перевірки статусу мережі</div>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-top: -15px;">
+                        Частота перевірки статусу мережі.
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label">Розмір буфера submit-черги</label>
+                <input type="number" class="field" min="0" bind:value={config.submit_buffer_size} required>
+                <div style="font-size: 0.75rem; color: #64748b; margin-top: -15px;">
+                    Скільки знайдених блоків можуть чекати відправки одночасно.
+                    Більший буфер згладжує сплески (майнер не блокується, поки
+                    відправляються попередні блоки), але займає пам'ять. 0 —
+                    використовувати значення за замовчуванням. Застосовується
+                    після рестарту майнінгу.
                 </div>
             </div>
             

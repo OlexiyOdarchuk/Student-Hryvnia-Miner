@@ -585,39 +585,40 @@ func (a *App) GetSubmitBufferSize() int {
 }
 
 func (a *App) SaveAutomationBot(cfg config.AutomationConfig) error {
-	pass := a.storageDriver.GetSessionPassword()
-	if pass == "" {
-		return errors.New("storage locked")
-	}
 	config.Config.Automation = cfg
-	return a.storageDriver.PersistConfig(pass)
+	return a.storageDriver.PersistConfig(a.storageDriver.GetSessionPassword())
 }
 
 func (a *App) SaveSubmitBufferSizeBot(size int) error {
-	pass := a.storageDriver.GetSessionPassword()
-	if pass == "" {
-		return errors.New("storage locked")
-	}
 	if size <= 0 {
 		size = config.DefaultSubmitBufferSize
 	}
 	config.Config.SubmitBufferSize = size
-	return a.storageDriver.PersistConfig(pass)
+	if err := a.storageDriver.PersistConfig(a.storageDriver.GetSessionPassword()); err != nil {
+		return err
+	}
+
+	a.mu.Lock()
+	wasMining := a.miningCtx != nil
+	pCtx := a.parentCtx
+	a.mu.Unlock()
+
+	if wasMining {
+		a.StopMining()
+		a.StartMining(pCtx)
+	} else {
+		a.mu.Lock()
+		a.applyConfig()
+		a.mu.Unlock()
+	}
+	return nil
 }
 
 func (a *App) DeleteWalletBot(address string) error {
-	pass := a.storageDriver.GetSessionPassword()
-	if pass == "" {
-		return errors.New("storage locked")
-	}
 	return a.walletService.DeleteWallet(address)
 }
 
 func (a *App) ExportWalletJSONBot(address string) (string, error) {
-	pass := a.storageDriver.GetSessionPassword()
-	if pass == "" {
-		return "", errors.New("storage locked")
-	}
 	return a.walletService.ExportWalletJSON(address)
 }
 

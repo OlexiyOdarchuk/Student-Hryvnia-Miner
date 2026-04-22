@@ -25,7 +25,7 @@ type Engine struct {
 	bot            *Bot
 	botMu          sync.Mutex
 	sessionStart   atomic.Int64
-	lastErrorSent  atomic.Int64
+	lastMilestone  atomic.Uint32
 	notifiedTarget atomic.Bool
 	scheduleInit   atomic.Bool
 	lastScheduleOn atomic.Bool
@@ -101,12 +101,23 @@ func (e *Engine) activeBot() *Bot {
 func (e *Engine) ResetSession() {
 	e.sessionStart.Store(time.Now().Unix())
 	e.notifiedTarget.Store(false)
+	e.lastMilestone.Store(0)
 }
 
 func (e *Engine) checkRules() {
 	auto := config.Config.Automation
 	data := e.dash.GetDashboardData()
 	mining := e.ctrl.IsMining()
+
+	if auto.ProgressNotifyStep > 0 {
+		step := auto.ProgressNotifyStep
+		current := data.SessionBlocks / step
+		if current > e.lastMilestone.Load() {
+			e.lastMilestone.Store(current)
+			reached := uint64(current) * uint64(step)
+			e.sendTelegram("🔔 Зараховано " + strconv.FormatUint(reached, 10) + " блоків у сесії")
+		}
+	}
 
 	if auto.BlockTarget > 0 && mining && data.SessionBlocks >= auto.BlockTarget {
 		if !e.notifiedTarget.Swap(true) {
@@ -155,22 +166,6 @@ func (e *Engine) checkRules() {
 			e.ctrl.SetMining(false)
 		}
 	}
-}
-
-func (e *Engine) NotifyError(message string) {
-	auto := config.Config.Automation
-	if !auto.NotifyOnError {
-		return
-	}
-	now := time.Now().Unix()
-	last := e.lastErrorSent.Load()
-	if now-last < 60 {
-		return
-	}
-	if !e.lastErrorSent.CompareAndSwap(last, now) {
-		return
-	}
-	e.sendTelegram("⚠️ " + message)
 }
 
 func (e *Engine) notifyIfEnabled(enabled func(config.AutomationConfig) bool, message string) {

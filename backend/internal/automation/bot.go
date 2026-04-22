@@ -46,7 +46,7 @@ const (
 	convAwaitRenameName
 	convAwaitBlockTarget
 	convAwaitSessionMinutes
-	convAwaitSubmitBuffer
+	convAwaitProgressStep
 	convAwaitScheduleStart
 	convAwaitScheduleStop
 )
@@ -368,7 +368,6 @@ func (b *Bot) handleSettings(c tele.Context) error {
 
 func (b *Bot) settingsText() string {
 	a := b.ctrl.GetAutomation()
-	buf := b.ctrl.GetSubmitBufferSize()
 
 	var sb strings.Builder
 	sb.WriteString("⚙️ *Налаштування автоматизації*\n\n")
@@ -394,8 +393,14 @@ func (b *Bot) settingsText() string {
 	sb.WriteString(strconv.FormatUint(uint64(a.BlockTarget), 10))
 	sb.WriteString("\n⏱ Таймер сесії: ")
 	sb.WriteString(strconv.FormatUint(uint64(a.SessionMinutes), 10))
-	sb.WriteString(" хв\n📦 Буфер черги: ")
-	sb.WriteString(strconv.Itoa(buf))
+	sb.WriteString(" хв\n🔔 Крок прогресу: ")
+	if a.ProgressNotifyStep > 0 {
+		sb.WriteString("кожні ")
+		sb.WriteString(strconv.FormatUint(uint64(a.ProgressNotifyStep), 10))
+		sb.WriteString(" блоків")
+	} else {
+		sb.WriteString("вимкнено")
+	}
 	sb.WriteString("\n\n🔔 Сповіщення:")
 	sb.WriteString("\n  старт: ")
 	sb.WriteString(onOff(a.NotifyOnStart))
@@ -403,8 +408,6 @@ func (b *Bot) settingsText() string {
 	sb.WriteString(onOff(a.NotifyOnStop))
 	sb.WriteString("\n  ціль: ")
 	sb.WriteString(onOff(a.NotifyOnTarget))
-	sb.WriteString("\n  помилки: ")
-	sb.WriteString(onOff(a.NotifyOnError))
 	return sb.String()
 }
 
@@ -424,7 +427,7 @@ func (b *Bot) settingsMarkup() *tele.ReplyMarkup {
 			markup.Data("🎯 Ціль блоків", "s", "bt"),
 			markup.Data("⏱ Таймер", "s", "sm"),
 		),
-		markup.Row(markup.Data("📦 Буфер черги", "s", "sb")),
+		markup.Row(markup.Data("🔔 Крок прогресу", "s", "pn")),
 	)
 	return markup
 }
@@ -436,7 +439,6 @@ func (b *Bot) notifMarkup() *tele.ReplyMarkup {
 		markup.Row(markup.Data(onOff(a.NotifyOnStart)+" Старт майнінгу", "ns", "start")),
 		markup.Row(markup.Data(onOff(a.NotifyOnStop)+" Зупинка майнінгу", "ns", "stop")),
 		markup.Row(markup.Data(onOff(a.NotifyOnTarget)+" Досягнення цілі", "ns", "target")),
-		markup.Row(markup.Data(onOff(a.NotifyOnError)+" Помилки", "ns", "error")),
 		markup.Row(markup.Data("← Назад", "s", "back")),
 	)
 	return markup
@@ -574,17 +576,18 @@ func (b *Bot) handleText(c tele.Context) error {
 		}
 		return c.Send("✅ Таймер сесії оновлено.\n\n"+b.settingsText(), tele.ModeMarkdown, b.settingsMarkup())
 
-	case convAwaitSubmitBuffer:
+	case convAwaitProgressStep:
 		b.resetConv(c.Sender().ID)
-		n, err := strconv.Atoi(text)
-		if err != nil || n <= 0 {
-			return c.Send("❌ Очікується додатне ціле число.", b.menu)
+		n, err := strconv.ParseUint(text, 10, 32)
+		if err != nil {
+			return c.Send("❌ Очікується ціле число ≥ 0.", b.menu)
 		}
-		if err := b.ctrl.SaveSubmitBufferSizeBot(n); err != nil {
+		cfg := b.ctrl.GetAutomation()
+		cfg.ProgressNotifyStep = uint32(n)
+		if err := b.ctrl.SaveAutomationBot(cfg); err != nil {
 			return c.Send("❌ "+err.Error(), b.menu)
 		}
-		return c.Send("✅ Розмір буфера оновлено (застосується після рестарту майнінгу).\n\n"+b.settingsText(),
-			tele.ModeMarkdown, b.settingsMarkup())
+		return c.Send("✅ Крок прогресу оновлено.\n\n"+b.settingsText(), tele.ModeMarkdown, b.settingsMarkup())
 
 	case convAwaitScheduleStart:
 		b.resetConv(c.Sender().ID)
@@ -767,12 +770,12 @@ func (b *Bot) cbSettings(c tele.Context, payload string) error {
 			slog.Debug("callback respond failed", "err", err)
 		}
 		return c.Send("Введіть тривалість сесії у хвилинах (0 — без таймера):", b.cancelMarkup())
-	case "sb":
-		b.getConv(c.Sender().ID).state = convAwaitSubmitBuffer
+	case "pn":
+		b.getConv(c.Sender().ID).state = convAwaitProgressStep
 		if err := c.Respond(&tele.CallbackResponse{}); err != nil {
 			slog.Debug("callback respond failed", "err", err)
 		}
-		return c.Send("Введіть розмір буфера черги (додатне число):", b.cancelMarkup())
+		return c.Send("Введіть крок прогресу в блоках (0 — вимкнути). Напр. 200 або 1000:", b.cancelMarkup())
 	}
 	return c.Respond(&tele.CallbackResponse{})
 }
@@ -786,8 +789,6 @@ func (b *Bot) cbNotifToggle(c tele.Context, payload string) error {
 		cfg.NotifyOnStop = !cfg.NotifyOnStop
 	case "target":
 		cfg.NotifyOnTarget = !cfg.NotifyOnTarget
-	case "error":
-		cfg.NotifyOnError = !cfg.NotifyOnError
 	default:
 		return c.Respond(&tele.CallbackResponse{Text: "невідомо"})
 	}

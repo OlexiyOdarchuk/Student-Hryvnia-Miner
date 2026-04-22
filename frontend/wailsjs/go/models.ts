@@ -7,10 +7,10 @@ export namespace config {
 	    schedule_stop: string;
 	    block_target: number;
 	    session_minutes: number;
+	    progress_notify_step: number;
 	    schedule_enabled: boolean;
 	    notify_on_stop: boolean;
 	    notify_on_target: boolean;
-	    notify_on_error: boolean;
 	    notify_on_start: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -25,10 +25,10 @@ export namespace config {
 	        this.schedule_stop = source["schedule_stop"];
 	        this.block_target = source["block_target"];
 	        this.session_minutes = source["session_minutes"];
+	        this.progress_notify_step = source["progress_notify_step"];
 	        this.schedule_enabled = source["schedule_enabled"];
 	        this.notify_on_stop = source["notify_on_stop"];
 	        this.notify_on_target = source["notify_on_target"];
-	        this.notify_on_error = source["notify_on_error"];
 	        this.notify_on_start = source["notify_on_start"];
 	    }
 	}

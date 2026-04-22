@@ -17,7 +17,6 @@
     let passwordRequired = true;
 
     let config: any = null;
-    let submitBufferSize = 0;
 
     let auto = {
         telegram_bot_token: "",
@@ -26,11 +25,11 @@
         schedule_stop: "",
         block_target: 0,
         session_minutes: 0,
+        progress_notify_step: 0,
         schedule_enabled: false,
         notify_on_start: false,
         notify_on_stop: false,
         notify_on_target: false,
-        notify_on_error: false,
     };
 
     onMount(async () => {
@@ -41,7 +40,6 @@
         }
         const cfg = await GetConfig();
         config = cfg;
-        submitBufferSize = cfg.submit_buffer_size || 0;
         if (cfg.automation) {
             auto = {
                 telegram_bot_token: cfg.automation.telegram_bot_token || "",
@@ -50,11 +48,11 @@
                 schedule_stop: cfg.automation.schedule_stop || "",
                 block_target: cfg.automation.block_target || 0,
                 session_minutes: cfg.automation.session_minutes || 0,
+                progress_notify_step: cfg.automation.progress_notify_step || 0,
                 schedule_enabled: !!cfg.automation.schedule_enabled,
                 notify_on_start: !!cfg.automation.notify_on_start,
                 notify_on_stop: !!cfg.automation.notify_on_stop,
                 notify_on_target: !!cfg.automation.notify_on_target,
-                notify_on_error: !!cfg.automation.notify_on_error,
             };
         }
         loaded = true;
@@ -64,11 +62,7 @@
         if (!config) return;
         saving = true;
         try {
-            const merged = {
-                ...config,
-                automation: auto,
-                submit_buffer_size: Number(submitBufferSize) || 0,
-            };
+            const merged = { ...config, automation: auto };
             const err = await UpdateConfig(merged, password);
             if (err) {
                 notifications.error("Помилка: " + err);
@@ -224,13 +218,31 @@
                     />
                     <span>Досягнення цілі по блоках</span>
                 </label>
-                <label class="toggle-row">
-                    <input
-                        type="checkbox"
-                        bind:checked={auto.notify_on_error}
-                    />
-                    <span>Помилки (1 раз на 60с)</span>
-                </label>
+            </div>
+        </div>
+
+        <div
+            class="glass-card"
+            style="padding: 24px; margin-bottom: 18px; max-width: 900px;"
+        >
+            <div class="sec-title">
+                <i class="fas fa-bullhorn"></i> Повідомляти про прогрес
+            </div>
+            <p class="hint">
+                Надсилати повідомлення кожного разу, коли сесійний лічильник
+                зарахованих блоків перетинає чергове кратне число. Напр.
+                <code>200</code> — на 200, 400, 600… <code>1000</code> — на
+                1000, 2000… <code>0</code> вимикає правило. Майнінг не
+                зупиняється.
+            </p>
+            <div class="form-row">
+                <label>Повідомляти кожні N блоків</label>
+                <input
+                    type="number"
+                    min="0"
+                    class="input"
+                    bind:value={auto.progress_notify_step}
+                />
             </div>
         </div>
 
@@ -313,29 +325,6 @@
                         disabled={!auto.schedule_enabled}
                     />
                 </div>
-            </div>
-        </div>
-
-        <div
-            class="glass-card"
-            style="padding: 24px; margin-bottom: 18px; max-width: 900px;"
-        >
-            <div class="sec-title">
-                <i class="fas fa-layer-group"></i> Розмір буфера черги submit
-            </div>
-            <p class="hint">
-                Кількість знайдених блоків, які можуть чекати відправки
-                одночасно. Більший буфер згладжує сплески, але займає пам'ять.
-                <code>0</code> — використовувати значення за замовчуванням.
-            </p>
-            <div class="form-row">
-                <label>submit_buffer_size</label>
-                <input
-                    type="number"
-                    min="0"
-                    class="input"
-                    bind:value={submitBufferSize}
-                />
             </div>
         </div>
 
