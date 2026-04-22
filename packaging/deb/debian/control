@@ -1,0 +1,12 @@
+Source: shminer
+Maintainer: iShawyha <shawyhaf@gmail.com>
+Section: utils
+Priority: optional
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+
+Package: shminer
+Architecture: amd64
+Depends: ${misc:Depends}, libgtk-3-0, libwebkit2gtk-4.0-37
+Description: Mining Client for S-UAH
+ Mining Client for S-UAH cryptocurrency

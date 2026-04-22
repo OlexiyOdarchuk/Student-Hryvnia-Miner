@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   version-check:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
     steps:
@@ -28,13 +28,13 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             goos: linux
             goarch: amd64
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             goos: windows
             goarch: arm64
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             goos: windows
             goarch: amd64
 
@@ -97,11 +97,212 @@ jobs:
           name: SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}
           path: build/bin/*
 
-  release:
-    needs: [version-check, build]
-    runs-on: ubuntu-22.04
+      - name: Upload icon
+        if: matrix.goos == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: icon
+          path: build/windows/icon.ico
+
+      - name: Convert icon to png
+        if: matrix.goos == 'windows'
+        run: |
+          sudo apt-get install -y imagemagick
+          mkdir -p icon-png
+          convert -resize 256x256 build/windows/icon.ico icon-png/icon.png
+
+      - name: Upload icon.png
+        if: matrix.goos == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: icon-png
+          path: icon-png/icon.png
+
+  build-deb:
+    needs: build
+    runs-on: ubuntu-latest
     steps:
-      - name: Download all binaries
+      - name: Checkout repository 
+        uses: actions/checkout@v4
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: SHMiner-linux-amd64
+          path: .
+
+      - name: Download icon
+        uses: actions/download-artifact@v4
+        with:
+          name: icon
+          path: .
+
+      - name: Get version
+        run: |
+          VERSION=$(jq -r '.version' wails.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Install tools
+        run: sudo apt-get install -y imagemagick
+
+      - name: Build DEB
+        run: |
+          VERSION=${{ env.VERSION }}
+          mv SHMiner-linux-amd64 shminer
+          chmod +x shminer
+          
+          PACKAGE_DIR="shminer-${VERSION}"
+          mkdir -p "$PACKAGE_DIR/usr/bin"
+          mkdir -p "$PACKAGE_DIR/usr/share/licenses/shminer"
+          mkdir -p "$PACKAGE_DIR/usr/share/icons/hicolor/256x256/apps"
+          mkdir -p "$PACKAGE_DIR/usr/share/applications"
+          
+          cp shminer "$PACKAGE_DIR/usr/bin/shminer"
+          cp LICENSE "$PACKAGE_DIR/usr/share/licenses/shminer/"
+          convert -resize 256x256 icon.ico "$PACKAGE_DIR/usr/share/icons/hicolor/256x256/apps/shminer.png"
+          
+          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH cryptocurrency\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;Crypto;\nKeywords=crypto;miner; майнінг; s-uah;\n' > "$PACKAGE_DIR/usr/share/applications/shminer.desktop"
+          
+          dpkg-deb --build --compression=gzip "$PACKAGE_DIR" "shminer_${VERSION}_amd64.deb"
+          rm -rf "$PACKAGE_DIR"
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: shminer-deb
+          path: shminer_*.deb
+          retention-days: 7
+
+  build-rpm:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      
+      - name: Checkout repository 
+        uses: actions/checkout@v4
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: SHMiner-linux-amd64
+          path: .
+
+      - name: Download icon
+        uses: actions/download-artifact@v4
+        with:
+          name: icon
+          path: .
+
+      - name: Get version
+        run: |
+          VERSION=$(jq -r '.version' wails.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Install rpmdevtools + imagemagick
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpmdevtools rpmlint imagemagick
+
+      - name: Build RPM
+        run: |
+          VERSION=${{ env.VERSION }}
+          mv SHMiner-linux-amd64 shminer
+          chmod +x shminer
+          
+          rpmdev-setuptree
+          
+          mkdir -p ~/rpmbuild/SOURCES/icons
+          mkdir -p ~/rpmbuild/SOURCES/share/applications
+          cp shminer ~/rpmbuild/BUILD/shminer
+          cp LICENSE ~/rpmbuild/SOURCES/
+          convert -resize 256x256 icon.ico ~/rpmbuild/SOURCES/icons/shminer.png
+          
+          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH cryptocurrency\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;Crypto;\nKeywords=crypto;miner; майнінг; s-uah;\n' > ~/rpmbuild/SOURCES/shminer.desktop
+          
+          sed -e 's/@VERSION@/'$VERSION'/g' \
+              -e 's|@URL@|https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner|g' \
+              packaging/rpm/shminer.spec > ~/rpmbuild/SPECS/shminer.spec
+          
+          rpmbuild -bb --define "_topdir $(pwd)/rpmbuild" ~/rpmbuild/SPECS/shminer.spec
+          
+          mv ~/rpmbuild/RPMS/x86_64/shminer-*.x86_64.rpm "shminer_${VERSION}_amd64.rpm"
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: shminer-rpm
+          path: shminer_*.rpm
+          retention-days: 7
+
+  build-appimage:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository 
+        uses: actions/checkout@v4
+        
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: SHMiner-linux-amd64
+          path: .
+
+      - name: Download icon
+        uses: actions/download-artifact@v4
+        with:
+          name: icon
+          path: .
+
+      - name: Get version
+        run: |
+          VERSION=$(jq -r '.version' wails.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Install imagemagick
+        run: sudo apt-get install -y imagemagick
+
+      - name: Build AppImage
+        run: |
+          VERSION=${{ env.VERSION }}
+          mv SHMiner-linux-amd64 shminer
+          
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp shminer AppDir/usr/bin/shminer
+          chmod +x AppDir/usr/bin/shminer
+          convert -resize 256x256 icon.ico AppDir/usr/share/icons/hicolor/256x256/apps/shminer.png
+          
+          printf '#!/bin/bash\n' > AppDir/AppRun
+          printf 'APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"\n' >> AppDir/AppRun
+          printf 'export PATH="${APPDIR}/usr/bin:${PATH}"\n' >> AppDir/AppRun
+          printf 'export LD_LIBRARY_PATH="${APPDIR}/usr/lib:${APPDIR}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"\n' >> AppDir/AppRun
+          printf 'export XDG_DATA_DIRS="${APPDIR}/usr/share:${XDG_DATA_DIRS:-}"\n' >> AppDir/AppRun
+          printf 'exec "${APPDIR}/usr/bin/shminer" "${@}"\n' >> AppDir/AppRun
+          chmod +x AppDir/AppRun
+          
+          printf '[Desktop Entry]\nName=SHMiner\nComment=Mining Client for S-UAH cryptocurrency\nExec=shminer\nIcon=shminer\nType=Application\nCategories=Utility;Finance;Crypto;\nKeywords=crypto;miner; майнінг; s-uah;\n' > AppDir/shminer.desktop
+
+      - name: Build AppImage
+        uses: afRech/artifactory-appimage@master
+        with:
+          args: AppDir
+
+      - name: Rename
+        run: |
+          mv SHMiner-x86_64.AppImage shminer-${VERSION}.AppImage
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: shminer-appimage
+          path: shminer-*.AppImage
+          retention-days: 7
+
+  release:
+    needs: [version-check, build, build-deb, build-rpm, build-appimage]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./dist
@@ -118,11 +319,60 @@ jobs:
             🎉 Автоматичний реліз SHMiner
             Версія: v${{ needs.version-check.outputs.version }}
             
-            📦 **Для Windows доступні дві версії:**
-            - `setup.exe` — Інсталятор (рекомендовано, створює ярлики та зберігає налаштування)
-            - `portable.exe` — Портативна версія (можна запускати без встановлення)
-            
-            У цьому релізі доступні бінарники для:
-            - Windows amd64/arm64
+            ## Бінарники (збираються з вихідного коду)
             - Linux amd64
-          files: ./dist/**
+            - Windows amd64/arm64 (portable + installer)
+            
+            ## Пакети
+            - DEB (Ubuntu/Debian)
+            - RPM (Fedora/RHEL)
+            - AppImage (universal Linux)
+          files: ./dist/*
+
+      - name: Install Nix (for hashing)
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Update flake.nix
+        run: |
+          VERSION=${{ needs.version-check.outputs.version }}
+          
+          NEW_HASH=$(nix hash file dist/SHMiner-linux-amd64)
+          
+          sed -i -E "s/version = \".*\"/version = \"$VERSION\"/" flake.nix
+          
+          sed -i -E "s|hash = \".*\"|hash = \"$NEW_HASH\"|" flake.nix
+
+      - name: Commit and push flake.nix
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(nix): update flake.nix for v${{ needs.version-check.outputs.version }}"
+          file_pattern: 'flake.nix'
+
+      - name: Bump version in PKGBUILD
+        run: |
+          VERSION=${{ needs.version-check.outputs.version }}
+          
+          # Замінюємо версію в PKGBUILD
+          sed -i -E "s/^pkgver=.*/pkgver=$VERSION/" packaging/aur/PKGBUILD
+          
+          # Скидаємо pkgrel на 1 при кожному новому релізі
+          sed -i -E "s/^pkgrel=.*/pkgrel=1/" packaging/aur/PKGBUILD
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
+        with:
+          pkgname: shminer-bin
+          pkgbuild: ./packaging/aur/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Release v${{ needs.version-check.outputs.version }}"
+          updpkgsums: true
+
+      - name: Commit updated PKGBUILD back to GitHub
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(aur): bump PKGBUILD to v${{ needs.version-check.outputs.version }}"
+          file_pattern: 'packaging/aur/PKGBUILD'
