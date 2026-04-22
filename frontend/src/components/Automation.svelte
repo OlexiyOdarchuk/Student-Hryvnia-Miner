@@ -17,6 +17,7 @@
     let passwordRequired = true;
 
     let config: any = null;
+    let submitBufferSize = 0;
 
     let auto = {
         telegram_bot_token: "",
@@ -40,6 +41,7 @@
         }
         const cfg = await GetConfig();
         config = cfg;
+        submitBufferSize = cfg.submit_buffer_size || 0;
         if (cfg.automation) {
             auto = {
                 telegram_bot_token: cfg.automation.telegram_bot_token || "",
@@ -62,7 +64,11 @@
         if (!config) return;
         saving = true;
         try {
-            const merged = { ...config, automation: auto };
+            const merged = {
+                ...config,
+                automation: auto,
+                submit_buffer_size: Number(submitBufferSize) || 0,
+            };
             const err = await UpdateConfig(merged, password);
             if (err) {
                 notifications.error("Помилка: " + err);
@@ -307,6 +313,29 @@
                         disabled={!auto.schedule_enabled}
                     />
                 </div>
+            </div>
+        </div>
+
+        <div
+            class="glass-card"
+            style="padding: 24px; margin-bottom: 18px; max-width: 900px;"
+        >
+            <div class="sec-title">
+                <i class="fas fa-layer-group"></i> Розмір буфера черги submit
+            </div>
+            <p class="hint">
+                Кількість знайдених блоків, які можуть чекати відправки
+                одночасно. Більший буфер згладжує сплески, але займає пам'ять.
+                <code>0</code> — використовувати значення за замовчуванням.
+            </p>
+            <div class="form-row">
+                <label>submit_buffer_size</label>
+                <input
+                    type="number"
+                    min="0"
+                    class="input"
+                    bind:value={submitBufferSize}
+                />
             </div>
         </div>
 

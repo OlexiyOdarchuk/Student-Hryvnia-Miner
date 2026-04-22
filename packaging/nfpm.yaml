@@ -12,7 +12,7 @@ license: GPL-3.0-only
 
 depends:
   - libgtk-3-0
-  - libwebkit2gtk-4.0-37
+  - libwebkit2gtk-4.1
 
 contents:
   - src: packaging/build/usr/bin/shminer
@@ -28,7 +28,7 @@ overrides:
   deb:
     depends:
       - libgtk-3-0
-      - libwebkit2gtk-4.0-37
+      - libwebkit2gtk-4.1
   rpm:
     depends:
       - gtk3
