@@ -19,13 +19,13 @@
           };
           "x86_64-darwin" = {
             url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.0/SHMiner-darwin-amd64.dmg";
-            hash = "sha256-/ZZzu8NWOlYi5XNW7yTk9ulPQ9jrPhIRaT5MV9dY1mM=";
+            hash = "sha256-K1yf70AYJrTmwdTUsU4B6pm7nL1QeWubcZQi/ncNDd0=";
             isDmg = true;
             appName = "SHMiner-darwin-amd64.app";
           };
           "aarch64-darwin" = {
             url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.0/SHMiner-darwin-arm64.dmg";
-            hash = "sha256-40L3/K/eYEaMT6+8qjoCY0rzIo/5zzZ5q8l9HiRp808=";
+            hash = "sha256-sA7oCkp42uOW9qIfZEcCI+uKt5rLJa2+cG4KjAeELsQ=";
             isDmg = true;
             appName = "SHMiner-darwin-arm64.app";
           };
