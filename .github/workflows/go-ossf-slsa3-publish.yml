@@ -318,31 +318,49 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
-      - name: Update flake.nix
+      - name: Update flake.nix and lock
         run: |
           VERSION=${{ needs.version-check.outputs.version }}
           
-          NEW_HASH=$(nix hash file dist/SHMiner-linux-amd64)
+          LINUX_HASH=$(nix hash file dist/SHMiner-linux-amd64 --extra-experimental-features "nix-command flakes")
+          DARWIN_AMD64_HASH=$(nix hash file dist/SHMiner-darwin-amd64.dmg --extra-experimental-features "nix-command flakes")
+          DARWIN_ARM64_HASH=$(nix hash file dist/SHMiner-darwin-arm64.dmg --extra-experimental-features "nix-command flakes")
           
-          sed -i -E "s/version = \".*\"/version = \"$VERSION\"/" flake.nix
+          sed -i -E "s/version = \"[^\"]+\"/version = \"$VERSION\"/" flake.nix
+          sed -i -E "s|download/v[0-9\.]+/|download/v$VERSION/|g" flake.nix
           
-          sed -i -E "s|hash = \".*\"|hash = \"$NEW_HASH\"|" flake.nix
+          awk -v l="$LINUX_HASH" -v da="$DARWIN_AMD64_HASH" -v dar="$DARWIN_ARM64_HASH" '
+            /"x86_64-linux"/ { in_linux=1; in_darwin_amd64=0; in_darwin_arm64=0 }
+            /"x86_64-darwin"/ { in_linux=0; in_darwin_amd64=1; in_darwin_arm64=0 }
+            /"aarch64-darwin"/ { in_linux=0; in_darwin_amd64=0; in_darwin_arm64=1 }
+            /hash =/ {
+              if (in_linux) { sub(/hash = "[^"]*"/, "hash = \"" l "\""); in_linux=0 }
+              else if (in_darwin_amd64) { sub(/hash = "[^"]*"/, "hash = \"" da "\""); in_darwin_amd64=0 }
+              else if (in_darwin_arm64) { sub(/hash = "[^"]*"/, "hash = \"" dar "\""); in_darwin_arm64=0 }
+            }
+            { print }
+          ' flake.nix > flake.nix.tmp && mv flake.nix.tmp flake.nix
+          
+          nix flake update --extra-experimental-features "nix-command flakes"
 
-      - name: Commit and push flake.nix
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore(nix): update flake.nix for v${{ needs.version-check.outputs.version }}"
-          file_pattern: 'flake.nix'
-
-      - name: Bump version in PKGBUILD
+      - name: Update PKGBUILD Version & Hash
         run: |
           VERSION=${{ needs.version-check.outputs.version }}
+          BIN_HASH=$(sha256sum dist/SHMiner-linux-amd64 | awk '{print $1}')
           
-          # Замінюємо версію в PKGBUILD
           sed -i -E "s/^pkgver=.*/pkgver=$VERSION/" packaging/aur/PKGBUILD
-          
-          # Скидаємо pkgrel на 1 при кожному новому релізі
           sed -i -E "s/^pkgrel=.*/pkgrel=1/" packaging/aur/PKGBUILD
+          
+          sed -i -E "0,/sha256sums=\('.*'/s//sha256sums=('$BIN_HASH'/" packaging/aur/PKGBUILD
+
+      - name: Generate .SRCINFO
+        uses: heyhusen/archlinux-package-action@v2
+        with:
+          path: packaging/aur
+          updpkgsums: false
+          srcinfo: true
+          namcap: false
+          flags: ''
 
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
@@ -352,11 +370,18 @@ jobs:
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Release v${{ needs.version-check.outputs.version }}"
-          updpkgsums: true
+          commit_message: "Update to v${{ needs.version-check.outputs.version }}"
+          updpkgsums: false
+          assets: |
+            ./packaging/aur/shminer.desktop
+            ./packaging/aur/.SRCINFO
 
-      - name: Commit updated PKGBUILD back to GitHub
+      - name: Commit all changes (Nix & AUR) back to GitHub
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore(aur): bump PKGBUILD to v${{ needs.version-check.outputs.version }}"
-          file_pattern: 'packaging/aur/PKGBUILD'
+          commit_message: "chore: bump version to v${{ needs.version-check.outputs.version }} [nix/aur]"
+          file_pattern: |
+            flake.nix
+            flake.lock
+            packaging/aur/PKGBUILD
+            packaging/aur/.SRCINFO
