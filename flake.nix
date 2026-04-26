@@ -11,6 +11,25 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
+        linuxDeps = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
+          webkitgtk_4_1
+          gtk3
+          libGL
+          gsettings-desktop-schemas
+          fontconfig
+          font-awesome
+        ]);
+
+        nativeLinuxDeps = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
+          pkg-config
+          makeWrapper
+          autoPatchelfHook
+          wrapGAppsHook3
+        ]);
+
+        # ==========================================
+        # ПАКЕТ 1: Завантаження готового бінарника
+        # ==========================================
         sysData = {
           "x86_64-linux" = {
             url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.0/SHMiner-linux-amd64";
@@ -32,11 +51,11 @@
         };
 
         target = sysData.${system} or null;
-      in {
-        packages.shminer = if target == null then 
-          pkgs.writeScriptBin "shminer-unsupported" "echo 'Platform ${system} is not supported by prebuilt binaries.'" 
-        else pkgs.stdenv.mkDerivation (finalAttrs: {
-          pname = "shminer";
+
+        shminer-bin = if target == null then
+          pkgs.writeScriptBin "shminer-unsupported" "echo 'Platform ${system} is not supported by prebuilt binaries.'"
+        else pkgs.stdenv.mkDerivation {
+          pname = "shminer-bin";
           version = "1.2.0";
 
           src = pkgs.fetchurl {
@@ -44,17 +63,8 @@
             hash = target.hash;
           };
 
-          nativeBuildInputs = [ pkgs.makeWrapper ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.autoPatchelfHook pkgs.wrapGAppsHook3 ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.undmg ];
-
-          buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
-            webkitgtk_4_1
-            gtk3
-            libGL
-            gsettings-desktop-schemas
-          ]);
-
+          nativeBuildInputs = nativeLinuxDeps ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.undmg ];
+          buildInputs = linuxDeps;
           dontUnpack = !target.isDmg;
 
           installPhase = if pkgs.stdenv.isLinux then ''
@@ -65,24 +75,74 @@
             makeWrapper $out/bin/.shminer-raw $out/bin/shminer \
               --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH" \
               --set WEBKIT_DISABLE_COMPOSITING_MODE "0" \
-              --set WEBKIT_FORCE_COMPOSITING_MODE "1" \
-              --prefix LD_LIBRARY_PATH : "/usr/lib:/usr/lib32"
+              --set WEBKIT_FORCE_COMPOSITING_MODE "1"
           '' else ''
             mkdir -p "$out/Applications"
             cp -r "${target.appName}" "$out/Applications/"
             mkdir -p $out/bin
             ln -s "$out/Applications/${target.appName}/Contents/MacOS/SHMiner" $out/bin/shminer
           '';
+        };
 
-          meta = with pkgs.lib; {
-            description = "Mining Client for S-UAH cryptocurrency";
-            homepage = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner";
-            license = licenses.gpl3;
-            platforms = builtins.attrNames sysData;
+        # ==========================================
+        # ПАКЕТ 2: Збірка з сирців (Go + Svelte)
+        # ==========================================
+
+        frontend = pkgs.buildNpmPackage {
+          pname = "shminer-frontend";
+          version = "1.2.0";
+          src = ./frontend;
+
+          npmDepsHash = "sha256-Fqvf3jWSAiPBeCy746kzb6FlchysgbbXjAna7RTkSow=";
+
+          buildPhase = "npm run build";
+          installPhase = "cp -r dist $out";
+        };
+
+        shminer-src = pkgs.buildGoModule {
+          pname = "shminer-src";
+          version = "1.2.0";
+          src = ./.;
+
+          vendorHash = "sha256-GN+4i8I9L+5WD3ayhuybUDjbxqt3YRtf1sFzGEQ1BSg=";
+
+          nativeBuildInputs = nativeLinuxDeps ++ [ pkgs.wails ];
+          buildInputs = linuxDeps;
+          tags = [ "desktop" "production" "webkit2_41" ];
+
+          preBuild = ''
+            rm -rf frontend/dist
+            cp -r ${frontend} frontend/dist
+          '';
+
+          postInstall = ''
+            mv $out/bin/Student-Hryvnia-Miner $out/bin/shminer || true
+
+            wrapProgram $out/bin/shminer \
+              --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH" \
+              --set WEBKIT_DISABLE_COMPOSITING_MODE "0" \
+              --set WEBKIT_FORCE_COMPOSITING_MODE "1"
+          '';
+          meta = {
+                      mainProgram = "shminer";
           };
-        });
+        };
 
-        packages.default = self.packages.${system}.shminer;
+      in {
+        packages = {
+          bin = shminer-bin; # nix build .#bin
+          src = shminer-src; # nix build .#src
+          default = shminer-bin; # nix build
+        };
+
+        devShells.default = pkgs.mkShell {
+          nativeBuildInputs = nativeLinuxDeps;
+          buildInputs = linuxDeps ++ [
+            pkgs.go
+            pkgs.nodejs_22
+            pkgs.wails
+          ];
+        };
       }
     );
 }

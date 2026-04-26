@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { activeTab, stats, logs, connected, notifications } from './stores';
     import { EventsOn } from '../wailsjs/runtime/runtime';
-    
+    import '@fortawesome/fontawesome-free/css/all.min.css';
     import Auth from './components/Auth.svelte';
     import Sidebar from './components/Sidebar.svelte';
     import Dashboard from './components/Dashboard.svelte';
@@ -17,14 +17,14 @@
     import FocusMode from './components/FocusMode.svelte';
     import Toasts from './components/Toasts.svelte';
     import WindowControls from './components/WindowControls.svelte';
-    
+
     let modalType = null;
     let modalWallet = null;
     let showFocus = false;
     let authenticated = false;
 
     onMount(() => {
-        
+
         EventsOn("stats", (data) => {
             stats.set(data);
             connected.set(true);
@@ -37,7 +37,7 @@
             else notifications.info(payload.message);
         });
 
-        
+
         let logBuffer = [];
         let logTimer = null;
         EventsOn("log", (log) => {
@@ -54,18 +54,18 @@
                 }, 500);
             }
         });
-        
-        
+
+
         document.addEventListener('open-modal', (e: any) => {
             modalType = e.detail.type || e.detail;
             modalWallet = e.detail.wallet || null;
         });
-        
+
         document.addEventListener('toggle-focus', () => {
             showFocus = !showFocus;
         });
-        
-        
+
+
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 e.preventDefault();
@@ -77,7 +77,7 @@
             }
         });
     });
-    
+
     function closeModal() {
         modalType = null;
         modalWallet = null;
