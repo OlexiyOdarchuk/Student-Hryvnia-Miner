@@ -3,8 +3,8 @@ package app
 import (
 	"context"
 
-	"shminer/backend/config"
-	"shminer/backend/types"
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/config"
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 )
 
 type Backend interface {

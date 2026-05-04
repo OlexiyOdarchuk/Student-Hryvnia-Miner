@@ -1,9 +1,10 @@
 package wallets
 
 import (
-	"shminer/backend/types"
 	"sync"
 	"testing"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	"github.com/golang/mock/gomock"
 )

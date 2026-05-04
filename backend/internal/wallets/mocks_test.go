@@ -6,7 +6,7 @@ package wallets
 
 import (
 	reflect "reflect"
-	types "shminer/backend/types"
+	types "github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	gomock "github.com/golang/mock/gomock"
 )

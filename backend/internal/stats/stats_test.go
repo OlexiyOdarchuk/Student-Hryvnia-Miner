@@ -1,10 +1,11 @@
 package stats
 
 import (
-	"shminer/backend/types"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	"github.com/golang/mock/gomock"
 )

@@ -9,9 +9,10 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
-	"shminer/backend/types"
 	"strconv"
 	"time"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 )
 
 type NodeClient interface {

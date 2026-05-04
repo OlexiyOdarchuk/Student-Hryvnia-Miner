@@ -3,8 +3,9 @@ package logger
 import (
 	"context"
 	"log/slog"
-	"shminer/backend/types"
 	"sync/atomic"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 )
 
 type UIHandler struct {

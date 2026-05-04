@@ -3,8 +3,9 @@ package logger
 import (
 	"log/slog"
 	"os"
-	"shminer/backend/types"
 	"testing"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	"github.com/stretchr/testify/assert"
 )

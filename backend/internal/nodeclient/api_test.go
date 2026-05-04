@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"shminer/backend/types"
 	"testing"
 	"time"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	"github.com/stretchr/testify/assert"
 )

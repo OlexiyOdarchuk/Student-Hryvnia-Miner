@@ -3,8 +3,9 @@ package wallets
 import (
 	"encoding/json"
 	"errors"
-	"shminer/backend/types"
 	"sync"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 )
 
 type WalletExport struct {

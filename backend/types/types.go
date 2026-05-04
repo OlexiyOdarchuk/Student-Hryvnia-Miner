@@ -1,10 +1,11 @@
 package types
 
 import (
-	"shminer/backend/config"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/config"
 )
 
 type DashboardData struct {

@@ -11,11 +11,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	stdRuntime "runtime"
-	"shminer/backend/app"
-	"shminer/backend/config"
-	"shminer/backend/types"
 	"strings"
 	"time"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/app"
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/config"
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	_ "embed"
 

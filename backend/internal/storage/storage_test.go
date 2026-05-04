@@ -1,8 +1,9 @@
 package storage
 
 import (
-	"shminer/backend/types"
 	"testing"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 )
 
 func setupTestEnv(t *testing.T) {

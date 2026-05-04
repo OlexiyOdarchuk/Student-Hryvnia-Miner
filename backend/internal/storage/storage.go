@@ -10,9 +10,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"shminer/backend/config"
-	"shminer/backend/types"
 	"sync"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/config"
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/argon2"

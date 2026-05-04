@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"shminer/backend/config"
-	"shminer/backend/types"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/config"
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	tele "gopkg.in/telebot.v3"
 )

@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"shminer/backend/internal/web_dashboard/assets"
-	"shminer/backend/types"
 	"sync"
+
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/internal/web_dashboard/assets"
+	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	"github.com/gorilla/websocket"
 )
