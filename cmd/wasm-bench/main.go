@@ -1,13 +1,23 @@
 //go:build js && wasm
 
-// wasm-bench is a minimal SHA-256 hashrate bench exposed to the browser.
+// wasm-bench: SHA-256 hashrate kernel for the ishawyha.dev demo.
 //
-// It replicates the *semantic* work of the Student Hryvnia official JS miner
-// (`calculateBlockHash`: prevHash + nonce + miner + reward + timestamp →
-// SHA-256 → lower-case hex) so the comparison on ishawyha.dev is honest.
-// The whole point of this binary is to show how much overhead the original
-// miner pays for going through `await window.crypto.subtle.digest` and a
-// cooperative `sleep(1)` every 1000 iterations.
+// Mirrors the real Student-Hryvnia work:
+//
+//   - Pre-image:    prevHash + nonce + miner + reward + timestamp
+//   - Difficulty:   20 leading zero bits  (== first 5 hex chars '0')
+//                   exactly what MINERJS.js checks via
+//                   hash.startsWith("0".repeat(5)) and what the SHMiner
+//                   backend default sets (DefaultDifficulty = 20).
+//
+// Design note: we *don't* run a long-lived Go goroutine to do the work.
+// TinyGo's WASM scheduler is single-threaded and a tight for-loop hogs
+// the worker, which keeps JS-side `setInterval` reporting + `benchStop`
+// callbacks from ever firing. Instead, we expose `benchBatch(n)` and let
+// the JS worker drive the loop in chunks of N — yielding to the event
+// loop between batches.  That makes both progress reporting and stop
+// responsive without sacrificing throughput meaningfully (the per-batch
+// FFI overhead is ~µs for batches of a few thousand hashes).
 package main
 
 import (
@@ -18,127 +28,89 @@ import (
 	"time"
 )
 
-var (
-	running atomic.Bool
-	count   atomic.Uint64
-)
-
-// Fixed inputs that match the shape of an Student-Hryvnia block. Length
-// matters (one extra byte per nonce digit changes how the SHA-256 message
-// schedule fills) but content does not — both sides hash the same bytes.
 const (
 	prevHash = "0000000000000000000000000000000000000000000000000000000000000000"
 	miner    = "ishawyha_bench_wallet_pubkey_for_demo_only_xxxxxxxxxxxxxxxx"
 	reward   = "1"
 )
 
-func start(this js.Value, args []js.Value) any {
-	if !running.CompareAndSwap(false, true) {
-		return nil
-	}
+var (
+	count   atomic.Uint64
+	tokens  atomic.Uint64
+	nonce   atomic.Uint64
+	// Pre-allocated scratch — reused across batches.
+	scratch []byte
+)
+
+// hitsTarget = first two bytes are zero AND top nibble of byte 2 is zero
+// (20-bit difficulty == 5 zero hex chars at the start of the digest).
+//
+//go:inline
+func hitsTarget(h *[32]byte) bool {
+	return h[0] == 0 && h[1] == 0 && (h[2]&0xF0) == 0
+}
+
+func reset(this js.Value, args []js.Value) any {
 	count.Store(0)
-
-	go func() {
-		// Pre-allocate a single buffer; rebuild only the volatile parts each
-		// iteration. The JS baseline can't dodge this allocation because
-		// TextEncoder.encode always returns a fresh Uint8Array.
-		base := []byte(prevHash)
-		minerBytes := []byte(miner)
-		rewardBytes := []byte(reward)
-
-		buf := make([]byte, 0, len(base)+24+len(minerBytes)+len(rewardBytes)+24)
-		hex := make([]byte, sha256.Size*2)
-		_ = hex
-
-		ts := strconv.FormatInt(time.Now().UnixMilli(), 10)
-		tsBytes := []byte(ts)
-
-		var nonce uint64
-		for running.Load() {
-			// Refresh timestamp roughly once every 1024 hashes — keeps the
-			// pre-image churning the way the original does, without paying
-			// for time.Now on every call (microbenchmark contamination).
-			if nonce&0x3FF == 0 {
-				ts = strconv.FormatInt(time.Now().UnixMilli(), 10)
-				tsBytes = tsBytes[:0]
-				tsBytes = append(tsBytes, ts...)
-			}
-
-			buf = buf[:0]
-			buf = append(buf, base...)
-			buf = strconv.AppendUint(buf, nonce, 10)
-			buf = append(buf, minerBytes...)
-			buf = append(buf, rewardBytes...)
-			buf = append(buf, tsBytes...)
-
-			sum := sha256.Sum256(buf)
-			// Hex-encode the digest to mirror what the JS impl returns.
-			// We don't actually use the string — discard so the compiler can't
-			// strip the work — but we make sure encode runs.
-			_ = encodeHexFast(hex, sum[:])
-
-			nonce++
-			count.Add(1)
-		}
-	}()
+	tokens.Store(0)
+	nonce.Store(0)
 	return nil
 }
 
-func encodeHexFast(dst, src []byte) []byte {
-	const table = "0123456789abcdef"
-	for i, b := range src {
-		dst[i*2] = table[b>>4]
-		dst[i*2+1] = table[b&0x0f]
-	}
-	return dst
-}
-
-func stop(this js.Value, args []js.Value) any {
-	running.Store(false)
-	return nil
-}
-
-func getCount(this js.Value, args []js.Value) any {
-	// JS numbers are 53-bit safe; our counts won't approach 2^53 in a
-	// realistic browser session, so a plain int conversion is fine.
-	return js.ValueOf(int(count.Load()))
-}
-
-// Single-call helper used by the browser to do a fixed number of hashes
-// synchronously (handy for a "first burst" warm-up). Returns the elapsed
-// wall-clock time in nanoseconds so JS can compute hashes/sec without
-// involving the timer infrastructure of the host page.
-func runFixed(this js.Value, args []js.Value) any {
+// benchBatch(n) — runs n hashes synchronously, updates counters,
+// returns nothing. JS reads counts via benchCount/benchTokens.
+func benchBatch(this js.Value, args []js.Value) any {
 	if len(args) < 1 {
-		return js.ValueOf(0)
+		return nil
 	}
 	n := uint64(args[0].Int())
 	if n == 0 {
-		return js.ValueOf(0)
+		return nil
 	}
-	buf := make([]byte, 0, 256)
-	hex := make([]byte, sha256.Size*2)
+
+	if cap(scratch) < 256 {
+		scratch = make([]byte, 0, 256)
+	}
+	buf := scratch[:0]
 	ts := strconv.FormatInt(time.Now().UnixMilli(), 10)
-	t0 := time.Now()
-	for nonce := uint64(0); nonce < n; nonce++ {
+
+	startNonce := nonce.Load()
+	var localHits uint64
+	for i := uint64(0); i < n; i++ {
 		buf = buf[:0]
 		buf = append(buf, prevHash...)
-		buf = strconv.AppendUint(buf, nonce, 10)
+		buf = strconv.AppendUint(buf, startNonce+i, 10)
 		buf = append(buf, miner...)
 		buf = append(buf, reward...)
 		buf = append(buf, ts...)
 		sum := sha256.Sum256(buf)
-		_ = encodeHexFast(hex, sum[:])
+		if hitsTarget(&sum) {
+			localHits++
+		}
 	}
-	return js.ValueOf(time.Since(t0).Nanoseconds())
+	scratch = buf
+
+	count.Add(n)
+	if localHits > 0 {
+		tokens.Add(localHits)
+	}
+	nonce.Add(n)
+	return nil
+}
+
+func getCount(this js.Value, args []js.Value) any {
+	return js.ValueOf(int(count.Load()))
+}
+
+func getTokens(this js.Value, args []js.Value) any {
+	return js.ValueOf(int(tokens.Load()))
 }
 
 func main() {
-	js.Global().Set("benchStart", js.FuncOf(start))
-	js.Global().Set("benchStop", js.FuncOf(stop))
+	js.Global().Set("benchBatch", js.FuncOf(benchBatch))
+	js.Global().Set("benchReset", js.FuncOf(reset))
 	js.Global().Set("benchCount", js.FuncOf(getCount))
-	js.Global().Set("benchRunFixed", js.FuncOf(runFixed))
+	js.Global().Set("benchTokens", js.FuncOf(getTokens))
 	js.Global().Set("benchReady", js.ValueOf(true))
-	// Park the runtime so the registered FuncOf callbacks stay alive.
 	select {}
 }
