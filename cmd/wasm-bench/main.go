@@ -50,10 +50,17 @@ func hitsTarget(h *[32]byte) bool {
 	return h[0] == 0 && h[1] == 0 && (h[2]&0xF0) == 0
 }
 
+// reset(offset) — when running a worker pool, each instance gets a
+// unique nonce starting point so they don't all hash the same pre-images.
+// offset is passed as a JS number (53-bit safe), e.g. workerID * 1e9.
 func reset(this js.Value, args []js.Value) any {
+	var off uint64
+	if len(args) >= 1 {
+		off = uint64(args[0].Int())
+	}
 	count.Store(0)
 	tokens.Store(0)
-	nonce.Store(0)
+	nonce.Store(off)
 	return nil
 }
 
