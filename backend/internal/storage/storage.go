@@ -37,7 +37,7 @@ func getSettingsPath() (string, error) {
 
 	appDir := filepath.Join(configDir, config.AppName)
 
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	if err := os.MkdirAll(appDir, 0700); err != nil {
 		return "", err
 	}
 
@@ -95,15 +95,21 @@ func (s *Storage) UpdateWallets(newWallets []types.WalletStats) {
 }
 
 func (s *Storage) ChangePassword(oldPass, newPass string) error {
+	s.mu.RLock()
 	if oldPass != s.sessionPassword {
+		s.mu.RUnlock()
 		return errors.New("Старий пароль невірний")
 	}
+	data := s.currentStorage
+	s.mu.RUnlock()
 
-	if err := s.SaveStorage(newPass, s.currentStorage); err != nil {
+	if err := s.SaveStorage(newPass, data); err != nil {
 		return err
 	}
 
+	s.mu.Lock()
 	s.sessionPassword = newPass
+	s.mu.Unlock()
 	return nil
 }
 
@@ -121,9 +127,11 @@ func (s *Storage) InitStorage(password string) error {
 		Wallets: []types.WalletStats{},
 	}
 
+	s.mu.Lock()
 	s.currentStorage = data
 	s.sessionPassword = password
-	s.applyLoadedData()
+	s.applyLoadedDataLocked()
+	s.mu.Unlock()
 
 	err := s.SaveStorage(password, data)
 	if err == nil {
@@ -171,11 +179,14 @@ func (s *Storage) SaveStorage(password string, data types.StorageData) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, finalData, 0644)
+	return os.WriteFile(configPath, finalData, 0600)
 }
 
 func (s *Storage) LoadStorage(password string) error {
 	configPath, err := getSettingsPath()
+	if err != nil {
+		return err
+	}
 	fileData, err := os.ReadFile(configPath)
 	if os.IsNotExist(err) {
 		return errors.New("not_found")
@@ -218,20 +229,25 @@ func (s *Storage) LoadStorage(password string) error {
 		return err
 	}
 
+	s.mu.Lock()
 	s.currentStorage = data
 	s.sessionPassword = password
-
-	s.applyLoadedData()
+	s.applyLoadedDataLocked()
+	s.mu.Unlock()
 
 	return nil
 }
 
 func (s *Storage) PersistConfig(password string) error {
+	s.mu.Lock()
 	s.currentStorage.Config = config.Config
-	return s.SaveStorage(password, s.currentStorage)
+	data := s.currentStorage
+	s.mu.Unlock()
+	return s.SaveStorage(password, data)
 }
 
-func (s *Storage) applyLoadedData() {
+// applyLoadedDataLocked must be called with s.mu held.
+func (s *Storage) applyLoadedDataLocked() {
 	if s.currentStorage.Config.MinerID == "" {
 		s.currentStorage.Config.MinerID = uuid.New().String()
 	}

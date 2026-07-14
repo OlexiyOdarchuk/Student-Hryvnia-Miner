@@ -124,10 +124,12 @@ func (m *Miner) MineBlock(ctx context.Context, prevHash string, wallet string) (
 
 	select {
 	case <-done:
+		stopFlag.Store(true)
+		return blockHash, foundNonce, timestamp
 	case <-ctx.Done():
+		stopFlag.Store(true)
+		return "", 0, timestamp
 	}
-	stopFlag.Store(true)
-	return blockHash, foundNonce, timestamp
 }
 
 func (m *Miner) checkDifficultyFast(hash [32]byte) bool {

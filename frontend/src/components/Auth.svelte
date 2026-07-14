@@ -16,42 +16,52 @@
     let loading = true;
 
     onMount(async () => {
-        const initialized = await IsStorageInitialized();
-        
-        if (initialized) {
-            const autoLogged = await TryAutoLogin();
-            if (autoLogged) {
-                dispatch("login");
-                return;
+        try {
+            const initialized = await IsStorageInitialized();
+
+            if (initialized) {
+                const autoLogged = await TryAutoLogin();
+                if (autoLogged) {
+                    dispatch("login");
+                    return;
+                }
+                isSetup = false;
+            } else {
+                isSetup = true;
             }
-            isSetup = false;
-        } else {
-            isSetup = true;
+        } catch (e) {
+            error = "Не вдалося отримати доступ до сховища";
+            console.error(e);
+        } finally {
+            loading = false;
         }
-        
-        loading = false;
     });
 
     async function handleSubmit() {
         error = "";
 
-        if (isSetup) {
-            if (password.length > 0 && password.length < 4) {
-                error = "Пароль надто короткий (мінімум 4 символи)";
-                return;
-            }
-            if (password !== confirmPassword) {
-                error = "Паролі не співпадають";
-                return;
-            }
+        try {
+            if (isSetup) {
+                if (password.length > 0 && password.length < 4) {
+                    error = "Пароль надто короткий (мінімум 4 символи)";
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    error = "Паролі не співпадають";
+                    return;
+                }
 
-            const err = await InitStorage(password);
-            if (err) error = err;
-            else dispatch("login");
-        } else {
-            const err = await UnlockStorage(password);
-            if (err) error = err;
-            else dispatch("login");
+                const err = await InitStorage(password);
+                if (err) error = err;
+                else dispatch("login");
+            } else {
+                const err = await UnlockStorage(password);
+                if (err) error = err;
+                else dispatch("login");
+            }
+        } catch (e) {
+            error = "Помилка входу. Спробуйте ще раз";
+            console.error(e);
         }
     }
 </script>

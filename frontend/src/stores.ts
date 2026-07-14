@@ -29,11 +29,12 @@ export interface Notification {
 
 function createNotificationStore() {
     const { subscribe, update } = writable<Notification[]>([]);
+    let seq = 0;
 
     return {
         subscribe,
         show: (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-            const id = Date.now();
+            const id = ++seq;
             update(n => [...n, { id, message, type }]);
             setTimeout(() => {
                 update(n => n.filter(t => t.id !== id));

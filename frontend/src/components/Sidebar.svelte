@@ -3,7 +3,7 @@
     import { BrowserOpenURL } from '../../wailsjs/runtime/runtime';
     import { GetConfig, GetLocalIP } from '../../wailsjs/go/main/App';
 
-    function nav(tab) {
+    function nav(tab: string) {
         activeTab.set(tab);
     }
 

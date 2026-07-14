@@ -38,22 +38,27 @@
         } catch {
             passwordRequired = true;
         }
-        const cfg = await GetConfig();
-        config = cfg;
-        if (cfg.automation) {
-            auto = {
-                telegram_bot_token: cfg.automation.telegram_bot_token || "",
-                telegram_chat_id: cfg.automation.telegram_chat_id || "",
-                schedule_start: cfg.automation.schedule_start || "",
-                schedule_stop: cfg.automation.schedule_stop || "",
-                block_target: cfg.automation.block_target || 0,
-                session_minutes: cfg.automation.session_minutes || 0,
-                progress_notify_step: cfg.automation.progress_notify_step || 0,
-                schedule_enabled: !!cfg.automation.schedule_enabled,
-                notify_on_start: !!cfg.automation.notify_on_start,
-                notify_on_stop: !!cfg.automation.notify_on_stop,
-                notify_on_target: !!cfg.automation.notify_on_target,
-            };
+        try {
+            const cfg = await GetConfig();
+            config = cfg;
+            if (cfg.automation) {
+                auto = {
+                    telegram_bot_token: cfg.automation.telegram_bot_token || "",
+                    telegram_chat_id: cfg.automation.telegram_chat_id || "",
+                    schedule_start: cfg.automation.schedule_start || "",
+                    schedule_stop: cfg.automation.schedule_stop || "",
+                    block_target: cfg.automation.block_target || 0,
+                    session_minutes: cfg.automation.session_minutes || 0,
+                    progress_notify_step: cfg.automation.progress_notify_step || 0,
+                    schedule_enabled: !!cfg.automation.schedule_enabled,
+                    notify_on_start: !!cfg.automation.notify_on_start,
+                    notify_on_stop: !!cfg.automation.notify_on_stop,
+                    notify_on_target: !!cfg.automation.notify_on_target,
+                };
+            }
+        } catch (e) {
+            notifications.error("Не вдалося завантажити конфігурацію");
+            console.error(e);
         }
         loaded = true;
     });
@@ -70,6 +75,9 @@
                 notifications.success("Автоматизацію збережено");
                 password = "";
             }
+        } catch (e) {
+            notifications.error("Не вдалося зберегти автоматизацію");
+            console.error(e);
         } finally {
             saving = false;
         }

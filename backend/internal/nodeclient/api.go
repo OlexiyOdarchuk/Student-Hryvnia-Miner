@@ -73,7 +73,6 @@ func (ac *ApiClient) GetChainLastHashCached() string {
 		if len(chain) == 0 {
 			return errors.New("chain response empty")
 		}
-		io.Copy(io.Discard, resp.Body)
 		result = chain[len(chain)-1].Hash
 		return nil
 	})
@@ -86,7 +85,10 @@ func (ac *ApiClient) GetChainLastHashCached() string {
 func (ac *ApiClient) SubmitBlock(prev, wallet string, nonce int, ts int64, hash string) bool {
 	body := buildBody(prev, wallet, nonce, ts, hash)
 
-	req, _ := http.NewRequest("POST", ac.baseUrl+"/submit-block", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", ac.baseUrl+"/submit-block", bytes.NewReader(body))
+	if err != nil {
+		return false
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := ac.httpClient.Do(req)

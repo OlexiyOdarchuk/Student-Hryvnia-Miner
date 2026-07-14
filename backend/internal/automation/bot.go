@@ -98,6 +98,9 @@ func StartBot(ctx context.Context, token, chatID string, ctrl Controller) (*Bot,
 	tb, err := tele.NewBot(tele.Settings{
 		Token:  token,
 		Poller: &tele.LongPoller{Timeout: 5 * time.Second},
+		// Serialize update handling so conversation state (b.conv) and the
+		// address map (b.addrMap) are never mutated from parallel goroutines.
+		Synchronous: true,
 	})
 	if err != nil {
 		return nil, err

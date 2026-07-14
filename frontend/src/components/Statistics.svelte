@@ -3,14 +3,14 @@
     import { stats } from '../stores';
     import Chart from 'chart.js/auto';
 
-    let balanceCanvas;
-    let blocksCanvas;
-    let balanceChart;
-    let blocksChart;
-    let chartInterval;
-    
-    let pulsingWallets = {}; 
-    let lastMined = {}; 
+    let balanceCanvas: HTMLCanvasElement;
+    let blocksCanvas: HTMLCanvasElement;
+    let balanceChart: Chart | undefined;
+    let blocksChart: Chart | undefined;
+    let chartInterval: any;
+
+    let pulsingWallets: Record<string, boolean> = {};
+    let lastMined: Record<string, number> = {};
 
     $: if ($stats && $stats.wallets) {
         $stats.wallets.forEach(w => {
@@ -112,6 +112,8 @@
         
         return () => {
             if (chartInterval) clearInterval(chartInterval);
+            balanceChart?.destroy();
+            blocksChart?.destroy();
         };
     });
 </script>

@@ -32,12 +32,13 @@
     }
     
     async function handleSubmit() {
+      try {
         if (type === 'add') {
             if (addTab === 'create') {
                 try {
                     const keys = await GenerateKeyPair();
-                    const pub = keys["public"];
-                    const priv = keys["private"];
+                    const pub = keys["public"] ?? "";
+                    const priv = keys["private"] ?? "";
 
                     const err = await AddWallet(name, pub, priv);
                     if (err) notifications.error(err);
@@ -66,32 +67,36 @@
                 }
             }
         } else if (type === 'edit') {
-            const err = await RenameWallet(wallet.address, name);
+            const err = await RenameWallet(wallet!.address, name);
             if (err) notifications.error(err);
             else {
                 notifications.success("Гаманець перейменовано");
                 onClose();
             }
         } else if (type === 'del') {
-            const err = await DeleteWallet(wallet.address, password);
+            const err = await DeleteWallet(wallet!.address, password);
             if (err) notifications.error(err); 
             else {
                 notifications.success("Гаманець видалено");
                 onClose();
             }
         } else if (type === 'key') {
-            const err = await UpdateWalletKey(wallet.address, privateKey, password);
-            if (err) notifications.error(err); 
+            const err = await UpdateWalletKey(wallet!.address, privateKey, password);
+            if (err) notifications.error(err);
             else {
                 notifications.success("Приватний ключ оновлено");
                 onClose();
             }
         }
+      } catch (e) {
+        notifications.error("Сталася помилка. Спробуйте ще раз");
+        console.error(e);
+      }
     }
 
     async function handleExportKey() {
         try {
-            const key = await GetWalletKey(wallet.address, password);
+            const key = await GetWalletKey(wallet!.address, password);
             ClipboardSetText(key);
             notifications.success("Приватний ключ скопійовано!");
         } catch (e) {
@@ -101,7 +106,7 @@
 
     async function handleExportJSON() {
         try {
-            const json = await GetWalletJSONSecure(wallet.address, password);
+            const json = await GetWalletJSONSecure(wallet!.address, password);
             ClipboardSetText(json);
             notifications.success("JSON гаманця скопійовано!");
         } catch (e) {

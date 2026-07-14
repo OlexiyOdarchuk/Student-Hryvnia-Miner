@@ -8,8 +8,12 @@
     let isSending = false;
 
     onMount(async () => {
-        const config = await GetConfig();
-        contact = config.telegram_handle;
+        try {
+            const config = await GetConfig();
+            contact = config.telegram_handle;
+        } catch (e) {
+            console.error(e);
+        }
     });
 
     async function sendMessage() {
@@ -66,10 +70,10 @@
         <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center;">
             <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">Також ви можете знайти мене тут:</div>
             <div style="display: flex; justify-content: center; gap: 20px;">
-                <a href="https://t.me/NeShawyha" target="_blank" class="social-link">
+                <a href="https://t.me/NeShawyha" target="_blank" rel="noopener noreferrer" class="social-link">
                     <i class="fab fa-telegram"></i> Telegram
                 </a>
-                <a href="https://github.com/OlexiyOdarchuk" target="_blank" class="social-link">
+                <a href="https://github.com/OlexiyOdarchuk" target="_blank" rel="noopener noreferrer" class="social-link">
                     <i class="fab fa-github"></i> GitHub
                 </a>
             </div>

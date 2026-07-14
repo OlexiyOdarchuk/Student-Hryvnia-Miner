@@ -4,13 +4,19 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sync"
+	"time"
 
 	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/internal/web_dashboard/assets"
 	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/types"
 
 	"github.com/gorilla/websocket"
 )
+
+// maxClients caps concurrent WebSocket connections so anyone on the LAN cannot
+// exhaust memory/file descriptors by opening unbounded sockets.
+const maxClients = 64
 
 type dashboardDataGetter interface {
 	GetDashboardData() types.DashboardData
@@ -24,6 +30,7 @@ type wsClient struct {
 func (c *wsClient) writeMessage(msg []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 	return c.conn.WriteMessage(websocket.TextMessage, msg)
 }
 
@@ -41,9 +48,25 @@ func NewServer(port string, dashboard dashboardDataGetter) *Server {
 		dashboard: dashboard,
 		clients:   make(map[*wsClient]struct{}),
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
+			// Only accept WebSocket upgrades from the dashboard page itself
+			// (same host) or from non-browser clients that send no Origin.
+			// This stops arbitrary websites the user visits from silently
+			// opening a socket to their miner and reading wallet data.
+			CheckOrigin: sameOriginCheck,
 		},
 	}
+}
+
+func sameOriginCheck(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return u.Host == r.Host
 }
 
 func buildResponse(data types.DashboardData) map[string]any {
@@ -73,6 +96,16 @@ func buildResponse(data types.DashboardData) map[string]any {
 	}
 }
 
+func (s *Server) removeClient(c *wsClient) {
+	s.clientsMu.Lock()
+	_, ok := s.clients[c]
+	delete(s.clients, c)
+	s.clientsMu.Unlock()
+	if ok {
+		c.conn.Close()
+	}
+}
+
 func (s *Server) BroadcastUpdate() {
 	s.clientsMu.Lock()
 	if len(s.clients) == 0 {
@@ -91,26 +124,58 @@ func (s *Server) BroadcastUpdate() {
 		return
 	}
 
-	var failed []*wsClient
 	for _, client := range snapshot {
 		if err := client.writeMessage(msg); err != nil {
-			client.conn.Close()
-			failed = append(failed, client)
+			s.removeClient(client)
 		}
 	}
+}
 
-	if len(failed) == 0 {
-		return
+// readPump drains incoming frames so that client-side closes and ping/pong
+// keepalives are processed; when the peer goes away the client is reaped.
+func (s *Server) readPump(client *wsClient) {
+	defer s.removeClient(client)
+	conn := client.conn
+	conn.SetReadLimit(4096)
+	_ = conn.SetReadDeadline(time.Now().Add(70 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(70 * time.Second))
+	})
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			return
+		}
 	}
-	s.clientsMu.Lock()
-	for _, c := range failed {
-		delete(s.clients, c)
+}
+
+// pingLoop keeps connections alive and detects half-open sockets.
+func (s *Server) pingLoop(client *wsClient) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		client.mu.Lock()
+		_ = client.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		err := client.conn.WriteMessage(websocket.PingMessage, nil)
+		client.mu.Unlock()
+		if err != nil {
+			s.removeClient(client)
+			return
+		}
 	}
-	s.clientsMu.Unlock()
 }
 
 func (s *Server) StartWebServer() {
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		s.clientsMu.Lock()
+		full := len(s.clients) >= maxClients
+		s.clientsMu.Unlock()
+		if full {
+			http.Error(w, "too many clients", http.StatusServiceUnavailable)
+			return
+		}
+
 		conn, err := s.upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
@@ -119,27 +184,39 @@ func (s *Server) StartWebServer() {
 		s.clientsMu.Lock()
 		s.clients[client] = struct{}{}
 		s.clientsMu.Unlock()
+
+		go s.readPump(client)
+		go s.pingLoop(client)
 	})
 
-	http.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		json.NewEncoder(w).Encode(buildResponse(s.dashboard.GetDashboardData()))
 	})
 
-	http.HandleFunc("/favicon.svg", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/favicon.svg", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/svg+xml")
 		w.Write(assets.Favicon)
 	})
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(assets.WebUI)
 	})
 
 	addr := s.port
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+		// ReadHeaderTimeout guards against slowloris-style header attacks.
+		// ReadTimeout/WriteTimeout are intentionally left unset so long-lived
+		// WebSocket connections are not force-closed.
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	go func() {
-		if err := http.ListenAndServe(addr, nil); err != nil {
+		if err := srv.ListenAndServe(); err != nil {
 			slog.Error("❌ Web server error: ", "error", err)
 		}
 	}()

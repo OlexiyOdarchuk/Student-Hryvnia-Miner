@@ -18,8 +18,8 @@
     import Toasts from './components/Toasts.svelte';
     import WindowControls from './components/WindowControls.svelte';
 
-    let modalType = null;
-    let modalWallet = null;
+    let modalType: string | null = null;
+    let modalWallet: any = null;
     let showFocus = false;
     let authenticated = false;
 
@@ -38,8 +38,8 @@
         });
 
 
-        let logBuffer = [];
-        let logTimer = null;
+        let logBuffer: any[] = [];
+        let logTimer: any = null;
         EventsOn("log", (log) => {
             logBuffer.push(log);
             if (!logTimer) {

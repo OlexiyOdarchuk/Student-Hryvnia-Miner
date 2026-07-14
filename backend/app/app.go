@@ -119,7 +119,12 @@ func New() *App {
 		walletDataMap: walletDataMap,
 	}
 
-	statsService.SetSubmitQueueFunc(func() int { return len(app.submitCh) })
+	statsService.SetSubmitQueueFunc(func() int {
+		app.mu.Lock()
+		ch := app.submitCh
+		app.mu.Unlock()
+		return len(ch)
+	})
 	statsService.SetMiningStateFunc(app.IsMining)
 	app.automationEngine = automation.New(app, statsService)
 
@@ -156,8 +161,8 @@ func (a *App) StartMining(ctx context.Context) {
 	go a.statsService.StartSpeedMonitor(miningCtx, &a.shutdownWG)
 	a.shutdownWG.Add(1)
 	go a.statsService.StartBalanceUpdater(miningCtx, &a.shutdownWG)
-	a.shutdownWG.Add(1)
-	go a.statsService.StartTelemetryReporter(miningCtx, &a.shutdownWG, config.TelemetryProxyURL, config.Config.MinerID)
+	// a.shutdownWG.Add(1)
+	// go a.statsService.StartTelemetryReporter(miningCtx, &a.shutdownWG, config.TelemetryProxyURL, config.Config.MinerID)
 	a.shutdownWG.Add(1)
 	go a.autoSaver(miningCtx)
 	a.shutdownWG.Add(1)
@@ -697,7 +702,11 @@ func (a *App) SendTransaction(from, to, password string, amount int) error {
 	signature := ecdsa.Sign(privKey, hash[:])
 	txObj.Signature = hex.EncodeToString(signature.Serialize())
 
-	return a.nodeClient.SendTransaction(txObj)
+	a.mu.Lock()
+	node := a.nodeClient
+	a.mu.Unlock()
+
+	return node.SendTransaction(txObj)
 }
 
 func (a *App) SendMessageToDeveloper(contact, message string) {

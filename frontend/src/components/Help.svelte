@@ -66,7 +66,7 @@
             <h3><i class="fab fa-telegram text-cyan"></i> Автоматизація та Telegram-бот</h3>
             <p>У вкладці <strong>Автоматизація</strong> налаштовується бот, який керує майнінгом за вас:</p>
             <ol>
-                <li>Створіть власного бота через <a href="https://t.me/BotFather" target="_blank">@BotFather</a> і вставте <strong>Bot Token</strong>.</li>
+                <li>Створіть власного бота через <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer">@BotFather</a> і вставте <strong>Bot Token</strong>.</li>
                 <li>Напишіть <strong>/start</strong> своєму боту зі свого акаунта, щоб отримати <strong>Chat ID</strong>. Якщо маєте публічний канал — можна вставити <code>@username</code> і натиснути <i class="fas fa-magnifying-glass"></i>, щоб розпізнати ID автоматично.</li>
                 <li>Натисніть <strong>Тест</strong> — має прийти повідомлення у Telegram.</li>
             </ol>
@@ -126,7 +126,7 @@
             <h3><i class="fas fa-shopping-cart text-accent"></i> Магазин та покупки</h3>
             <p>Ця програма сфокусована на швидкому майнінгу. Для купівлі курсів та інших товарів за зароблені S-UAH використовуйте офіційний бот:</p>
             <ul>
-                <li><i class="fab fa-telegram"></i> <strong>Магазин:</strong> <a href="https://t.me/s_hryvnia_bot" target="_blank">@s_hryvnia_bot</a></li>
+                <li><i class="fab fa-telegram"></i> <strong>Магазин:</strong> <a href="https://t.me/s_hryvnia_bot" target="_blank" rel="noopener noreferrer">@s_hryvnia_bot</a></li>
             </ul>
         </div>
 

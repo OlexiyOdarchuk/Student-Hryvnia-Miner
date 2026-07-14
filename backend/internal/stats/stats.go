@@ -271,7 +271,10 @@ func (s *Stats) GetDashboardData() types.DashboardData {
 
 	sessionBlocks := atomic.LoadUint32(&s.stats.SessionMined)
 	sessionFound := atomic.LoadUint32(&s.stats.SessionFound)
-	uptime := time.Since(s.stats.StartTime)
+	s.stats.HashrateHistMutex.Lock()
+	startTime := s.stats.StartTime
+	s.stats.HashrateHistMutex.Unlock()
+	uptime := time.Since(startTime)
 	var bpm, fpm float64
 	if uptime > 0 {
 		minutes := uptime.Minutes()
@@ -342,7 +345,9 @@ func (s *Stats) SetNodeClient(node NodeClient) {
 }
 
 func (s *Stats) SetStartTime(t time.Time) {
+	s.stats.HashrateHistMutex.Lock()
 	s.stats.StartTime = t
+	s.stats.HashrateHistMutex.Unlock()
 }
 
 func (s *Stats) ResetSessionMined() {

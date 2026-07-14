@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	stdRuntime "runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/backend/app"
@@ -32,6 +33,7 @@ type App struct {
 	ctx           context.Context
 	cancelMining  context.CancelFunc
 	backendApp    app.Backend
+	miningMu      sync.Mutex
 	miningStarted bool
 }
 
@@ -65,6 +67,8 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) startMining() {
+	a.miningMu.Lock()
+	defer a.miningMu.Unlock()
 	if a.miningStarted {
 		return
 	}
@@ -91,9 +95,13 @@ func (a *App) startMining() {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	a.miningMu.Lock()
+	defer a.miningMu.Unlock()
 	if a.cancelMining != nil {
 		a.cancelMining()
 		a.backendApp.StopMining()
+		a.cancelMining = nil
+		a.miningStarted = false
 	}
 }
 
@@ -339,6 +347,9 @@ func (a *App) CheckAndApplyUpdate() (string, error) {
 	}
 
 	currentVersion := version.Version
+	if currentVersion == "" {
+		return "", errors.New("wails.json version is empty")
+	}
 	if currentVersion[0] != 'v' {
 		currentVersion = "v" + currentVersion
 	}

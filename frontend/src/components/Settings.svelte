@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { GetConfig, UpdateConfig, ChangePassword, GetSystemInfo, GetConfigFilePath, OpenConfigFolder, HasPassword } from '../../wailsjs/go/main/App';
-    let config = {
+    let config: any = {
         miner_id: '',
         telegram_handle: '',
         base_url: '',
@@ -30,8 +30,12 @@
     let passwordRequired = true;
 
     onMount(async () => {
-        config = await GetConfig();
-        configPath = await GetConfigFilePath();
+        try {
+            config = await GetConfig();
+            configPath = await GetConfigFilePath();
+        } catch (e) {
+            console.error(e);
+        }
         try {
             passwordRequired = await HasPassword();
         } catch (e) {
@@ -48,17 +52,23 @@
     async function save() {
         message = '';
         isError = false;
-        
-        const err = await UpdateConfig(config, password);
-        if (err) {
+
+        try {
+            const err = await UpdateConfig(config, password);
+            if (err) {
+                isError = true;
+                message = "Помилка: " + err;
+            } else {
+                message = "Налаштування збережено успішно!";
+                password = '';
+            }
+        } catch (e) {
             isError = true;
-            message = "Помилка: " + err;
-        } else {
-            message = "Налаштування збережено успішно!";
-            password = '';
+            message = "Не вдалося зберегти налаштування";
+            console.error(e);
         }
     }
-    
+
     async function changePass() {
         passMsg = '';
         isPassError = false;
@@ -69,18 +79,24 @@
             return;
         }
 
-        const err = await ChangePassword(oldPass, newPass);
-        if (err) {
-            isPassError = true;
-            passMsg = "Помилка: " + err;
-        } else {
-            passMsg = "Пароль змінено успішно!";
-            oldPass = ''; newPass = ''; confirmPass = '';
-            try {
-                passwordRequired = await HasPassword();
-            } catch (e) {
-                // ignore
+        try {
+            const err = await ChangePassword(oldPass, newPass);
+            if (err) {
+                isPassError = true;
+                passMsg = "Помилка: " + err;
+            } else {
+                passMsg = "Пароль змінено успішно!";
+                oldPass = ''; newPass = ''; confirmPass = '';
+                try {
+                    passwordRequired = await HasPassword();
+                } catch (e) {
+                    // ignore
+                }
             }
+        } catch (e) {
+            isPassError = true;
+            passMsg = "Не вдалося змінити пароль";
+            console.error(e);
         }
     }
 

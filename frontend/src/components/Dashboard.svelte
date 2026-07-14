@@ -109,6 +109,7 @@
             if (!chartCanvas) return;
             try {
                 const ctx = chartCanvas.getContext("2d");
+                if (!ctx) return;
                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
                 gradient.addColorStop(0, "rgba(129, 140, 248, 0.5)");
                 gradient.addColorStop(1, "rgba(129, 140, 248, 0.0)");
@@ -177,6 +178,7 @@
 
         return () => {
             if (chartInterval) clearInterval(chartInterval);
+            chart?.destroy();
         };
     });
 </script>

@@ -10,7 +10,12 @@
     }
 
     async function toggle(wallet: types.WalletStats) {
-        await ToggleWallet(wallet.address);
+        try {
+            await ToggleWallet(wallet.address);
+        } catch (e) {
+            notifications.error("Не вдалося змінити стан гаманця");
+            console.error(e);
+        }
     }
 
     function copyAddress(addr: string) {
@@ -19,8 +24,8 @@
     }
 
     
-    let pulsingWallets = {}; 
-    let lastMined = {}; 
+    let pulsingWallets: Record<string, boolean> = {};
+    let lastMined: Record<string, number> = {};
 
     $: if ($stats && $stats.wallets) {
         $stats.wallets.forEach(w => {
