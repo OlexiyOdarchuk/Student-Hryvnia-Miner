@@ -32,19 +32,19 @@
         # ==========================================
         sysData = {
           "x86_64-linux" = {
-            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.0/SHMiner-linux-amd64";
-            hash = "sha256-440KHKVJgNguFsd9zoz/YdYh1CK9jznZ8pLCcxC7GC8=";
+            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.1/SHMiner-linux-amd64";
+            hash = "sha256-0RUNJRd+WBQH5XHEOj/PwxgqBZFhkOcJMl8mqkK0GC8=";
             isDmg = false;
           };
           "x86_64-darwin" = {
-            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.0/SHMiner-darwin-amd64.dmg";
-            hash = "sha256-K1yf70AYJrTmwdTUsU4B6pm7nL1QeWubcZQi/ncNDd0=";
+            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.1/SHMiner-darwin-amd64.dmg";
+            hash = "sha256-qZHY5BX9UB+/kVTlqN6T1RjUsqqxJvo43t7ho3n3RCk=";
             isDmg = true;
             appName = "SHMiner-darwin-amd64.app";
           };
           "aarch64-darwin" = {
-            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.0/SHMiner-darwin-arm64.dmg";
-            hash = "sha256-sA7oCkp42uOW9qIfZEcCI+uKt5rLJa2+cG4KjAeELsQ=";
+            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.2.1/SHMiner-darwin-arm64.dmg";
+            hash = "sha256-BwLflh3AghhLBaLieI3blsjKjXvXqy3gpK9wbL1op0o=";
             isDmg = true;
             appName = "SHMiner-darwin-arm64.app";
           };
@@ -56,7 +56,7 @@
           pkgs.writeScriptBin "shminer-unsupported" "echo 'Platform ${system} is not supported by prebuilt binaries.'"
         else pkgs.stdenv.mkDerivation {
           pname = "shminer-bin";
-          version = "1.2.0";
+          version = "1.2.1";
 
           src = pkgs.fetchurl {
             url = target.url;
@@ -90,7 +90,7 @@
 
         frontend = pkgs.buildNpmPackage {
           pname = "shminer-frontend";
-          version = "1.2.0";
+          version = "1.2.1";
           src = ./frontend;
 
           npmDepsHash = "sha256-Fqvf3jWSAiPBeCy746kzb6FlchysgbbXjAna7RTkSow=";
@@ -101,7 +101,7 @@
 
         shminer-src = pkgs.buildGoModule {
           pname = "shminer-src";
-          version = "1.2.0";
+          version = "1.2.1";
           src = ./.;
 
           vendorHash = "sha256-GN+4i8I9L+5WD3ayhuybUDjbxqt3YRtf1sFzGEQ1BSg=";
