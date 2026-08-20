@@ -23,26 +23,36 @@ jobs:
           VERSION=$(jq -r '.version' wails.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+  test:
+    uses: ./.github/workflows/ci.yml
+
   build:
-    needs: version-check
+    needs: [version-check, test]
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
+            rust_target: x86_64-unknown-linux-gnu
+          # Під windows/arm64 з Linux немає крос-тулчейна для cgo,
+          # тому ця збірка йде з вбудованим Go-ядром.
           - os: ubuntu-latest
             goos: windows
             goarch: arm64
+            rust_target: ""
           - os: ubuntu-latest
             goos: windows
             goarch: amd64
+            rust_target: x86_64-pc-windows-gnu
           - os: macos-latest
             goos: darwin
             goarch: arm64
+            rust_target: aarch64-apple-darwin
           - os: macos-latest
             goos: darwin
             goarch: amd64
+            rust_target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
@@ -88,28 +98,80 @@ jobs:
           which -s brew || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew install gcc
 
+      - name: Setup Rust
+        if: matrix.rust_target != ''
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Cache Rust core
+        if: matrix.rust_target != ''
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            backend/internal/miner/rust_miner_core/target
+          key: rust-core-${{ matrix.rust_target }}-${{ hashFiles('backend/internal/miner/rust_miner_core/Cargo.lock', 'backend/internal/miner/rust_miner_core/src/**') }}
+          restore-keys: rust-core-${{ matrix.rust_target }}-
+
+      - name: Build Rust miner core
+        if: matrix.rust_target != ''
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: ./scripts/build-rust-core.sh
+
       - name: Build Project
         shell: bash
+        env:
+          GOOS_TARGET: ${{ matrix.goos }}
+          GOARCH_TARGET: ${{ matrix.goarch }}
+          RUST_TARGET: ${{ matrix.rust_target }}
         run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w" -nsis
-            
+          TAGS=()
+          if [ "$GOOS_TARGET" = "linux" ]; then
+            TAGS+=("webkit2_41")
+          fi
+
+          if [ -n "$RUST_TARGET" ]; then
+            # Ядро перебору лінкується статично, тож потрібен cgo.
+            TAGS+=("rustcore")
+            export CGO_ENABLED=1
+            if [ "$GOOS_TARGET" = "windows" ]; then
+              export CC=x86_64-w64-mingw32-gcc
+              export CXX=x86_64-w64-mingw32-g++
+            fi
+          fi
+
+          BUILD_ARGS=(-platform "$GOOS_TARGET/$GOARCH_TARGET" -clean -trimpath -ldflags "-s -w")
+          if [ ${#TAGS[@]} -gt 0 ]; then
+            BUILD_ARGS+=(-tags "${TAGS[*]}")
+          fi
+
+          echo "wails build ${BUILD_ARGS[*]} (ядро: ${RUST_TARGET:-вбудоване Go})"
+
+          if [ "$GOOS_TARGET" = "windows" ]; then
+            wails build "${BUILD_ARGS[@]}" -nsis
+
             cd build/bin/
-            mv SHMiner.exe SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}-portable.exe
-            mv "S-UAH Miner-${{ matrix.goarch }}-installer.exe" SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}-setup.exe
-          elif [ "${{ matrix.goos }}" = "darwin" ]; then
-            wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w"
-            
+            mv SHMiner.exe SHMiner-$GOOS_TARGET-$GOARCH_TARGET-portable.exe
+            mv "S-UAH Miner-$GOARCH_TARGET-installer.exe" SHMiner-$GOOS_TARGET-$GOARCH_TARGET-setup.exe
+          elif [ "$GOOS_TARGET" = "darwin" ]; then
+            wails build "${BUILD_ARGS[@]}"
+
             cd build/bin/
             APP_NAME=$(ls -d *.app)
-            mv "$APP_NAME" "SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.app"
-            
-            hdiutil create -volname "SHMiner" -srcfolder "SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.app" -ov -format UDZO "SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}.dmg"
+            mv "$APP_NAME" "SHMiner-$GOOS_TARGET-$GOARCH_TARGET.app"
+
+            hdiutil create -volname "SHMiner" -srcfolder "SHMiner-$GOOS_TARGET-$GOARCH_TARGET.app" -ov -format UDZO "SHMiner-$GOOS_TARGET-$GOARCH_TARGET.dmg"
           else
-            wails build -platform ${{ matrix.goos }}/${{ matrix.goarch }} -clean -trimpath -ldflags "-s -w" -tags webkit2_41
-            
+            wails build "${BUILD_ARGS[@]}"
+
             cd build/bin/
-            mv SHMiner SHMiner-${{ matrix.goos }}-${{ matrix.goarch }}
+            mv SHMiner SHMiner-$GOOS_TARGET-$GOARCH_TARGET
           fi
 
       - name: Upload Artifacts
@@ -275,7 +337,7 @@ jobs:
           retention-days: 7
 
   release:
-    needs: [version-check, build, build-deb-rpm, build-appimage]
+    needs: [version-check, test, build, build-deb-rpm, build-appimage]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

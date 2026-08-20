@@ -1,0 +1,20 @@
+[package]
+name = "rust_miner_core"
+version = "0.2.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+# Потрібен лише низькорівневий compress256, тому вимикаємо default-features
+# (alloc/oid тягнуть зайвий код у статичну бібліотеку).
+sha2 = { version = "0.11.0", default-features = false }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

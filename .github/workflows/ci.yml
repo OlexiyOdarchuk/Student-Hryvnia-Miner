@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  # Дозволяє релізному воркфлоу викликати ці ж перевірки як гейт.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CORE_DIR: backend/internal/miner/rust_miner_core
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust core
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            backend/internal/miner/rust_miner_core/target
+          key: rust-core-host-${{ hashFiles('backend/internal/miner/rust_miner_core/Cargo.lock', 'backend/internal/miner/rust_miner_core/src/**') }}
+          restore-keys: rust-core-host-
+
+      - name: Install Linux Deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libglib2.0-dev \
+            pkg-config
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path "$CORE_DIR/Cargo.toml" --check
+
+      - name: Lint Rust core
+        run: cargo clippy --manifest-path "$CORE_DIR/Cargo.toml" --release --locked --all-targets -- -D warnings
+
+      - name: Test Rust core
+        run: cargo test --manifest-path "$CORE_DIR/Cargo.toml" --release --locked
+
+      - name: Vet Go
+        run: go vet -tags webkit2_41 ./...
+
+      - name: Test Go (вбудоване Go-ядро)
+        run: go test -tags webkit2_41 ./...
+
+      - name: Build Rust miner core
+        run: ./scripts/build-rust-core.sh
+
+      - name: Test Go (ядро на Rust)
+        run: go test -tags "webkit2_41 rustcore" -race ./...

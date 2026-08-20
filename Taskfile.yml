@@ -14,9 +14,20 @@ tasks:
       - "wails dev"
 
   build:
-    desc: Build miner for your system
+    desc: Build miner for your system (вбудоване Go-ядро перебору)
     cmds:
       - 'wails build -clean -trimpath -ldflags "-s -w"'
+
+  rust:
+    desc: Build the native Rust mining core for your system
+    cmds:
+      - "./scripts/build-rust-core.sh"
+
+  build-rust:
+    desc: Build miner with the native Rust core (як у релізі)
+    deps: [rust]
+    cmds:
+      - 'wails build -clean -trimpath -ldflags "-s -w" -tags rustcore'
 
   build-nsis:
     desc: Build miner for your system
@@ -34,6 +45,13 @@ tasks:
     cmds:
       - "go test ./..."
 
+  test-rust:
+    desc: Run tests against the native Rust core
+    deps: [rust]
+    cmds:
+      - "cargo test --release --locked --manifest-path backend/internal/miner/rust_miner_core/Cargo.toml"
+      - "go test -tags rustcore ./..."
+
   fmt:
     desc: Format Go code
     cmds:
@@ -50,6 +68,7 @@ tasks:
       - task: fmt
       - task: vet
       - task: test
+      - task: test-rust
 
   pull:
     desc: Download all dependencies
