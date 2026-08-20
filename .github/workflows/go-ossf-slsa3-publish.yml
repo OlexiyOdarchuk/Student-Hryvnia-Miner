@@ -29,6 +29,9 @@ jobs:
   build:
     needs: [version-check, test]
     strategy:
+      # Не скасовувати решту платформ через падіння однієї — інакше
+      # стан усієї матриці доводиться з'ясовувати по одному прогону за раз.
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -118,11 +121,20 @@ jobs:
       - name: Build Rust miner core
         if: matrix.rust_target != ''
         shell: bash
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          RUST_TARGET: ${{ matrix.rust_target }}
-        run: ./scripts/build-rust-core.sh
+        run: |
+          GOOS='${{ matrix.goos }}' GOARCH='${{ matrix.goarch }}' \
+            RUST_TARGET='${{ matrix.rust_target }}' ./scripts/build-rust-core.sh
+
+          # Перед крос-збіркою wails компілює застосунок під хост, щоб
+          # згенерувати JS-біндинги. Той білд теж бачить тег rustcore, тож
+          # бібліотека ядра потрібна ще й під хостову платформу.
+          HOST_GOOS=$(go env GOOS)
+          HOST_GOARCH=$(go env GOARCH)
+
+          if [ "$HOST_GOOS/$HOST_GOARCH" != "${{ matrix.goos }}/${{ matrix.goarch }}" ]; then
+            echo "крос-збірка: додатково збираю ядро під хост $HOST_GOOS/$HOST_GOARCH"
+            GOOS="$HOST_GOOS" GOARCH="$HOST_GOARCH" ./scripts/build-rust-core.sh
+          fi
 
       - name: Build Project
         shell: bash
