@@ -24,27 +24,30 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.26.1
+          go-version-file: go.mod
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
 
       - name: Cache Rust core
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
             backend/internal/miner/rust_miner_core/target
-          key: rust-core-host-${{ hashFiles('backend/internal/miner/rust_miner_core/Cargo.lock', 'backend/internal/miner/rust_miner_core/src/**') }}
-          restore-keys: rust-core-host-
+            cmd/wasm-bench-rs/target
+          key: rust-host-${{ hashFiles('backend/internal/miner/rust_miner_core/Cargo.lock', 'backend/internal/miner/rust_miner_core/src/**', 'cmd/wasm-bench-rs/Cargo.lock', 'cmd/wasm-bench-rs/src/**') }}
+          restore-keys: rust-host-
 
       - name: Install Linux Deps
         run: |
@@ -57,13 +60,24 @@ jobs:
             pkg-config
 
       - name: Check Rust formatting
-        run: cargo fmt --manifest-path "$CORE_DIR/Cargo.toml" --check
+        run: |
+          cargo fmt --manifest-path "$CORE_DIR/Cargo.toml" --check
+          cargo fmt --manifest-path cmd/wasm-bench-rs/Cargo.toml --check
 
       - name: Lint Rust core
         run: cargo clippy --manifest-path "$CORE_DIR/Cargo.toml" --release --locked --all-targets -- -D warnings
 
       - name: Test Rust core
         run: cargo test --manifest-path "$CORE_DIR/Cargo.toml" --release --locked
+
+      # Те саме ядро йде у WASM-демо на сайті, тож ламатися воно теж не має.
+      - name: Lint WASM bench core
+        run: |
+          cargo clippy --manifest-path cmd/wasm-bench-rs/Cargo.toml \
+            --release --locked --target wasm32-unknown-unknown -- -D warnings
+
+      - name: Build WASM bench core
+        run: ./cmd/wasm-bench-rs/build.sh "$RUNNER_TEMP/wasm-dist"
 
       # Go-пакети вбудовують frontend/dist через //go:embed, тож без зібраного
       # фронтенду не проходить навіть `go vet`.
