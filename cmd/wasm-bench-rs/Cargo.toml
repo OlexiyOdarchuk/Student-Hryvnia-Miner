@@ -1,0 +1,20 @@
+[package]
+name = "wasm_bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Те саме ядро, що лінкується в десктопний застосунок: демо на сайті має
+# показувати реальний кернел, а не його копію.
+rust_miner_core = { path = "../../backend/internal/miner/rust_miner_core" }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

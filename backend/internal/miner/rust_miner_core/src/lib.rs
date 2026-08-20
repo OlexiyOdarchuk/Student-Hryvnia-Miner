@@ -154,6 +154,84 @@ impl Tail {
     }
 }
 
+/// Підсумок прогону по діапазону nonce.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Scan {
+    /// Скільки хешів фактично пораховано.
+    pub hashes: u64,
+    /// Скільки з них задовольнили складність.
+    pub hits: u64,
+    /// Перший придатний nonce, або -1 якщо такого не було.
+    pub first_hit: i64,
+}
+
+/// Спільне ядро перебору.
+///
+/// `STOP_ON_HIT` — параметр часу компіляції, тож обидві версії
+/// мономорфізуються окремо і жодної зайвої перевірки в гарячому циклі не
+/// лишається: майнер зупиняється на першій знахідці, а бенчмарк проходить
+/// увесь діапазон і рахує влучання.
+pub fn scan<const STOP_ON_HIT: bool>(
+    prefix: &[u8],
+    suffix: &[u8],
+    diff_bits: u32,
+    start_nonce: i64,
+    step: i64,
+    count: i64,
+) -> Scan {
+    let mut out = Scan {
+        hashes: 0,
+        hits: 0,
+        first_hit: -1,
+    };
+
+    if start_nonce < 0 || step <= 0 || count <= 0 {
+        return out;
+    }
+
+    // Крок 1: усі повні блоки prefix стискаємо один раз.
+    let whole = prefix.len() - prefix.len() % BLOCK;
+    let mut midstate = SHA256_IV;
+    if whole > 0 {
+        compress256(&mut midstate, as_blocks(&prefix[..whole]));
+    }
+    let head = &prefix[whole..];
+
+    let mut nonce = start_nonce;
+    let mut tail = Tail::build(head, suffix, prefix.len(), nonce);
+    let mut remaining = count;
+
+    loop {
+        let mut state = midstate;
+        compress256(&mut state, as_blocks(&tail.buf));
+        out.hashes += 1;
+
+        if meets_difficulty(&state, diff_bits) {
+            out.hits += 1;
+            if out.first_hit < 0 {
+                out.first_hit = nonce;
+            }
+            if STOP_ON_HIT {
+                return out;
+            }
+        }
+
+        remaining -= 1;
+        if remaining == 0 {
+            return out;
+        }
+
+        nonce = match nonce.checked_add(step) {
+            Some(next) => next,
+            None => return out,
+        };
+
+        if !tail.bump_nonce(step) {
+            tail = Tail::build(head, suffix, prefix.len(), nonce);
+        }
+    }
+}
+
 /// Перебирає `chunk_size` значень nonce з кроком `step`.
 ///
 /// Повертає знайдений nonce або `-1`, якщо в цьому чанку розв'язку немає.
@@ -174,9 +252,6 @@ pub unsafe extern "C" fn shminer_mine_chunk(
     step: i64,
     chunk_size: i64,
 ) -> i64 {
-    if start_nonce < 0 || step <= 0 || chunk_size <= 0 {
-        return -1;
-    }
     if (prefix.is_null() && prefix_len != 0) || (suffix.is_null() && suffix_len != 0) {
         return -1;
     }
@@ -185,40 +260,7 @@ pub unsafe extern "C" fn shminer_mine_chunk(
     let prefix = unsafe { slice_from_raw(prefix, prefix_len) };
     let suffix = unsafe { slice_from_raw(suffix, suffix_len) };
 
-    // Крок 1: усі повні блоки prefix стискаємо один раз.
-    let whole = prefix_len - prefix_len % BLOCK;
-    let mut midstate = SHA256_IV;
-    if whole > 0 {
-        compress256(&mut midstate, as_blocks(&prefix[..whole]));
-    }
-    let head = &prefix[whole..];
-
-    let mut nonce = start_nonce;
-    let mut tail = Tail::build(head, suffix, prefix_len, nonce);
-    let mut remaining = chunk_size;
-
-    loop {
-        let mut state = midstate;
-        compress256(&mut state, as_blocks(&tail.buf));
-
-        if meets_difficulty(&state, diff_bits) {
-            return nonce;
-        }
-
-        remaining -= 1;
-        if remaining == 0 {
-            return -1;
-        }
-
-        nonce = match nonce.checked_add(step) {
-            Some(next) => next,
-            None => return -1,
-        };
-
-        if !tail.bump_nonce(step) {
-            tail = Tail::build(head, suffix, prefix_len, nonce);
-        }
-    }
+    scan::<true>(prefix, suffix, diff_bits, start_nonce, step, chunk_size).first_hit
 }
 
 #[inline(always)]
@@ -358,6 +400,32 @@ mod tests {
         }
         // Крок, що перевищує i64 при додаванні до нонсу -> checked_add -> -1
         assert_eq!(mine(&prefix, suffix, 0, i64::MAX, 1, 4), i64::MAX);
+    }
+
+    /// `scan::<false>` має пройти весь діапазон і порахувати всі влучання,
+    /// тоді як `scan::<true>` зупиняється на першому — але перше влучання
+    /// в обох має збігатися.
+    #[test]
+    fn scan_counts_all_hits() {
+        let prefix = vec![b'b'; 64];
+        let suffix = b"bench-suffix";
+        let bits = 8;
+        let count = 20_000;
+
+        let expected: Vec<i64> = (0..count)
+            .filter(|n| leading_zero_bits(&reference(&prefix, *n, suffix)) >= bits)
+            .collect();
+        assert!(expected.len() > 2, "тест не має сенсу без кількох влучань");
+
+        let full = scan::<false>(&prefix, suffix, bits, 0, 1, count);
+        assert_eq!(full.hashes, count as u64);
+        assert_eq!(full.hits, expected.len() as u64);
+        assert_eq!(full.first_hit, expected[0]);
+
+        let stopped = scan::<true>(&prefix, suffix, bits, 0, 1, count);
+        assert_eq!(stopped.first_hit, expected[0]);
+        assert_eq!(stopped.hits, 1);
+        assert_eq!(stopped.hashes, (expected[0] + 1) as u64);
     }
 
     #[test]
