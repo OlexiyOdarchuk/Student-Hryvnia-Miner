@@ -141,8 +141,9 @@ jobs:
             TAGS+=("rustcore")
             export CGO_ENABLED=1
             if [ "$GOOS_TARGET" = "windows" ]; then
+              # CXX не задаємо: у збірці немає C++, а mingw-w64 з apt
+              # постачає лише gcc.
               export CC=x86_64-w64-mingw32-gcc
-              export CXX=x86_64-w64-mingw32-g++
             fi
           fi
 
