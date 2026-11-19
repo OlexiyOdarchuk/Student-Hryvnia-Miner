@@ -103,7 +103,6 @@ SHMiner фокусується на шаленій ефективності, з�
 
 | ОС | Команда |
 |---|---------|
-| **Arch Linux** | `yay -S shminer-bin` |
 | **Ubuntu/Debian** | `sudo dpkg -i shminer_*.deb` |
 | **Fedora/RHEL** | `sudo rpm -ivh shminer_*.rpm` |
 | **Nix/Flakes** | `nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner` (готовий бінарник)<br>`nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner#src` (збірка з сирців) |
@@ -136,11 +135,6 @@ SHMiner фокусується на шаленій ефективності, з�
 
 1. Завантаж пакет `shminer_*.rpm` з [Releases](https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/)
 2. Встанови: `sudo rpm -ivh shminer_*.rpm`
-
-#### Arch Linux (AUR)
-
-1. Встанови: `yay -S shminer-bin`
-2. Або завантаж PKGBUILD з [shminer-bin](https://aur.archlinux.org/shminer-bin.git) і запусти: `makepkg -si`
 
 #### Nix (Flakes)
 
@@ -277,7 +271,7 @@ Go-ядром. Це резервний шлях для платформ, під 
 * [x] Реалізувати автооновлення клієнта.
 * [x] Реалізувати збір статистики клієнтів.
 * [x] Додати NSIS інсталятор для `Windows`, щоб `SHMiner` автоматично встановлювався на систему та коректно оновлювався.
-* [x] Додати пакет в `AUR` і зробити `.deb`, `rpm`, `nix`, та `AppImage` пакети для Linux-дистрибутивів.
+* [x] Зробити `.deb`, `rpm`, `nix`, та `AppImage` пакети для Linux-дистрибутивів.
 * [x] Додати підтримку macOS з DMG-пакетами.
 * [ ] Перейти на нову версію фреймворку Wails v3.
 
