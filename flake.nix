@@ -10,8 +10,12 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        lib = pkgs.lib;
 
-        linuxDeps = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
+        # Єдине джерело версії — wails.json, той самий, що читає релізний CI.
+        version = (builtins.fromJSON (builtins.readFile ./wails.json)).version;
+
+        linuxDeps = lib.optionals pkgs.stdenv.isLinux (with pkgs; [
           webkitgtk_4_1
           gtk3
           libGL
@@ -20,119 +24,81 @@
           font-awesome
         ]);
 
-        nativeLinuxDeps = pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
+        nativeLinuxDeps = lib.optionals pkgs.stdenv.isLinux (with pkgs; [
           pkg-config
-          makeWrapper
-          autoPatchelfHook
           wrapGAppsHook3
         ]);
 
-        # ==========================================
-        # ПАКЕТ 1: Завантаження готового бінарника
-        # ==========================================
-        sysData = {
-          "x86_64-linux" = {
-            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.3.0/SHMiner-linux-amd64";
-            hash = "sha256-jG7avzR0Ba7RX2PnfOJU2/PinJXifn8cD3+aMXTzh+8=";
-            isDmg = false;
-          };
-          "x86_64-darwin" = {
-            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.3.0/SHMiner-darwin-amd64.dmg";
-            hash = "sha256-kkblG1Hl+9g5n3jJ/d2F9DI0XtPP3kOX3ZwPn0/jiiA=";
-            isDmg = true;
-            appName = "SHMiner-darwin-amd64.app";
-          };
-          "aarch64-darwin" = {
-            url = "https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/download/v1.3.0/SHMiner-darwin-arm64.dmg";
-            hash = "sha256-ypHIz/fg+XYnhHsam6UE9mw74NPP/cRapiijECqKKPI=";
-            isDmg = true;
-            appName = "SHMiner-darwin-arm64.app";
-          };
+        # Ядро перебору на Rust. Залежності фіксує Cargo.lock,
+        # тож окремого хешу, який треба оновлювати руками, тут немає.
+        minerCore = pkgs.rustPlatform.buildRustPackage {
+          pname = "shminer-core";
+          inherit version;
+          src = ./backend/internal/miner/rust_miner_core;
+          cargoLock.lockFile = ./backend/internal/miner/rust_miner_core/Cargo.lock;
         };
-
-        target = sysData.${system} or null;
-
-        shminer-bin = if target == null then
-          pkgs.writeScriptBin "shminer-unsupported" "echo 'Platform ${system} is not supported by prebuilt binaries.'"
-        else pkgs.stdenv.mkDerivation {
-          pname = "shminer-bin";
-          version = "1.3.0";
-
-          src = pkgs.fetchurl {
-            url = target.url;
-            hash = target.hash;
-          };
-
-          nativeBuildInputs = nativeLinuxDeps ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.undmg ];
-          buildInputs = linuxDeps;
-          dontUnpack = !target.isDmg;
-
-          installPhase = if pkgs.stdenv.isLinux then ''
-            mkdir -p $out/bin
-            cp $src $out/bin/.shminer-raw
-            chmod +x $out/bin/.shminer-raw
-
-            makeWrapper $out/bin/.shminer-raw $out/bin/shminer \
-              --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH" \
-              --set WEBKIT_DISABLE_COMPOSITING_MODE "0" \
-              --set WEBKIT_FORCE_COMPOSITING_MODE "1"
-          '' else ''
-            mkdir -p "$out/Applications"
-            cp -r "${target.appName}" "$out/Applications/"
-            mkdir -p $out/bin
-            ln -s "$out/Applications/${target.appName}/Contents/MacOS/SHMiner" $out/bin/shminer
-          '';
-        };
-
-        # ==========================================
-        # ПАКЕТ 2: Збірка з сирців (Go + Svelte)
-        # ==========================================
 
         frontend = pkgs.buildNpmPackage {
           pname = "shminer-frontend";
-          version = "1.3.0";
+          inherit version;
           src = ./frontend;
 
+          # Змінюється лише разом із frontend/package-lock.json.
           npmDepsHash = "sha256-Fqvf3jWSAiPBeCy746kzb6FlchysgbbXjAna7RTkSow=";
 
           buildPhase = "npm run build";
           installPhase = "cp -r dist $out";
         };
 
-        shminer-src = pkgs.buildGoModule {
-          pname = "shminer-src";
-          version = "1.3.0";
+        shminer = pkgs.buildGoModule {
+          pname = "shminer";
+          inherit version;
           src = ./.;
 
-          vendorHash = "sha256-GN+4i8I9L+5WD3ayhuybUDjbxqt3YRtf1sFzGEQ1BSg=";
+          # Змінюється лише разом із go.sum.
+          vendorHash = "sha256-q5KxUULP4OtJWJ8Ed9Ix3Fwhhi5QV1mHmfAc8RCXoRo=";
 
-          nativeBuildInputs = nativeLinuxDeps ++ [ pkgs.wails ];
+          nativeBuildInputs = nativeLinuxDeps;
           buildInputs = linuxDeps;
-          tags = [ "desktop" "production" "webkit2_41" ];
+          tags = [ "desktop" "production" "rustcore" ]
+            ++ lib.optionals pkgs.stdenv.isLinux [ "webkit2_41" ];
+          ldflags = [ "-s" "-w" ];
 
+          # Статична бібліотека ядра лягає туди, де її шукає cgo
+          # (див. searcher_rust.go та scripts/build-rust-core.sh).
           preBuild = ''
             rm -rf frontend/dist
             cp -r ${frontend} frontend/dist
+
+            coreLib=backend/internal/miner/rust_miner_core/lib/${pkgs.go.GOOS}_${pkgs.go.GOARCH}
+            mkdir -p "$coreLib"
+            cp ${minerCore}/lib/librust_miner_core.a "$coreLib/"
           '';
 
           postInstall = ''
-            mv $out/bin/Student-Hryvnia-Miner $out/bin/shminer || true
-
-            wrapProgram $out/bin/shminer \
-              --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH" \
-              --set WEBKIT_DISABLE_COMPOSITING_MODE "0" \
-              --set WEBKIT_FORCE_COMPOSITING_MODE "1"
+            mv $out/bin/Student-Hryvnia-Miner $out/bin/shminer
           '';
+
+          # Обгортку робить wrapGAppsHook3, тут лише додаємо до неї змінні.
+          preFixup = lib.optionalString pkgs.stdenv.isLinux ''
+            gappsWrapperArgs+=(
+              --set WEBKIT_DISABLE_COMPOSITING_MODE "0"
+              --set WEBKIT_FORCE_COMPOSITING_MODE "1"
+            )
+          '';
+
           meta = {
-                      mainProgram = "shminer";
+            description = "Mining Client for S-UAH cryptocurrency";
+            mainProgram = "shminer";
+            license = lib.licenses.gpl3Only;
           };
         };
 
       in {
         packages = {
-          bin = shminer-bin; # nix build .#bin
-          src = shminer-src; # nix build .#src
-          default = shminer-bin; # nix build
+          default = shminer; # nix build
+          src = shminer;     # стара назва, лишається для сумісності
+          core = minerCore;  # nix build .#core
         };
 
         devShells.default = pkgs.mkShell {
@@ -141,6 +107,8 @@
             pkgs.go
             pkgs.nodejs_22
             pkgs.wails
+            pkgs.cargo
+            pkgs.rustc
           ];
         };
       }

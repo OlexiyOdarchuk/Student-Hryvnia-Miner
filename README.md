@@ -105,7 +105,7 @@ SHMiner фокусується на шаленій ефективності, з�
 |---|---------|
 | **Ubuntu/Debian** | `sudo dpkg -i shminer_*.deb` |
 | **Fedora/RHEL** | `sudo rpm -ivh shminer_*.rpm` |
-| **Nix/Flakes** | `nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner` (готовий бінарник)<br>`nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner#src` (збірка з сирців) |
+| **Nix/Flakes** | `nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner` (збірка з сирців) |
 | **AppImage** | `chmod +x shminer-*.AppImage && ./shminer-*.AppImage` |
 | **Windows** | Завантаж `SHMiner-windows-amd64-setup.exe` з [Releases](https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/) |
 | **macOS** | Завантаж `SHMiner-darwin-*.dmg` з [Releases](https://github.com/OlexiyOdarchuk/Student-Hryvnia-Miner/releases/) |
@@ -138,11 +138,10 @@ SHMiner фокусується на шаленій ефективності, з�
 
 #### Nix (Flakes)
 
-Завдяки підтримці Flakes, ви можете обрати: завантажити готовий оптимізований бінарник (швидко) або скомпілювати додаток із сирців прямо на вашій машині (безпечно).
+Flake збирає застосунок із сирців разом із нативним ядром перебору на Rust — так само, як релізні бінарники.
 
 **🚀 Запуск без встановлення (Тимчасово):**
-* Готовий бінарник (за замовчуванням): `nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner`
-* Збірка з сирців: `nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner#src`
+* `nix run github:OlexiyOdarchuk/Student-Hryvnia-Miner`
 
 **👤 Встановлення в профіль користувача (Імперативно):**
 * `nix profile install github:OlexiyOdarchuk/Student-Hryvnia-Miner`
@@ -167,9 +166,7 @@ outputs = { self, nixpkgs, shminer, ... }: {
     modules = [
       ({ pkgs, ... }: {
         environment.systemPackages = [
-          shminer.packages.${pkgs.system}.default # Встановлює готовий бінарник
-          # АБО:
-          # shminer.packages.${pkgs.system}.src   # Встановлює та компілює з сирців
+          shminer.packages.${pkgs.system}.default
         ];
       })
     ];
@@ -184,7 +181,7 @@ sudo nixos-rebuild switch --flake .
 ```
 
 **🛠 Для розробників (Dev Shell):**
-Склонуйте репозиторій та виконайте `nix develop`. Nix автоматично завантажить ізольоване середовище з Go, Node.js, Wails CLI та всіма необхідними системними бібліотеками (GTK, WebKit) для локальної розробки. Більше ніяких `sudo apt install`!
+Склонуйте репозиторій та виконайте `nix develop`. Nix автоматично завантажить ізольоване середовище з Go, Rust, Node.js, Wails CLI та всіма необхідними системними бібліотеками (GTK, WebKit) для локальної розробки. Більше ніяких `sudo apt install`!
 
 #### AppImage
 

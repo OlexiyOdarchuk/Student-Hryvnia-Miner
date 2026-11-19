@@ -105,3 +105,18 @@ jobs:
 
       - name: Test Go (ядро на Rust)
         run: go test -tags "webkit2_41 rustcore" -race ./...
+
+  # Flake збирає застосунок із сирців разом із Rust-ядром. Застарілий
+  # vendorHash чи npmDepsHash (після зміни go.sum або package-lock.json)
+  # валить цей job, а Nix у помилці підказує правильне значення.
+  nix:
+    name: Nix build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Build flake package
+        run: nix build .#default -L
